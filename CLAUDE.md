@@ -84,25 +84,32 @@ bisogno dell'SDK Android o di Robolectric.
 
 L'ambiente in cui questo progetto è stato scaffoldato **non ha accesso di
 rete a `dl.google.com`** (bloccato dalla policy del proxy in uscita), quindi
-**non è stato possibile eseguire una build Gradle completa** (l'Android
-Gradle Plugin e le librerie AndroidX/Compose/Room/Hilt sono ospitate sul
-repository Maven di Google). La verifica reale della build avviene tramite la
-GitHub Actions workflow in `.github/workflows/android-ci.yml`, che gira su
-runner con accesso di rete completo. **Se lavori di nuovo in un sandbox
-isolato, verifica prima con `curl` se `dl.google.com` è raggiungibile prima
-di assumere che `./gradlew` funzioni.**
+**non è possibile eseguire una build Gradle completa da questo sandbox**
+(l'Android Gradle Plugin e le librerie AndroidX/Compose/Room/Hilt sono
+ospitate sul repository Maven di Google). La verifica reale della build
+avviene tramite la GitHub Actions workflow in
+`.github/workflows/android-ci.yml`, che gira su runner con accesso di rete
+completo. **Se lavori di nuovo in un sandbox isolato, verifica prima con
+`curl` se `dl.google.com` è raggiungibile prima di assumere che `./gradlew`
+funzioni.**
 
-Cosa è stato verificato localmente in questa sessione, in assenza di SDK:
+**Stato build al termine della Fase 1: verde su CI** (`lintDebug`,
+`testDebugUnitTest`, `assembleDebug` passano tutti su GitHub Actions, vedi
+PR #1). Il primo push aveva fallito la compilazione per un `FlowRow` usato
+senza `@OptIn(ExperimentalLayoutApi::class)` (`ui/common/TagInputField.kt`,
+`ui/library/FilterSheet.kt`) — corretto e riverificato in CI. Se aggiungi
+altre API Compose Foundation/Material3 sperimentali, ricorda l'opt-in
+esplicito: il modulo tratta i mancati opt-in come **errori**, non warning.
+
+Cosa è stato verificato in questa sessione:
 - Revisione statica riga per riga di tutti i file Kotlin (import, coerenza
   package/directory, firme Room @Relation/@Junction, copertura dei
-  TypeConverter, wiring Hilt, uso delle API Compose Material3 sperimentali)
-  non ha rilevato problemi bloccanti.
+  TypeConverter, wiring Hilt) via un sub-agent di review dedicato.
 - Unit test JVM puri (`domain/filter`, `domain/model`) più test Room DAO via
   **Robolectric** (`data/local/ReviewDaoTest.kt`, gira come unit test JVM
-  senza bisogno di emulatore) — scritti ma **mai eseguiti realmente** in
-  questo sandbox.
-- Nessuna verifica di compilazione reale: **fai affidamento sull'esito della
-  CI** dopo il push, o builda localmente in Android Studio.
+  senza bisogno di emulatore) — eseguiti con successo in CI.
+- Build `assembleDebug` e `lintDebug` completate con successo in CI dopo il
+  fix del `FlowRow`.
 
 ## Convenzioni di codice
 
