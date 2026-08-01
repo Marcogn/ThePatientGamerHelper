@@ -3,6 +3,7 @@ package com.marcogn.gamereviewer.ui.common
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
  * (Platform/Genre/Tag) and inline chips for the currently selected values. Typing a brand new
  * value and confirming creates it on save (see ReviewRepositoryImpl.save find-or-create).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TagInputField(
     label: String,
