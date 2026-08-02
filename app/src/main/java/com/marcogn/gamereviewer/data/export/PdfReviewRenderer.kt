@@ -71,7 +71,9 @@ class PdfReviewRenderer @Inject constructor() {
         return pageNumber
     }
 
-    private fun buildReviewText(review: Review): CharSequence {
+    /** Visible to tests: the PDF-writing half (PdfDocument's native page lifecycle) isn't
+     * meaningfully testable under Robolectric, but this content-building step is. */
+    internal fun buildReviewText(review: Review): CharSequence {
         val builder = SpannableStringBuilder()
 
         appendStyled(builder, review.title, sizeMultiplier = 1.5f)
