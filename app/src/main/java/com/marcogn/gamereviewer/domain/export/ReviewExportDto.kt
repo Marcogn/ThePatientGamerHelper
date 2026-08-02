@@ -3,6 +3,7 @@ package com.marcogn.gamereviewer.domain.export
 import com.marcogn.gamereviewer.domain.model.Review
 import java.time.Instant
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
