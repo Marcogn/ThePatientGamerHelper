@@ -1,5 +1,7 @@
 package com.marcogn.gamereviewer.ui.library
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,10 +24,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.gamereviewer.R
+import com.marcogn.gamereviewer.domain.export.ExportFormat
+import com.marcogn.gamereviewer.domain.export.suggestedLibraryFileName
 import com.marcogn.gamereviewer.domain.model.Review
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,13 +54,37 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val exportMessage by viewModel.exportMessage.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val jsonExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.JSON.mimeType),
+    ) { uri -> uri?.let(viewModel::exportJson) }
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.CSV.mimeType),
+    ) { uri -> uri?.let(viewModel::exportCsv) }
+    val pdfExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType),
+    ) { uri -> uri?.let(viewModel::exportPdf) }
+
+    LaunchedEffect(exportMessage) {
+        exportMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeExportMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    LibraryExportMenu(
+                        onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON)) },
+                        onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV)) },
+                        onExportPdf = { pdfExportLauncher.launch(suggestedLibraryFileName(ExportFormat.PDF)) },
+                    )
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {
                             Icon(Icons.Filled.FilterList, contentDescription = "Filtri")
@@ -68,6 +99,7 @@ fun LibraryScreen(
                 Icon(Icons.Filled.Add, contentDescription = "Nuova recensione")
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             SearchField(

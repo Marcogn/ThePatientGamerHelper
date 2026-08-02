@@ -34,9 +34,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.gamereviewer.domain.model.ReviewStatus
+import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.DatePickerField
 import com.marcogn.gamereviewer.ui.common.TagInputField
-import com.marcogn.gamereviewer.ui.common.label
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
