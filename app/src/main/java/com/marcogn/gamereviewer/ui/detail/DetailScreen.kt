@@ -1,5 +1,7 @@
 package com.marcogn.gamereviewer.ui.detail
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,10 +23,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +41,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.marcogn.gamereviewer.domain.export.ExportFormat
+import com.marcogn.gamereviewer.domain.export.suggestedReviewFileName
 import com.marcogn.gamereviewer.domain.model.Review
 import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.RatingBadge
@@ -52,8 +59,21 @@ fun DetailScreen(
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val exportMessage by viewModel.exportMessage.collectAsState()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     val review = uiState.review
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val markdownExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.MARKDOWN.mimeType),
+    ) { uri -> uri?.let(viewModel::exportMarkdown) }
+
+    LaunchedEffect(exportMessage) {
+        exportMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeExportMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -66,6 +86,13 @@ fun DetailScreen(
                 },
                 actions = {
                     if (review != null) {
+                        DetailExportMenu(
+                            onExportMarkdown = {
+                                markdownExportLauncher.launch(
+                                    suggestedReviewFileName(review.title, ExportFormat.MARKDOWN),
+                                )
+                            },
+                        )
                         IconButton(onClick = { onEdit(review.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = "Modifica")
                         }
@@ -76,6 +103,7 @@ fun DetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }

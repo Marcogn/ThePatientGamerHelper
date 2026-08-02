@@ -3,6 +3,7 @@ package com.marcogn.gamereviewer.data.export
 import android.net.Uri
 import com.marcogn.gamereviewer.domain.export.toCsvExport
 import com.marcogn.gamereviewer.domain.export.toJsonExport
+import com.marcogn.gamereviewer.domain.export.toRedditMarkdown
 import com.marcogn.gamereviewer.domain.model.Review
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,5 +22,9 @@ class ReviewExporter @Inject constructor(
 
     suspend fun exportCsv(reviews: List<Review>, destination: Uri) {
         fileWriter.writeText(destination, reviews.toCsvExport())
+    }
+
+    suspend fun exportMarkdown(review: Review, destination: Uri) {
+        fileWriter.writeText(destination, review.toRedditMarkdown())
     }
 }
