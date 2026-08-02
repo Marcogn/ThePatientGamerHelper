@@ -11,9 +11,11 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
 
 ## Stato di avanzamento per fasi
 
-- **Fase 1 — MVP locale**: ✅ completata in questa sessione (CRUD, libreria con
+- **Fase 1 — MVP locale**: ✅ completata (CRUD, libreria con
   ricerca/filtri/ordinamento, dettaglio, form crea/modifica, copertina immagine).
-- **Fase 2 — Export** (Markdown/JSON/CSV/PDF): non iniziata, fuori scope.
+- **Fase 2 — Export**: ✅ completata (JSON/CSV per l'intera libreria, Markdown
+  compatibile Reddit per singola recensione, PDF nativo per singola
+  recensione e libreria in batch). Vedi sezione dedicata sotto.
 - **Fase 3 — Statistiche libreria**: non iniziata, fuori scope.
 - **Fase 4 — Backup cloud Google Drive**: non iniziata, fuori scope.
 - **Fase 5 — Export DOCX**: non iniziata, fuori scope, opzionale.
@@ -36,6 +38,11 @@ richieda esplicitamente in una nuova sessione.
   tabella ponte), per coerenza di modello e autocomplete.
 - Pro/Contro: tabella figlia relazionale (`review_pro_con`) con un campo
   `tipo` (PRO/CONTRO) e `posizione` per l'ordine, non stringhe concatenate.
+- Export JSON/CSV: **sempre l'intera libreria**, ignora i filtri attivi in
+  UI (un backup deve essere completo).
+- Export PDF in batch: **un unico file PDF multi-pagina** con tutte le
+  recensioni (non uno zip di PDF separati) — coerente con SAF
+  `ACTION_CREATE_DOCUMENT`, che fa scegliere una singola destinazione.
 
 ## Package/architettura
 
@@ -47,18 +54,25 @@ com.marcogn.gamereviewer
 │   │   ├── dao/          # DAO Room, esposti come Flow
 │   │   └── Converters.kt # TypeConverter per LocalDate/Instant/enum
 │   ├── repository/       # Implementazioni dei repository (upsert transazionale)
+│   ├── export/            # I/O Android per l'export: ExportFileWriter (SAF),
+│   │                      # PdfReviewRenderer (PdfDocument), ReviewExporter (classe
+│   │                      # concreta iniettata via Hilt, come ImageStorage — non
+│   │                      # un'astrazione interfaccia/impl come i repository)
 │   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
 ├── domain/
 │   ├── model/            # Modelli di dominio puri (no dipendenze Android)
-│   └── filter/            # Logica di filtro/ordinamento libreria, pure function, unit-testata
+│   ├── filter/            # Logica di filtro/ordinamento libreria, pure function, unit-testata
+│   └── export/            # Formattazione export pura: JSON (kotlinx.serialization),
+│                          # CSV (writer manuale), Markdown (template stringhe) —
+│                          # nessun import Android, unit-testabile in JVM puro
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
     ├── theme/             # Tema Material 3 (Compose)
     ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization)
-    ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento)
-    ├── detail/            # Schermata dettaglio recensione
+    ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export)
+    ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
     ├── form/              # Form crea/modifica
-    └── common/            # Composable condivisi (chip input, rating, ecc.)
+    └── common/            # Composable condivisi (chip input, rating, date picker, ecc.)
 ```
 
 Regola guida: **Room è la single source of truth**, esposta via `Flow`. I
@@ -70,6 +84,38 @@ stato scende via `StateFlow`).
 La logica di filtro/ordinamento vive in `domain/filter` come funzioni Kotlin
 pure (nessun import Android), per essere unit-testabile in JVM puro senza
 bisogno dell'SDK Android o di Robolectric.
+
+## Fase 2 — Export
+
+- **JSON/CSV**: sempre sull'intera libreria, **non filtrata** (un backup deve
+  essere completo indipendentemente dai filtri attivi in UI). Punto di
+  ingresso: menu nella top bar della libreria.
+- **Markdown**: singola recensione, sintassi compatibile Reddit — titolo come
+  `#`, metadati come bullet list (non trailing-space hard break, che sparisce
+  facilmente in clipboard/editor prima di arrivare su Reddit), sezioni
+  Pro/Contro/corpo solo se non vuote. Punto di ingresso: menu nella top bar
+  del dettaglio.
+- **PDF**: sia singola recensione che libreria intera in un unico file
+  multi-pagina (un file per la SAF `ACTION_CREATE_DOCUMENT`, non uno zip).
+  `android.graphics.pdf.PdfDocument` nativo — **non PDFBox né iText** (iText7
+  è AGPL, esplicitamente escluso dalla spec). Impaginazione tramite
+  `StaticLayout` + `Canvas.translate`/`clipRect` per affettare un unico
+  layout su più pagine; ogni recensione in batch inizia sempre su una pagina
+  nuova.
+- Salvataggio file: **sempre** Storage Access Framework
+  (`ActivityResultContracts.CreateDocument`), mai scritture dirette su
+  storage esterno — coerente con scoped storage.
+- `domain/export` è puro Kotlin (formattazione), `data/export` è dove vive
+  l'I/O Android (SAF, `PdfDocument`). `ReviewExporter` è una classe concreta
+  con `@Inject constructor`, non un'interfaccia con binding Hilt come i
+  repository — non è un'astrazione di dominio sostituibile, è un utility di
+  I/O (stesso pattern di `ImageStorage`).
+- **`PdfDocument` non è testabile in modo significativo via Robolectric**: la
+  serializzazione PDF dipende da codice nativo che Robolectric non fornisce
+  (a differenza di SQLite/Room, shadowato bene). `PdfReviewRendererTest`
+  testa solo `buildReviewText()` (costruzione dello `SpannableStringBuilder`,
+  nessun rendering reale) — se tocchi la logica di impaginazione/pagine,
+  verificala a mano in Android Studio con un device/emulatore.
 
 ## Comandi di build/test
 
@@ -93,23 +139,41 @@ completo. **Se lavori di nuovo in un sandbox isolato, verifica prima con
 `curl` se `dl.google.com` è raggiungibile prima di assumere che `./gradlew`
 funzioni.**
 
-**Stato build al termine della Fase 1: verde su CI** (`lintDebug`,
-`testDebugUnitTest`, `assembleDebug` passano tutti su GitHub Actions, vedi
-PR #1). Il primo push aveva fallito la compilazione per un `FlowRow` usato
-senza `@OptIn(ExperimentalLayoutApi::class)` (`ui/common/TagInputField.kt`,
-`ui/library/FilterSheet.kt`) — corretto e riverificato in CI. Se aggiungi
-altre API Compose Foundation/Material3 sperimentali, ricorda l'opt-in
-esplicito: il modulo tratta i mancati opt-in come **errori**, non warning.
+**Stato build: verde su CI** (`lintDebug`, `testDebugUnitTest`,
+`assembleDebug` passano tutti su GitHub Actions — vedi PR #1 per la Fase 1,
+PR #2 per la Fase 2). Il repository ha anche un secondo workflow,
+`build-apk.yml`, aggiunto manualmente fuori da queste sessioni: non
+toccarlo a meno che non serva, ma tienilo a mente quando controlli lo stato
+CI di una PR (di solito compaiono più check `build-and-test` insieme a un
+check `build`).
 
-Cosa è stato verificato in questa sessione:
+Bug reali trovati solo grazie alla CI (nessuno di questi era visibile con
+una revisione statica):
+- `FlowRow` (Compose Foundation) richiede `@OptIn(ExperimentalLayoutApi::class)`
+  esplicito su questa versione del BOM — il modulo tratta i mancati opt-in
+  come **errori**, non warning. Se aggiungi altre API Compose sperimentali,
+  ricordalo.
+- `Json.encodeToString(value)` **senza** `import kotlinx.serialization.encodeToString`
+  risolve all'overload a due argomenti (`serializer`, `value`) invece
+  dell'estensione reified a un argomento, e fallisce con un errore di tipo
+  fuorviante ("No value passed for parameter 'value'"). Importa sempre
+  esplicitamente `kotlinx.serialization.encodeToString` quando usi
+  `Json.encodeToString(x)` in forma breve.
+- `PdfDocument` sotto Robolectric lancia `IllegalStateException` nel suo
+  ciclo di vita delle pagine (vedi sezione Fase 2 sopra) — non è un bug del
+  codice applicativo, è una limitazione dello shadow Robolectric.
+
+Cosa è stato verificato:
 - Revisione statica riga per riga di tutti i file Kotlin (import, coerenza
   package/directory, firme Room @Relation/@Junction, copertura dei
-  TypeConverter, wiring Hilt) via un sub-agent di review dedicato.
-- Unit test JVM puri (`domain/filter`, `domain/model`) più test Room DAO via
-  **Robolectric** (`data/local/ReviewDaoTest.kt`, gira come unit test JVM
-  senza bisogno di emulatore) — eseguiti con successo in CI.
-- Build `assembleDebug` e `lintDebug` completate con successo in CI dopo il
-  fix del `FlowRow`.
+  TypeConverter, wiring Hilt) via un sub-agent di review dedicato (Fase 1).
+- Unit test JVM puri (`domain/filter`, `domain/model`, `domain/export`) più
+  test Room DAO via **Robolectric** (`data/local/ReviewDaoTest.kt`, gira come
+  unit test JVM senza bisogno di emulatore) — eseguiti con successo in CI.
+- Build `assembleDebug`, `lintDebug` e `testDebugUnitTest` completate con
+  successo in CI per entrambe le fasi, un formato di export alla volta
+  (JSON/CSV → Markdown → PDF), ognuno verificato prima di passare al
+  successivo.
 
 ## Convenzioni di codice
 
@@ -122,12 +186,13 @@ Cosa è stato verificato in questa sessione:
 - ID recensioni/entità di lookup: `String` (UUID) per le recensioni; le
   tabelle di lookup (Platform/Genre/Tag) usano `Long` autogenerato con
   vincolo `UNIQUE` sul nome normalizzato (trim + lowercase per il confronto).
-- Non introdurre nuove dipendenze per Fase 2/3/4 (export, statistiche,
-  backup) in questa fase: se emergono necessità relative, segnalale invece
-  di implementarle.
+- Non introdurre nuove dipendenze per Fase 3/4 (statistiche, backup) senza
+  che sia esplicitamente richiesto: se emergono necessità relative,
+  segnalale invece di implementarle.
+- Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
+  Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
 
-## Cosa NON fare in questa fase
+## Cosa NON fare finché non richiesto esplicitamente
 
-Export (Markdown/JSON/CSV/PDF/DOCX), statistiche libreria, backup cloud
-Google Drive, autenticazione: tutto esplicitamente fuori scope per la Fase 1,
-anche se menzionato nella spec.
+Export DOCX (Fase 5), statistiche libreria (Fase 3), backup cloud Google
+Drive (Fase 4), autenticazione: fuori scope anche se menzionati nella spec.

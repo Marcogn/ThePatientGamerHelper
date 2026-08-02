@@ -7,9 +7,14 @@ completa e `CLAUDE.md` per le note di architettura/sviluppo.
 
 ## Stato
 
-**Fase 1 (MVP locale)** completata: CRUD recensioni, libreria con
-ricerca/filtri/ordinamento, dettaglio, form crea/modifica con copertina
-immagine. Export, statistiche e backup cloud sono fasi future, non ancora
+- **Fase 1 (MVP locale)** completata: CRUD recensioni, libreria con
+  ricerca/filtri/ordinamento, dettaglio, form crea/modifica con copertina
+  immagine.
+- **Fase 2 (Export)** completata: JSON/CSV per l'intera libreria, Markdown
+  compatibile Reddit per singola recensione, PDF (singola recensione o
+  libreria in batch). Salvataggio sempre tramite Storage Access Framework.
+
+Statistiche libreria e backup cloud sono fasi future, non ancora
 implementate.
 
 ## Stack
@@ -35,8 +40,8 @@ usato per lo scaffolding iniziale.
 
 ```
 app/src/main/java/com/marcogn/gamereviewer/
-├── data/       # Room (entity/dao), repository, seed dati di debug
-├── domain/     # Modelli puri e logica di filtro/ordinamento
+├── data/       # Room (entity/dao), repository, export (SAF/PDF), seed dati di debug
+├── domain/     # Modelli puri, logica di filtro/ordinamento, formattazione export
 ├── di/         # Moduli Hilt
 └── ui/         # Schermate Compose (libreria, dettaglio, form) + navigazione
 ```
