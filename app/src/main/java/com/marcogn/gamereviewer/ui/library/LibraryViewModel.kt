@@ -1,13 +1,16 @@
 package com.marcogn.gamereviewer.ui.library
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcogn.gamereviewer.data.export.ReviewExporter
 import com.marcogn.gamereviewer.domain.filter.LibraryFilters
 import com.marcogn.gamereviewer.domain.filter.SortOption
 import com.marcogn.gamereviewer.domain.filter.applyLibraryFilters
 import com.marcogn.gamereviewer.domain.filter.sortReviews
 import com.marcogn.gamereviewer.domain.model.Genre
 import com.marcogn.gamereviewer.domain.model.Platform
+import com.marcogn.gamereviewer.domain.model.Review
 import com.marcogn.gamereviewer.domain.model.Tag
 import com.marcogn.gamereviewer.domain.repository.LookupRepository
 import com.marcogn.gamereviewer.domain.repository.ReviewRepository
@@ -16,7 +19,9 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -30,11 +35,15 @@ private data class LookupOptions(
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val reviewRepository: ReviewRepository,
+    private val reviewExporter: ReviewExporter,
     lookupRepository: LookupRepository,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(LibraryFilters())
     private val sort = MutableStateFlow(SortOption.DEFAULT)
+
+    private val _exportMessage = MutableStateFlow<String?>(null)
+    val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
 
     private val lookupOptions = combine(
         lookupRepository.observePlatforms(),
@@ -84,5 +93,26 @@ class LibraryViewModel @Inject constructor(
 
     fun onDeleteReview(id: String) {
         viewModelScope.launch { reviewRepository.delete(id) }
+    }
+
+    /** Exports every review, ignoring active filters — a backup should be complete. */
+    fun exportJson(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportJson(reviews, destination) }
+
+    fun exportCsv(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportCsv(reviews, destination) }
+
+    fun consumeExportMessage() {
+        _exportMessage.value = null
+    }
+
+    private fun exportLibrary(export: suspend (List<Review>) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                export(reviewRepository.observeAll().first())
+            }.onSuccess {
+                _exportMessage.value = "Esportazione completata"
+            }.onFailure {
+                _exportMessage.value = "Esportazione non riuscita: ${it.message}"
+            }
+        }
     }
 }

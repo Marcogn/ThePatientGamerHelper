@@ -26,8 +26,8 @@ import com.marcogn.gamereviewer.domain.model.Genre
 import com.marcogn.gamereviewer.domain.model.Platform
 import com.marcogn.gamereviewer.domain.model.ReviewStatus
 import com.marcogn.gamereviewer.domain.model.Tag
+import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.DatePickerField
-import com.marcogn.gamereviewer.ui.common.label
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

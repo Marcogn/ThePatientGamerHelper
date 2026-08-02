@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.marcogn.gamereviewer.domain.model.Review
+import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.RatingBadge
-import com.marcogn.gamereviewer.ui.common.label
 import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")

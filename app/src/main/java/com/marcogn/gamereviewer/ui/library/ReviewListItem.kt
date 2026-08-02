@@ -25,8 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.marcogn.gamereviewer.domain.model.Review
+import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.RatingBadge
-import com.marcogn.gamereviewer.ui.common.label
 
 @Composable
 fun ReviewListItem(review: Review, onClick: () -> Unit, modifier: Modifier = Modifier) {
