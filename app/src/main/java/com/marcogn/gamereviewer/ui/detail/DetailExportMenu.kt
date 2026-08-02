@@ -14,9 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-/** Single-review export entry point (Fase 2): Reddit-flavored Markdown for now. */
+/** Single-review export entry point (Fase 2): Reddit-flavored Markdown and PDF. */
 @Composable
-fun DetailExportMenu(onExportMarkdown: () -> Unit) {
+fun DetailExportMenu(onExportMarkdown: () -> Unit, onExportPdf: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
@@ -27,6 +27,10 @@ fun DetailExportMenu(onExportMarkdown: () -> Unit) {
             DropdownMenuItem(
                 text = { Text("Esporta Markdown") },
                 onClick = { expanded = false; onExportMarkdown() },
+            )
+            DropdownMenuItem(
+                text = { Text("Esporta PDF") },
+                onClick = { expanded = false; onExportPdf() },
             )
         }
     }

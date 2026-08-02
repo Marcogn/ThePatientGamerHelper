@@ -14,9 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-/** Whole-library export entry point (Fase 2): raw data backup formats. */
+/** Whole-library export entry point (Fase 2): raw data backup formats plus a batch PDF. */
 @Composable
-fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit) {
+fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit, onExportPdf: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
@@ -31,6 +31,10 @@ fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit) {
             DropdownMenuItem(
                 text = { Text("Esporta CSV") },
                 onClick = { expanded = false; onExportCsv() },
+            )
+            DropdownMenuItem(
+                text = { Text("Esporta PDF") },
+                onClick = { expanded = false; onExportPdf() },
             )
         }
     }

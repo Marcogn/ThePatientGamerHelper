@@ -67,6 +67,9 @@ fun DetailScreen(
     val markdownExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(ExportFormat.MARKDOWN.mimeType),
     ) { uri -> uri?.let(viewModel::exportMarkdown) }
+    val pdfExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType),
+    ) { uri -> uri?.let(viewModel::exportPdf) }
 
     LaunchedEffect(exportMessage) {
         exportMessage?.let {
@@ -90,6 +93,11 @@ fun DetailScreen(
                             onExportMarkdown = {
                                 markdownExportLauncher.launch(
                                     suggestedReviewFileName(review.title, ExportFormat.MARKDOWN),
+                                )
+                            },
+                            onExportPdf = {
+                                pdfExportLauncher.launch(
+                                    suggestedReviewFileName(review.title, ExportFormat.PDF),
                                 )
                             },
                         )

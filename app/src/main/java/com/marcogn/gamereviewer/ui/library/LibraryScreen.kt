@@ -64,6 +64,9 @@ fun LibraryScreen(
     val csvExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(ExportFormat.CSV.mimeType),
     ) { uri -> uri?.let(viewModel::exportCsv) }
+    val pdfExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType),
+    ) { uri -> uri?.let(viewModel::exportPdf) }
 
     LaunchedEffect(exportMessage) {
         exportMessage?.let {
@@ -80,6 +83,7 @@ fun LibraryScreen(
                     LibraryExportMenu(
                         onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON)) },
                         onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV)) },
+                        onExportPdf = { pdfExportLauncher.launch(suggestedLibraryFileName(ExportFormat.PDF)) },
                     )
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {

@@ -15,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class ReviewExporter @Inject constructor(
     private val fileWriter: ExportFileWriter,
+    private val pdfRenderer: PdfReviewRenderer,
 ) {
     suspend fun exportJson(reviews: List<Review>, destination: Uri) {
         fileWriter.writeText(destination, reviews.toJsonExport())
@@ -26,5 +27,15 @@ class ReviewExporter @Inject constructor(
 
     suspend fun exportMarkdown(review: Review, destination: Uri) {
         fileWriter.writeText(destination, review.toRedditMarkdown())
+    }
+
+    /** Works for both a single review ([reviews] with one element) and a whole-library batch. */
+    suspend fun exportPdf(reviews: List<Review>, destination: Uri) {
+        val document = pdfRenderer.render(reviews)
+        try {
+            fileWriter.write(destination) { output -> document.writeTo(output) }
+        } finally {
+            document.close()
+        }
     }
 }

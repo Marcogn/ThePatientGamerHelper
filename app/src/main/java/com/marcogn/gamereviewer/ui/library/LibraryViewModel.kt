@@ -100,6 +100,8 @@ class LibraryViewModel @Inject constructor(
 
     fun exportCsv(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportCsv(reviews, destination) }
 
+    fun exportPdf(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportPdf(reviews, destination) }
+
     fun consumeExportMessage() {
         _exportMessage.value = null
     }

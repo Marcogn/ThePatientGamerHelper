@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.marcogn.gamereviewer.data.export.ReviewExporter
+import com.marcogn.gamereviewer.domain.model.Review
 import com.marcogn.gamereviewer.domain.repository.ReviewRepository
 import com.marcogn.gamereviewer.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,20 +46,28 @@ class DetailViewModel @Inject constructor(
         }
     }
 
-    fun exportMarkdown(destination: Uri) {
+    fun exportMarkdown(destination: Uri) = exportReview { review ->
+        reviewExporter.exportMarkdown(review, destination)
+    }
+
+    fun exportPdf(destination: Uri) = exportReview { review ->
+        reviewExporter.exportPdf(listOf(review), destination)
+    }
+
+    fun consumeExportMessage() {
+        _exportMessage.value = null
+    }
+
+    private fun exportReview(export: suspend (Review) -> Unit) {
         val review = uiState.value.review ?: return
         viewModelScope.launch {
             runCatching {
-                reviewExporter.exportMarkdown(review, destination)
+                export(review)
             }.onSuccess {
                 _exportMessage.value = "Esportazione completata"
             }.onFailure {
                 _exportMessage.value = "Esportazione non riuscita: ${it.message}"
             }
         }
-    }
-
-    fun consumeExportMessage() {
-        _exportMessage.value = null
     }
 }
