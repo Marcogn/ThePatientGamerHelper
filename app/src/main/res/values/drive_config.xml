@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      OAuth 2.0 "Web application" client ID creato in Google Cloud Console
+      (APIs & Services > Credenziali), nello stesso progetto in cui è
+      registrata la schermata di consenso OAuth e l'app Android (SHA-1 del
+      certificato di firma + applicationId com.marcogn.gamereviewer).
+
+      Serve a Credential Manager (GetGoogleIdOption.serverClientId) per
+      l'autenticazione "Accedi con Google": identifica il progetto verso cui
+      l'ID token restituito è stato emesso. Non è il client ID Android (che
+      non richiede configurazione lato codice, è legato a SHA-1+package
+      automaticamente) — dev'essere il client ID di tipo "Web application".
+
+      Vedi CLAUDE.md, sezione "Fase 4 — Backup cloud Google Drive", per il
+      resto della configurazione esterna (scope drive.appdata, modalità
+      testing della schermata di consenso).
+    -->
+    <string name="google_oauth_web_client_id" translatable="false">[DA_COMPLETARE]</string>
+</resources>

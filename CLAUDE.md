@@ -19,11 +19,15 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
 - **Fase 3 — Statistiche libreria**: ✅ completata (nuova schermata Statistiche
   raggiungibile dalla libreria: totali/medie, distribuzione piattaforma/genere,
   ripartizione per stato). Vedi sezione dedicata sotto.
-- **Fase 4 — Backup cloud Google Drive**: non iniziata, fuori scope.
-- **Fase 5 — Export DOCX**: non iniziata, fuori scope, opzionale.
+- **Fase 4 — Backup cloud Google Drive**: ✅ completata (backup manuale +
+  automatico via WorkManager, ripristino da elenco backup). Vedi sezione
+  dedicata sotto.
+- **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
+  "Export DOCX — perché non è stato implementato" sotto.
 
-Non implementare funzionalità di fasi successive a meno che l'utente non lo
-richieda esplicitamente in una nuova sessione.
+Non implementare funzionalità non ancora presenti in questo file o nella
+spec a meno che l'utente non lo richieda esplicitamente in una nuova
+sessione.
 
 ## Decisioni di prodotto già prese (non richiederle di nuovo)
 
@@ -60,13 +64,20 @@ com.marcogn.gamereviewer
 │   │                      # PdfReviewRenderer (PdfDocument), ReviewExporter (classe
 │   │                      # concreta iniettata via Hilt, come ImageStorage — non
 │   │                      # un'astrazione interfaccia/impl come i repository)
+│   ├── drive/             # Client REST Drive v3 (DriveApiClient, HttpURLConnection)
+│   │                      # + auth (DriveAuthManager: Credential Manager + AuthorizationClient)
+│   ├── backup/            # Orchestrazione backup/restore: BackupManager, archivio zip
+│   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
+│   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
 │   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
 ├── domain/
 │   ├── model/            # Modelli di dominio puri (no dipendenze Android)
 │   ├── filter/            # Logica di filtro/ordinamento libreria, pure function, unit-testata
-│   └── export/            # Formattazione export pura: JSON (kotlinx.serialization),
-│                          # CSV (writer manuale), Markdown (template stringhe) —
-│                          # nessun import Android, unit-testabile in JVM puro
+│   ├── export/            # Formattazione export pura: JSON (kotlinx.serialization),
+│   │                      # CSV (writer manuale), Markdown (template stringhe) —
+│   │                      # nessun import Android, unit-testabile in JVM puro
+│   └── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
+│                          # mapping Review<->DTO, naming file — stesso pattern di domain/export
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
     ├── theme/             # Tema Material 3 (Compose)
@@ -74,6 +85,7 @@ com.marcogn.gamereviewer
     ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export)
     ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
     ├── form/              # Form crea/modifica
+    ├── settings/           # Schermata Impostazioni: backup manuale/automatico, ripristino
     └── common/            # Composable condivisi (chip input, rating, date picker, ecc.)
 ```
 
@@ -147,6 +159,116 @@ bisogno dell'SDK Android o di Robolectric.
 - Route di navigazione: `Destination.Stats` in
   `ui/navigation/Destinations.kt`, wiring in `GameReviewerNavGraph.kt`.
 
+## Fase 4 — Backup cloud Google Drive
+
+- **Autenticazione/autorizzazione**: due passi distinti, come da spec
+  sezione 6.
+  1. **Credential Manager** (`androidx.credentials`) per l'accesso "Accedi
+     con Google" (`GetGoogleIdOption`), per far scegliere/confermare
+     all'utente l'account Google.
+  2. **AuthorizationClient** (`com.google.android.gms.auth.api.identity.Identity.getAuthorizationClient`)
+     per richiedere lo scope `drive.appdata` su quell'account.
+  Entrambi vivono in `data/drive/DriveAuthManager.kt`.
+  - **Nota su `play-services-auth`**: la richiesta esplicita era "non
+    `GoogleSignInClient`/`play-services-auth` perché deprecato". In pratica
+    `AuthorizationClient` (pacchetto `com.google.android.gms.auth.api.identity`,
+    **non** `com.google.android.gms.auth.api.signin`) è distribuito proprio
+    nell'artefatto Maven `com.google.android.gms:play-services-auth` — non
+    esiste un artefatto separato. La parte deprecata è la classe
+    `GoogleSignInClient`/`GoogleSignInOptions` (pacchetto `...auth.api.signin`),
+    non l'intero artefatto: qui non viene mai importata. La dipendenza
+    Gradle è quindi necessaria, ma il codice non tocca l'API deprecata —
+    scelta verificata contro la documentazione Android Identity Services
+    citata nella spec, non un'interpretazione libera. Se preferisci evitare
+    del tutto quell'artefatto Maven anche solo per principio, dimmelo: è
+    l'unico modo noto per ottenere un access token Drive con
+    l'`AuthorizationClient` moderno.
+  - **Autorizzazione silenziosa in background**: `DriveAuthManager.authorize()`
+    chiamato con il solo `applicationContext` (nessuna Activity) restituisce
+    un token fresco senza UI se il consenso è già stato concesso in
+    precedenza — è quello che usa `BackupWorker` per i backup automatici. Se
+    il consenso non è (più) valido, il worker fallisce silenziosamente
+    (`Result.failure()`, nessun crash, nessun prompt): la prossima volta che
+    l'utente apre Impostazioni e fa un backup manuale, il flusso interattivo
+    ristabilisce il consenso.
+- **Drive REST API v3**: client scritto a mano in
+  `data/drive/DriveApiClient.kt` con `java.net.HttpURLConnection` — **niente
+  dipendenza da `google-api-client`/`google-api-services-drive`** (il client
+  Java ufficiale di Google), che porta con sé Guava e un grafo di
+  dipendenze pesante per tre soli endpoint (upload multipart, list,
+  download). Coerente con l'indicazione esplicita di CLAUDE.md di non
+  aggiungere dipendenze senza necessità reale.
+- **Formato del backup**: un unico archivio ZIP (`java.util.zip`, nessuna
+  dipendenza) con `data.json` (l'intera libreria, DTO in
+  `domain/backup/BackupPayload.kt`) e le copertine sotto `images/<nome-file>`.
+  `domain/backup` è deliberatamente **separato** da `domain/export`
+  (Fase 2): l'export Fase 2 è un formato rivolto all'utente con etichette in
+  italiano e un percorso assoluto per la copertina (non riusabile per un
+  restore su un altro device/installazione); il formato di backup porta
+  invece solo il nome file della copertina (`coverImageFileName`), risolto a
+  un path assoluto nuovo al momento del restore.
+- **Ripristino**: `BackupManager.restoreBackup()` scarica l'archivio, lo
+  decomprime, cancella tutte le copertine locali
+  (`ImageStorage.clearAll()`) e chiama `ReviewRepository.replaceAll()` — un
+  nuovo metodo sul repository che, in un'unica transazione, cancella
+  interamente `reviews`+lookup (`platforms`/`genres`/`tags`, con cascade su
+  cross-ref e pro/con) e reinserisce ogni recensione preservando
+  `id`/`createdAt`/`updatedAt` dal backup (a differenza di `save()`, pensato
+  per il form e non per un restore). **Nessuna gestione di merge/conflitti**:
+  è un'app single-user, un restore è una sovrascrittura completa, come da
+  richiesta esplicita.
+- **Backup automatico**: `BackupWorker` (`@HiltWorker`, WorkManager) con
+  cadenza fissa giornaliera (`BackupScheduler`, 24h,
+  `NetworkType.CONNECTED`) — nessuna UI per configurare l'intervallo, stesso
+  principio "non over-engineerare" già applicato in Fase 3.
+  `GameReviewerApplication` implementa `Configuration.Provider` per iniettare
+  `HiltWorkerFactory` (nessuna modifica al manifest: WorkManager rileva da
+  solo `Configuration.Provider` e salta l'inizializzazione di default).
+- **Stato persistito**: `BackupPreferences` (semplice `SharedPreferences`,
+  niente DataStore per tre soli flag) tiene il toggle "backup automatico" e
+  l'esito dell'ultimo backup (timestamp/errore), scritti da
+  `BackupManager.createBackup()` così sia il pulsante manuale che il worker
+  periodico aggiornano lo stesso stato mostrato in Impostazioni.
+- **UI**: nuova schermata `ui/settings/SettingsScreen.kt` (+
+  `SettingsViewModel`, `SettingsUiState`), raggiungibile da un'icona
+  ingranaggio nella top bar della libreria. Il flusso di consenso
+  interattivo (`AuthorizationResult.hasResolution() == true`) usa lo stesso
+  pattern già in uso per gli export (`rememberLauncherForActivityResult`),
+  con un ponte `StateFlow<IntentSenderRequest?>` +
+  `CompletableDeferred<ActivityResult>` nel ViewModel per sospendere la
+  coroutine di autorizzazione finché l'utente non risponde al consenso.
+  Route: `Destination.Settings` in `ui/navigation/Destinations.kt`.
+- **Configurazione esterna richiesta** (fuori dallo scope di queste
+  modifiche): `res/values/drive_config.xml` contiene
+  `google_oauth_web_client_id` con placeholder `[DA_COMPLETARE]` — va
+  sostituito con il client ID OAuth "Web application" creato in Google
+  Cloud Console (progetto con schermata di consenso in modalità testing,
+  client ID Android con lo SHA-1 del certificato di firma). Se lasciato al
+  placeholder, `DriveAuthManager` lancia `DriveNotConfiguredException` con
+  un messaggio esplicito invece di tentare il sign-in.
+- **Non testabile in modo significativo via Robolectric**: le chiamate
+  `HttpURLConnection` verso `googleapis.com`, Credential Manager e
+  `AuthorizationClient` richiedono rete reale/Play Services — stesso discorso
+  già fatto per `PdfDocument` in Fase 2. Sono invece unit-testati: il mapping
+  DTO/JSON (`domain/backup/BackupPayloadTest.kt`), l'archivio zip
+  (`data/backup/BackupArchiveTest.kt`, Robolectric con `ImageStorage` reale)
+  e `ReviewRepositoryImpl.replaceAll()`
+  (`data/repository/ReviewRepositoryImplTest.kt`, Robolectric). Il flusso di
+  autenticazione/autorizzazione va verificato a mano su device/emulatore con
+  Play Services, dopo aver configurato il client OAuth.
+
+## Export DOCX — perché non è stato implementato
+
+Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
+spec, sezione 5, già segnalava che non esiste un writer DOCX leggero e
+maturo per Android — Apache POI dipende da `java.awt` (non disponibile su
+Android) e appesantisce l'APK, e i wrapper Kotlin in giro (es. DocxKtm) sono
+comunque costruiti sopra docx4j con lo stesso tipo di dipendenze pesanti.
+L'alternativa via ZIP di XML OOXML scritto a mano resta un'opzione futura,
+ma con Markdown (condivisione leggibile) e JSON/CSV (dato grezzo portabile)
+già coperti, non c'è un caso d'uso che lo renda prioritario. Non
+riconsiderare senza una richiesta esplicita e un motivo concreto.
+
 ## Comandi di build/test
 
 ```bash
@@ -171,7 +293,13 @@ funzioni.**
 
 **Stato build: verde su CI** (`lintDebug`, `testDebugUnitTest`,
 `assembleDebug` passano tutti su GitHub Actions — vedi PR #1 per la Fase 1,
-PR #2 per la Fase 2). Il repository ha anche un secondo workflow,
+PR #2 per la Fase 2, PR #3 per la Fase 3). La Fase 4 (questa modifica) è
+stata scritta con revisione statica riga per riga ma **non ancora
+verificata su CI al momento di scrivere questa nota** — controlla lo stato
+dei check sulla relativa PR prima di considerarla verde; se emergono errori
+di compilazione (nuove dipendenze `androidx.credentials`/`play-services-auth`/
+`androidx.work`/`androidx.hilt:hilt-work`, `@HiltWorker`, `Configuration.Provider`),
+sono il primo posto dove guardare. Il repository ha anche un secondo workflow,
 `build-apk.yml`, aggiunto manualmente fuori da queste sessioni: non
 toccarlo a meno che non serva, ma tienilo a mente quando controlli lo stato
 CI di una PR (di solito compaiono più check `build-and-test` insieme a un
@@ -216,14 +344,21 @@ Cosa è stato verificato:
 - ID recensioni/entità di lookup: `String` (UUID) per le recensioni; le
   tabelle di lookup (Platform/Genre/Tag) usano `Long` autogenerato con
   vincolo `UNIQUE` sul nome normalizzato (trim + lowercase per il confronto).
-- Non introdurre nuove dipendenze per la Fase 4 (backup) senza che sia
-  esplicitamente richiesto: se emergono necessità relative, segnalale invece
-  di implementarle. Stesso principio già applicato in Fase 3 (statistiche):
-  nessuna libreria di charting aggiunta, vedi sezione dedicata sopra.
+- Non introdurre nuove dipendenze senza che sia esplicitamente richiesto o
+  che servano davvero: se emergono necessità relative, segnalale invece di
+  implementarle. Applicato in Fase 3 (nessuna libreria di charting aggiunta)
+  e in Fase 4 (client Drive scritto a mano invece del client Java ufficiale
+  di Google, vedi sezione dedicata sopra) — le uniche dipendenze aggiunte in
+  Fase 4 sono quelle esplicitamente richieste (Credential Manager,
+  AuthorizationClient, WorkManager) più `googleid` e `androidx.hilt:hilt-work`,
+  necessarie di conseguenza e documentate lì.
 - Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
   Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
 
 ## Cosa NON fare finché non richiesto esplicitamente
 
-Export DOCX (Fase 5), backup cloud Google Drive (Fase 4), autenticazione:
-fuori scope anche se menzionati nella spec.
+Export DOCX: **permanentemente fuori scope** (decisione presa, non solo
+rimandata — vedi sezione dedicata sopra), non riconsiderare senza una
+richiesta esplicita. Autenticazione utente/multi-account: fuori scope, la
+Fase 4 usa OAuth solo per l'autorizzazione verso Drive, non introduce un
+concetto di account applicativo.

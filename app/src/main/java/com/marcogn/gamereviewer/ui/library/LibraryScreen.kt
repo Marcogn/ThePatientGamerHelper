@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +54,7 @@ fun LibraryScreen(
     onReviewClick: (String) -> Unit,
     onAddClick: () -> Unit,
     onStatsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -95,6 +97,9 @@ fun LibraryScreen(
                     SortMenu(sort = uiState.sort, onSortChange = viewModel::onSortChange)
                     IconButton(onClick = onStatsClick) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Statistiche")
+                    }
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Impostazioni")
                     }
                 },
             )

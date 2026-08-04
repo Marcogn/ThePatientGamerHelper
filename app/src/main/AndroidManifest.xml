@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Fase 4: chiamate REST a Drive (googleapis.com) per il backup cloud. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".GameReviewerApplication"
         android:allowBackup="true"

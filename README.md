@@ -16,8 +16,11 @@ completa e `CLAUDE.md` per le note di architettura/sviluppo.
 - **Fase 3 (Statistiche libreria)** completata: schermata Statistiche
   raggiungibile dalla libreria con totali/medie, distribuzione per
   piattaforma/genere e ripartizione per stato.
+- **Fase 4 (Backup cloud Google Drive)** completata: backup manuale e
+  automatico (WorkManager) su Google Drive (appDataFolder, via Credential
+  Manager + AuthorizationClient), ripristino da elenco backup disponibili.
 
-Backup cloud è una fase futura, non ancora implementata.
+Export DOCX non è più in roadmap: vedi `CLAUDE.md` per il perché.
 
 ## Stack
 
@@ -25,6 +28,8 @@ Backup cloud è una fase futura, non ancora implementata.
 - Room (persistenza locale, single source of truth via `Flow`)
 - Hilt (dependency injection)
 - ViewModel + `StateFlow`, unidirectional data flow
+- WorkManager (backup automatico periodico) + Credential Manager /
+  AuthorizationClient (autenticazione/autorizzazione Google Drive)
 - `minSdk 26`, `targetSdk 36`, `compileSdk 36`
 
 ## Build
@@ -42,10 +47,11 @@ usato per lo scaffolding iniziale.
 
 ```
 app/src/main/java/com/marcogn/gamereviewer/
-├── data/       # Room (entity/dao), repository, export (SAF/PDF), seed dati di debug
-├── domain/     # Modelli puri, logica di filtro/ordinamento, formattazione export
+├── data/       # Room (entity/dao), repository, export (SAF/PDF), backup/drive
+│               # (Google Drive, WorkManager), seed dati di debug
+├── domain/     # Modelli puri, logica di filtro/ordinamento, formattazione export/backup
 ├── di/         # Moduli Hilt
-└── ui/         # Schermate Compose (libreria, dettaglio, form) + navigazione
+└── ui/         # Schermate Compose (libreria, dettaglio, form, impostazioni) + navigazione
 ```
 
 ## Dati demo (solo debug)

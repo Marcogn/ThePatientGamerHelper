@@ -1,6 +1,8 @@
 package com.marcogn.gamereviewer
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.marcogn.gamereviewer.data.debug.DebugSeeder
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -10,9 +12,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 @HiltAndroidApp
-class GameReviewerApplication : Application() {
+class GameReviewerApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var debugSeeder: DebugSeeder
+    @Inject lateinit var workerFactory: HiltWorkerFactory
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -22,4 +25,7 @@ class GameReviewerApplication : Application() {
             applicationScope.launch { debugSeeder.seedIfEmpty() }
         }
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 }

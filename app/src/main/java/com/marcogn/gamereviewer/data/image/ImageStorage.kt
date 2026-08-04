@@ -36,4 +36,21 @@ class ImageStorage @Inject constructor(
             file.delete()
         }
     }
+
+    /** All cover files currently on disk, for the backup archive to include. */
+    suspend fun listAll(): List<File> = withContext(Dispatchers.IO) {
+        coversDir.listFiles()?.toList() ?: emptyList()
+    }
+
+    /** Writes [bytes] under [fileName] as-is, for restoring a cover from a backup archive. */
+    suspend fun writeBytes(fileName: String, bytes: ByteArray): String = withContext(Dispatchers.IO) {
+        val destination = File(coversDir, fileName)
+        destination.writeBytes(bytes)
+        destination.absolutePath
+    }
+
+    /** Wipes every stored cover, used before a restore overwrites the library. */
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        coversDir.listFiles()?.forEach { it.delete() }
+    }
 }
