@@ -29,6 +29,17 @@ class ImageStorage @Inject constructor(
         destination.absolutePath
     }
 
+    /**
+     * Copies an existing cover to a new file so it has an independent lifecycle — used when a
+     * backlog item's cover is carried over into a pre-populated review, so deleting one doesn't
+     * pull the image out from under the other.
+     */
+    suspend fun duplicate(sourcePath: String): String = withContext(Dispatchers.IO) {
+        val destination = File(coversDir, "${UUID.randomUUID()}.jpg")
+        File(sourcePath).copyTo(destination, overwrite = true)
+        destination.absolutePath
+    }
+
     suspend fun delete(path: String?) = withContext(Dispatchers.IO) {
         if (path.isNullOrBlank()) return@withContext
         val file = File(path)

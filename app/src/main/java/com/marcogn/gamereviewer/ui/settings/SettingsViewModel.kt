@@ -12,6 +12,7 @@ import com.marcogn.gamereviewer.data.backup.BackupPreferences
 import com.marcogn.gamereviewer.data.backup.BackupScheduler
 import com.marcogn.gamereviewer.data.drive.DriveAuthManager
 import com.marcogn.gamereviewer.data.drive.DriveAuthorization
+import com.marcogn.gamereviewer.data.thegamesdb.TheGamesDbPreferences
 import com.marcogn.gamereviewer.domain.model.BackupFile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val backupManager: BackupManager,
     private val backupScheduler: BackupScheduler,
     private val preferences: BackupPreferences,
+    private val theGamesDbPreferences: TheGamesDbPreferences,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -37,6 +39,7 @@ class SettingsViewModel @Inject constructor(
             autoBackupEnabled = preferences.autoBackupEnabled,
             lastBackupAt = preferences.lastBackupAt,
             lastBackupError = preferences.lastBackupError,
+            theGamesDbApiKey = theGamesDbPreferences.apiKey.orEmpty(),
         ),
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -84,6 +87,15 @@ class SettingsViewModel @Inject constructor(
 
     fun consumeMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    fun onTheGamesDbApiKeyChange(value: String) {
+        _uiState.update { it.copy(theGamesDbApiKey = value) }
+    }
+
+    fun onSaveTheGamesDbApiKey() {
+        theGamesDbPreferences.apiKey = _uiState.value.theGamesDbApiKey
+        _uiState.update { it.copy(message = appContext.getString(R.string.settings_thegamesdb_key_saved)) }
     }
 
     private suspend fun loadBackups(accessToken: String) {

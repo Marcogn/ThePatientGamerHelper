@@ -25,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -126,6 +127,14 @@ fun SettingsScreen(
                 uiState = uiState,
                 onRefresh = { viewModel.onLoadBackups(context) },
                 onRestoreClick = { backupPendingRestore = it },
+            )
+
+            HorizontalDivider()
+
+            TheGamesDbSection(
+                apiKey = uiState.theGamesDbApiKey,
+                onApiKeyChange = viewModel::onTheGamesDbApiKeyChange,
+                onSaveClick = viewModel::onSaveTheGamesDbApiKey,
             )
         }
     }
@@ -312,6 +321,28 @@ private fun BackupListItem(backup: BackupFile, enabled: Boolean, onRestoreClick:
             IconButton(onClick = onRestoreClick, enabled = enabled) {
                 Icon(Icons.Filled.CloudDownload, contentDescription = stringResource(R.string.cd_restore_backup))
             }
+        }
+    }
+}
+
+@Composable
+private fun TheGamesDbSection(apiKey: String, onApiKeyChange: (String) -> Unit, onSaveClick: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = stringResource(R.string.settings_thegamesdb_section_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.settings_thegamesdb_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = apiKey,
+            onValueChange = onApiKeyChange,
+            label = { Text(stringResource(R.string.settings_thegamesdb_key_label)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        TextButton(onClick = onSaveClick, enabled = apiKey.isNotBlank()) {
+            Text(stringResource(R.string.action_save))
         }
     }
 }

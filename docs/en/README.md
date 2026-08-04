@@ -28,9 +28,19 @@ to use it, the cloud only comes in as an optional backup.
 - **Language and theme**: interface in Italian or English, selectable from
   within the app independently of the system language; light, dark, or
   following the system theme automatically.
+- **Backlog**: lists of games to play, with a status (to start, in
+  progress, completed, abandoned, paused), comments, an automatic event
+  history, and manual reordering to prioritize. Completing an item offers
+  to write the review right away, pre-filled with what's already known.
+- **Online search (TheGamesDB)**: from the backlog or review form, search a
+  game by title and pick from the results to download cover art and
+  metadata automatically instead of typing them in by hand. Requires a
+  personal TheGamesDB API key (free, register on their site), configurable
+  in Settings — without a key the rest of the app works as usual, only the
+  search stays disabled.
 
-None of these features require an account: Drive backup is the only
-exception, and it's optional either way.
+None of these features require an account: Drive backup and online search
+are the only exceptions, and both are optional.
 
 ## Tech stack
 
@@ -53,7 +63,9 @@ statistics (native Compose bars are enough), no official Google Java client
 for Drive (a hand-written REST client with `HttpURLConnection` covers the
 three endpoints needed), no Apache POI or iText for PDF
 (`android.graphics.pdf.PdfDocument` native, iText7 is AGPL and therefore
-ruled out from the start).
+ruled out from the start), no Retrofit/Ktor for TheGamesDB (same hand-written
+REST client pattern used for Drive), no reorder library for the backlog's
+drag-to-reorder (plain Compose Foundation).
 
 ## Build
 
@@ -72,11 +84,12 @@ Google Cloud Console — details are in `CLAUDE.md`.
 ```
 app/src/main/java/com/marcogn/gamereviewer/
 ├── data/       # Room (entity/dao), repositories, export (SAF/PDF), backup/drive
-│               # (Google Drive, WorkManager), preferences (theme), debug data seeding
+│               # (Google Drive, WorkManager), thegamesdb (online search),
+│               # preferences (theme), debug data seeding
 ├── domain/     # Pure models, filter/sort logic, export/backup formatting
 ├── di/         # Hilt modules
 └── ui/         # Compose screens (library, detail, form, statistics,
-                # settings) + theme + navigation
+                # backlog, settings) + theme + navigation
 ```
 
 ## Documentation

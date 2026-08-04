@@ -1,4 +1,4 @@
-package com.marcogn.gamereviewer.ui.form
+package com.marcogn.gamereviewer.ui.backlog
 
 import android.content.Context
 import android.net.Uri
@@ -9,20 +9,17 @@ import androidx.navigation.toRoute
 import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.data.image.ImageStorage
 import com.marcogn.gamereviewer.data.thegamesdb.GameMetadataSearchCoordinator
+import com.marcogn.gamereviewer.domain.model.BacklogItemDraft
 import com.marcogn.gamereviewer.domain.model.GameMetadataSearchResult
 import com.marcogn.gamereviewer.domain.model.Genre
 import com.marcogn.gamereviewer.domain.model.Platform
-import com.marcogn.gamereviewer.domain.model.ReviewDraft
-import com.marcogn.gamereviewer.domain.model.ReviewStatus
 import com.marcogn.gamereviewer.domain.model.Tag
 import com.marcogn.gamereviewer.domain.model.toDraft
 import com.marcogn.gamereviewer.domain.repository.BacklogRepository
 import com.marcogn.gamereviewer.domain.repository.LookupRepository
-import com.marcogn.gamereviewer.domain.repository.ReviewRepository
 import com.marcogn.gamereviewer.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,11 +31,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private data class LookupNames(
-    val platforms: List<String>,
-    val genres: List<String>,
-    val tags: List<String>,
-)
+private data class LookupNames(val platforms: List<String>, val genres: List<String>, val tags: List<String>)
 
 private data class SearchState(
     val query: String = "",
@@ -48,22 +41,21 @@ private data class SearchState(
 )
 
 @HiltViewModel
-class ReviewFormViewModel @Inject constructor(
+class BacklogItemFormViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
-    private val reviewRepository: ReviewRepository,
     private val backlogRepository: BacklogRepository,
+    private val imageStorage: ImageStorage,
     private val searchCoordinator: GameMetadataSearchCoordinator,
     lookupRepository: LookupRepository,
-    private val imageStorage: ImageStorage,
 ) : ViewModel() {
 
-    private val formRoute = savedStateHandle.toRoute<Destination.Form>()
-    private val editingId: String? = formRoute.reviewId
-    private val prefillBacklogItemId: String? = formRoute.backlogItemId
+    private val route = savedStateHandle.toRoute<Destination.BacklogItemForm>()
+    private val listId: Long = route.listId
+    private val editingId: String? = route.itemId
 
-    private val draft = MutableStateFlow(ReviewDraft.empty())
-    private val isLoading = MutableStateFlow(editingId != null || prefillBacklogItemId != null)
+    private val draft = MutableStateFlow(BacklogItemDraft.empty())
+    private val isLoading = MutableStateFlow(editingId != null)
     private val isSaving = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val search = MutableStateFlow(SearchState())
@@ -76,29 +68,13 @@ class ReviewFormViewModel @Inject constructor(
 
     init {
         val id = editingId
-        val backlogItemId = prefillBacklogItemId
         if (id != null) {
             viewModelScope.launch {
-                val existing = reviewRepository.observeById(id).first()
+                val existing = backlogRepository.observeItem(id).first()
                 if (existing != null) {
                     draft.value = existing.toDraft()
                 } else {
-                    errorMessage.value = appContext.getString(R.string.review_not_found)
-                }
-                isLoading.value = false
-            }
-        } else if (backlogItemId != null) {
-            viewModelScope.launch {
-                val backlogItem = backlogRepository.observeItem(backlogItemId).first()
-                if (backlogItem != null) {
-                    draft.value = ReviewDraft.empty(startDate = backlogItem.startDate ?: LocalDate.now()).copy(
-                        title = backlogItem.title,
-                        platformNames = backlogItem.platforms.map { it.name },
-                        genreNames = backlogItem.genres.map { it.name },
-                        tagNames = backlogItem.tags.map { it.name },
-                        endDate = backlogItem.completedDate,
-                        coverImagePath = backlogItem.coverImagePath?.let { imageStorage.duplicate(it) },
-                    )
+                    errorMessage.value = appContext.getString(R.string.backlog_item_not_found)
                 }
                 isLoading.value = false
             }
@@ -106,7 +82,7 @@ class ReviewFormViewModel @Inject constructor(
     }
 
     private val formCore = combine(draft, isLoading, isSaving, errorMessage, lookupNames) { d, loading, saving, error, lookup ->
-        ReviewFormUiState(
+        BacklogItemFormUiState(
             draft = d,
             isEditMode = editingId != null,
             isLoading = loading,
@@ -118,7 +94,7 @@ class ReviewFormViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<ReviewFormUiState> = combine(formCore, search) { core, search ->
+    val uiState: StateFlow<BacklogItemFormUiState> = combine(formCore, search) { core, search ->
         core.copy(
             searchQuery = search.query,
             isSearchingOnline = search.isSearching,
@@ -128,21 +104,13 @@ class ReviewFormViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ReviewFormUiState(isLoading = editingId != null || prefillBacklogItemId != null),
+        initialValue = BacklogItemFormUiState(isLoading = editingId != null),
     )
 
     fun onTitleChange(value: String) = updateDraft { it.copy(title = value) }
     fun onPlatformsChange(value: List<String>) = updateDraft { it.copy(platformNames = value) }
     fun onGenresChange(value: List<String>) = updateDraft { it.copy(genreNames = value) }
     fun onTagsChange(value: List<String>) = updateDraft { it.copy(tagNames = value) }
-    fun onRatingChange(value: Double) = updateDraft { it.copy(rating = value) }
-    fun onStartDateChange(value: LocalDate) = updateDraft { it.copy(startDate = value) }
-    fun onEndDateChange(value: LocalDate?) = updateDraft { it.copy(endDate = value) }
-    fun onHoursPlayedChange(value: Double?) = updateDraft { it.copy(hoursPlayed = value) }
-    fun onStatusChange(value: ReviewStatus) = updateDraft { it.copy(status = value) }
-    fun onProsChange(value: List<String>) = updateDraft { it.copy(pros = value) }
-    fun onConsChange(value: List<String>) = updateDraft { it.copy(cons = value) }
-    fun onReviewTextChange(value: String) = updateDraft { it.copy(reviewText = value) }
 
     fun onCoverImagePicked(uri: Uri) {
         viewModelScope.launch {
@@ -187,14 +155,15 @@ class ReviewFormViewModel @Inject constructor(
         viewModelScope.launch {
             val coverPath = searchCoordinator.downloadCoverLocally(result)
             val previousPath = draft.value.coverImagePath
-            updateDraft {
-                it.copy(
-                    title = result.title,
-                    platformNames = listOfNotNull(result.platformName).ifEmpty { it.platformNames },
-                    genreNames = result.genreNames.ifEmpty { it.genreNames },
-                    coverImagePath = coverPath ?: it.coverImagePath,
-                )
-            }
+            val newDraft = draft.value.copy(
+                title = result.title,
+                platformNames = listOfNotNull(result.platformName).ifEmpty { draft.value.platformNames },
+                genreNames = result.genreNames.ifEmpty { draft.value.genreNames },
+                coverImagePath = coverPath ?: draft.value.coverImagePath,
+                releaseYear = result.releaseYear,
+                developer = result.developerName,
+            )
+            onDraftReplaced(newDraft)
             if (coverPath != null && previousPath != null) imageStorage.delete(previousPath)
             search.value = SearchState()
         }
@@ -204,33 +173,27 @@ class ReviewFormViewModel @Inject constructor(
         search.update { it.copy(results = emptyList(), message = null) }
     }
 
+    /** Replaces the draft wholesale, used when the user picks a TheGamesDB search result. */
+    fun onDraftReplaced(newDraft: BacklogItemDraft) {
+        draft.value = newDraft
+        errorMessage.value = null
+    }
+
     fun save(onSaved: (String) -> Unit) {
         val current = draft.value
-        val validationError = validate(current)
-        if (validationError != null) {
-            errorMessage.value = validationError
+        if (current.title.isBlank()) {
+            errorMessage.value = appContext.getString(R.string.form_validation_title_required)
             return
         }
         viewModelScope.launch {
             isSaving.value = true
-            val id = reviewRepository.save(editingId, current)
-            if (editingId == null) {
-                prefillBacklogItemId?.let { backlogRepository.linkReview(it, id) }
-            }
+            val id = backlogRepository.saveItem(editingId, listId, current)
             isSaving.value = false
             onSaved(id)
         }
     }
 
-    private fun validate(draft: ReviewDraft): String? = when {
-        draft.title.isBlank() -> appContext.getString(R.string.form_validation_title_required)
-        draft.rating !in 0.0..10.0 -> appContext.getString(R.string.form_validation_rating_range)
-        draft.endDate != null && draft.endDate.isBefore(draft.startDate) ->
-            appContext.getString(R.string.form_validation_date_order)
-        else -> null
-    }
-
-    private fun updateDraft(transform: (ReviewDraft) -> ReviewDraft) {
+    private fun updateDraft(transform: (BacklogItemDraft) -> BacklogItemDraft) {
         draft.update(transform)
         errorMessage.value = null
     }

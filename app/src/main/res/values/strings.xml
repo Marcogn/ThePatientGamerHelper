@@ -7,7 +7,12 @@
     <string name="action_save">Salva</string>
     <string name="action_delete">Elimina</string>
     <string name="action_edit">Modifica</string>
+    <string name="action_yes">Sì</string>
+    <string name="action_no">No</string>
     <string name="cd_back">Indietro</string>
+    <string name="cd_move_up">Sposta su</string>
+    <string name="cd_move_down">Sposta giù</string>
+    <string name="cd_drag_handle">Trascina per riordinare</string>
 
     <string name="review_status_in_progress">In corso</string>
     <string name="review_status_completed">Completato</string>
@@ -67,6 +72,11 @@
     <string name="settings_drive_consent_cancelled">Autorizzazione Drive annullata</string>
     <string name="settings_drive_consent_incomplete">Autorizzazione Drive non completata</string>
 
+    <string name="settings_thegamesdb_section_title">Ricerca online (TheGamesDB)</string>
+    <string name="settings_thegamesdb_description">Usata dal pulsante \"Cerca online\" nei form di backlog e recensione per trovare copertina e metadati. TheGamesDB richiede una API key per ogni richiesta: registrati su thegamesdb.net e incollala qui. Senza chiave la ricerca resta disattivata, il resto dell\'app funziona comunque.</string>
+    <string name="settings_thegamesdb_key_label">API key TheGamesDB</string>
+    <string name="settings_thegamesdb_key_saved">API key salvata</string>
+
     <!-- Componenti comuni -->
     <string name="common_date_picker_confirm">OK</string>
     <string name="common_date_picker_remove">Rimuovi</string>
@@ -88,6 +98,7 @@
     <string name="filter_section_platform">Piattaforma</string>
     <string name="filter_section_genre">Genere</string>
     <string name="filter_section_tags">Tag</string>
+    <string name="filter_section_list">Lista</string>
     <string name="filter_rating_range">Voto: %1$s – %2$s</string>
     <string name="filter_date_range_title">Intervallo date</string>
     <string name="filter_date_from">Da</string>
@@ -138,4 +149,59 @@
     <string name="stats_platform_distribution">Distribuzione per piattaforma</string>
     <string name="stats_genre_distribution">Distribuzione per genere</string>
     <string name="stats_status_count_percentage">%1$d (%2$.0f%%)</string>
+
+    <!-- Backlog -->
+    <string name="backlog_title">Backlog</string>
+    <string name="backlog_new_list">Nuova lista</string>
+    <string name="backlog_rename_list">Rinomina lista</string>
+    <string name="backlog_list_name_label">Nome lista</string>
+    <string name="backlog_delete_list_confirm_title">Eliminare questa lista?</string>
+    <string name="backlog_delete_list_confirm_message">Tutti gli elementi di \"%1$s\" verranno eliminati. L\'azione non può essere annullata.</string>
+    <string name="backlog_search_placeholder">Cerca nel backlog…</string>
+    <string name="backlog_empty_title">Nessuna lista ancora</string>
+    <string name="backlog_empty_subtitle">Tocca + per creare la prima lista</string>
+    <string name="backlog_no_results_title">Nessun risultato con i filtri attuali</string>
+    <string name="backlog_list_empty">Nessun elemento in questa lista</string>
+    <string name="backlog_add_item">Aggiungi al backlog</string>
+    <string name="backlog_item_new_title">Nuovo elemento</string>
+    <string name="backlog_item_edit_title">Modifica elemento</string>
+    <string name="backlog_item_not_found">Elemento non trovato</string>
+    <string name="backlog_move_to_list">Sposta in un\'altra lista</string>
+    <string name="backlog_review_linked">Recensione collegata</string>
+    <string name="backlog_abandon_note_label">Motivo dell\'abbandono</string>
+    <string name="backlog_comments_title">Commenti</string>
+    <string name="backlog_comment_field_label">Aggiungi un commento</string>
+    <string name="backlog_add_comment">Aggiungi commento</string>
+    <string name="backlog_no_comments">Nessun commento ancora</string>
+    <string name="backlog_history_title">Storico</string>
+    <string name="backlog_history_created">Aggiunto al backlog</string>
+    <string name="backlog_history_status_changed">Stato cambiato in %1$s</string>
+    <string name="backlog_history_moved">Spostato in %1$s</string>
+    <string name="backlog_history_comment_added">Commento aggiunto</string>
+    <string name="backlog_history_review_linked">Recensione collegata</string>
+    <string name="backlog_delete_item_confirm_title">Eliminare questo elemento?</string>
+    <string name="backlog_write_review_prompt_title">Scrivere una recensione?</string>
+    <string name="backlog_write_review_prompt_message">Vuoi scrivere una recensione per \"%1$s\"?</string>
+
+    <string name="backlog_status_to_start">Da iniziare</string>
+    <string name="backlog_status_in_progress">In corso</string>
+    <string name="backlog_status_completed">Completato</string>
+    <string name="backlog_status_abandoned">Abbandonato</string>
+    <string name="backlog_status_paused">In pausa</string>
+
+    <plurals name="backlog_total_items">
+        <item quantity="one">%1$d elemento nel backlog</item>
+        <item quantity="other">%1$d elementi nel backlog</item>
+    </plurals>
+    <plurals name="backlog_item_count">
+        <item quantity="one">%1$d elemento</item>
+        <item quantity="other">%1$d elementi</item>
+    </plurals>
+
+    <!-- Ricerca online TheGamesDB (Tappa 2) -->
+    <string name="game_search_action">Cerca online</string>
+    <string name="game_search_dialog_title">Cerca online</string>
+    <string name="game_search_missing_api_key">Configura la API key di TheGamesDB nelle Impostazioni per usare la ricerca online</string>
+    <string name="game_search_no_results">Nessun risultato trovato</string>
+    <string name="game_search_failed">Ricerca non riuscita. Puoi comunque compilare i campi a mano</string>
 </resources>

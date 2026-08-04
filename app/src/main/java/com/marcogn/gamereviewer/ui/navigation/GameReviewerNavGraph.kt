@@ -5,6 +5,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import com.marcogn.gamereviewer.ui.backlog.BacklogItemDetailScreen
+import com.marcogn.gamereviewer.ui.backlog.BacklogItemFormScreen
+import com.marcogn.gamereviewer.ui.backlog.BacklogListDetailScreen
+import com.marcogn.gamereviewer.ui.backlog.BacklogScreen
 import com.marcogn.gamereviewer.ui.detail.DetailScreen
 import com.marcogn.gamereviewer.ui.form.ReviewFormScreen
 import com.marcogn.gamereviewer.ui.library.LibraryScreen
@@ -20,6 +25,7 @@ fun GameReviewerNavGraph(navController: NavHostController = rememberNavControlle
                 onAddClick = { navController.navigate(Destination.Form()) },
                 onStatsClick = { navController.navigate(Destination.Stats) },
                 onSettingsClick = { navController.navigate(Destination.Settings) },
+                onBacklogClick = { navController.navigate(Destination.Backlog) },
             )
         }
         composable<Destination.Stats> {
@@ -45,6 +51,35 @@ fun GameReviewerNavGraph(navController: NavHostController = rememberNavControlle
                     }
                 },
                 onCancel = { navController.popBackStack() },
+            )
+        }
+        composable<Destination.Backlog> {
+            BacklogScreen(
+                onBack = { navController.popBackStack() },
+                onListClick = { listId -> navController.navigate(Destination.BacklogListDetail(listId)) },
+                onItemClick = { itemId -> navController.navigate(Destination.BacklogItemDetail(itemId)) },
+            )
+        }
+        composable<Destination.BacklogListDetail> { backStackEntry ->
+            val listId = backStackEntry.toRoute<Destination.BacklogListDetail>().listId
+            BacklogListDetailScreen(
+                onBack = { navController.popBackStack() },
+                onAddItemClick = { navController.navigate(Destination.BacklogItemForm(listId)) },
+                onItemClick = { itemId -> navController.navigate(Destination.BacklogItemDetail(itemId)) },
+            )
+        }
+        composable<Destination.BacklogItemForm> {
+            BacklogItemFormScreen(
+                onSaved = { navController.popBackStack() },
+                onCancel = { navController.popBackStack() },
+            )
+        }
+        composable<Destination.BacklogItemDetail> {
+            BacklogItemDetailScreen(
+                onBack = { navController.popBackStack() },
+                onEdit = { itemId, listId -> navController.navigate(Destination.BacklogItemForm(listId, itemId)) },
+                onDeleted = { navController.popBackStack() },
+                onWriteReview = { itemId -> navController.navigate(Destination.Form(backlogItemId = itemId)) },
             )
         }
     }

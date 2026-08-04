@@ -11,4 +11,5 @@ data class SettingsUiState(
     val lastBackupAt: Instant? = null,
     val lastBackupError: String? = null,
     val message: String? = null,
+    val theGamesDbApiKey: String = "",
 )
