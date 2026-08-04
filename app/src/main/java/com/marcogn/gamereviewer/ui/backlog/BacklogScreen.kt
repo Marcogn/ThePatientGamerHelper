@@ -198,10 +198,11 @@ private fun BacklogStatsHeader(uiState: BacklogUiState) {
                 text = pluralStringResource(R.plurals.backlog_total_items, uiState.statistics.totalItems, uiState.statistics.totalItems),
                 style = MaterialTheme.typography.titleSmall,
             )
+            val statusCounts = BacklogItemStatus.entries.map { status ->
+                "${status.displayName()}: ${uiState.statistics.countByStatus[status] ?: 0}"
+            }
             Text(
-                text = BacklogItemStatus.entries.joinToString(" · ") { status ->
-                    "${status.displayName()}: ${uiState.statistics.countByStatus[status] ?: 0}"
-                },
+                text = statusCounts.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
