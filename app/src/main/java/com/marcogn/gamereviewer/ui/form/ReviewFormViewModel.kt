@@ -1,10 +1,12 @@
 package com.marcogn.gamereviewer.ui.form
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.data.image.ImageStorage
 import com.marcogn.gamereviewer.domain.model.Genre
 import com.marcogn.gamereviewer.domain.model.Platform
@@ -16,6 +18,7 @@ import com.marcogn.gamereviewer.domain.repository.LookupRepository
 import com.marcogn.gamereviewer.domain.repository.ReviewRepository
 import com.marcogn.gamereviewer.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +39,7 @@ private data class LookupNames(
 
 @HiltViewModel
 class ReviewFormViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
     private val reviewRepository: ReviewRepository,
     lookupRepository: LookupRepository,
@@ -63,7 +67,7 @@ class ReviewFormViewModel @Inject constructor(
                 if (existing != null) {
                     draft.value = existing.toDraft()
                 } else {
-                    errorMessage.value = "Recensione non trovata"
+                    errorMessage.value = appContext.getString(R.string.review_not_found)
                 }
                 isLoading.value = false
             }
@@ -138,9 +142,10 @@ class ReviewFormViewModel @Inject constructor(
     }
 
     private fun validate(draft: ReviewDraft): String? = when {
-        draft.title.isBlank() -> "Il titolo è obbligatorio"
-        draft.rating !in 0.0..10.0 -> "Il voto deve essere tra 0 e 10"
-        draft.endDate != null && draft.endDate.isBefore(draft.startDate) -> "La data di fine non può precedere quella di inizio"
+        draft.title.isBlank() -> appContext.getString(R.string.form_validation_title_required)
+        draft.rating !in 0.0..10.0 -> appContext.getString(R.string.form_validation_rating_range)
+        draft.endDate != null && draft.endDate.isBefore(draft.startDate) ->
+            appContext.getString(R.string.form_validation_date_order)
         else -> null
     }
 

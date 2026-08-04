@@ -26,8 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.marcogn.gamereviewer.R
 
 /**
  * Free-text multi-value input with autocomplete suggestions drawn from already-used values
@@ -76,7 +78,7 @@ fun TagInputField(
             trailingIcon = {
                 if (query.isNotBlank()) {
                     IconButton(onClick = { commit(query) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Aggiungi $label")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.common_tag_add_cd, label))
                     }
                 }
             },
@@ -105,7 +107,7 @@ fun TagInputField(
                         trailingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Rimuovi $value",
+                                contentDescription = stringResource(R.string.common_tag_remove_cd, value),
                                 modifier = Modifier
                                     .size(16.dp)
                                     .clickable { onSelectedChange(selected - value) },

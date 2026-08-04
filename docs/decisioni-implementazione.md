@@ -1,8 +1,83 @@
 # Decisioni di implementazione
 
 Questo file documenta le scelte tecniche prese durante l'implementazione
-delle varie fasi che non erano già esplicitate in
-`spec-app-recensioni-videogiochi.md` o in `CLAUDE.md`.
+delle varie fasi che non erano già esplicitate in `docs/spec.md` o in
+`CLAUDE.md`.
+
+## Fase 5 (Internazionalizzazione, tema, documentazione)
+
+Vedi la sezione "Fase 5 — Internazionalizzazione, tema e documentazione" in
+`CLAUDE.md` per il riepilogo architetturale completo. Qui solo le scelte
+che non erano ovvie dalla richiesta originale.
+
+### `ReviewStatus.label()` non toccato, nuova `displayName()` per la UI
+
+La richiesta chiedeva di estrarre le stringhe "delle schermate", non del
+contenuto dei file esportati. `ReviewStatus.label()` in `domain/model` però
+serve entrambi gli scopi: viene chiamato sia dalle schermate (per mostrare
+"In corso"/"Completato"/"Abbandonato") sia da `ReviewMarkdownFormatter` e
+`PdfReviewRenderer` in fase di export, dove le etichette restano fisse in
+italiano per non rompere il pattern "domain/export puro, senza dipendenze
+Android" già stabilito in Fase 2.
+
+Ho lasciato `label()` invariato (continua a essere usato solo dall'export)
+e aggiunto `ReviewStatus.displayName()`, un `@Composable` in
+`ui/common/ReviewStatusDisplay.kt` che risolve la string resource
+localizzata. Le schermate (`FilterSheet`, `ReviewListItem`, `DetailScreen`,
+`ReviewFormScreen`, `StatsScreen`) usano tutte `displayName()`. L'alternativa
+sarebbe stata rendere `label()` stesso consapevole della lingua, ma avrebbe
+richiesto passargli un `Context`/risorse Android, propagando la dipendenza
+Android dentro `domain/export` e vanificando la sua testabilità JVM pura.
+
+### Messaggi dei ViewModel: `@ApplicationContext Context` invece di spostare la costruzione in UI
+
+Diversi ViewModel (`LibraryViewModel`, `DetailViewModel`, `ReviewFormViewModel`,
+`SettingsViewModel`) costruiscono messaggi testuali (esiti di export/backup,
+errori di validazione) che finiscono in uno Snackbar o in un campo di errore
+sullo schermo. `stringResource()` non è utilizzabile fuori da un
+`@Composable`, quindi le alternative erano: (a) iniettare
+`@ApplicationContext Context` nel ViewModel e chiamare `context.getString(...)`,
+o (b) far risalire alla UI un id di risorsa/enum di esito e risolvere il
+testo lì. Ho scelto (a): è il pattern più diretto, richiede la modifica
+minima ai ViewModel esistenti (un parametro in più nel costruttore Hilt) e
+non introduce un nuovo tipo "risultato" solo per veicolare una stringa
+localizzata — coerente con "niente astrazioni oltre quello che serve" già
+seguito nel resto del progetto.
+
+### `recreate()` esplicito dopo il cambio lingua
+
+`AppCompatDelegate.setApplicationLocales()` da solo aggiorna la preferenza
+di lingua persistita, ma il ricalcolo automatico delle risorse/Activity in
+esecuzione che AppCompat offre è legato al ciclo di vita di
+`AppCompatActivity`. Questo progetto usa `ComponentActivity` (Compose puro,
+niente View system), quindi ho aggiunto una `recreate()` esplicita
+sull'Activity corrente subito dopo aver cambiato la lingua
+(`ui/settings/AppLanguage.kt`, risolta da `Context` tramite `ContextWrapper`).
+Senza questo passaggio il cambio lingua sarebbe comunque persistito
+correttamente (grazie ad `autoStoreLocales`) ma non visibile finché l'utente
+non fosse uscito e rientrato nell'app — un comportamento confuso da
+verificare, non accettabile per un selettore in Impostazioni.
+
+### `ThemeMode` con nomi italiani, come `ReviewStatus`
+
+`domain/model/ThemeMode.kt` usa `SISTEMA`/`CHIARO`/`SCURO` invece di
+`SYSTEM`/`LIGHT`/`DARK`. Non era una scelta obbligata — è un concetto
+tecnico generico, non lessico di dominio come lo stato di una recensione —
+ma ho preferito restare coerente con il precedente già stabilito da
+`ReviewStatus` (enum con nomi italiani, etichette localizzate separate)
+piuttosto che introdurre due convenzioni diverse nello stesso codebase.
+
+### Due istanze di `ThemeViewModel`, nessuno scope condiviso
+
+`ThemeViewModel` viene creato via `hiltViewModel()` sia nella root
+dell'app (`MainActivity.GameReviewerApp`, per applicare il tema) sia in
+`SettingsScreen` (per mostrare/cambiare la selezione) — due istanze
+`ViewModel` distinte, scope diverso (Activity vs backstack entry della
+route Settings). Non ho introdotto un'istanza condivisa a livello di grafo
+di navigazione: `ThemePreferences.themeMode` è un `Flow` letto da
+`DataStore`, che resta la vera single source of truth, quindi le due
+istanze convergono comunque sullo stesso stato senza bisogno di scope
+condiviso — stesso principio già in uso per Room/`Flow` nel resto dell'app.
 
 ## Fase 4 (Backup cloud Google Drive)
 

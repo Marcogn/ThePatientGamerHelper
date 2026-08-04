@@ -1,4 +1,141 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Recensioni Videogiochi</string>
+
+    <!-- Comuni / condivise fra più schermate -->
+    <string name="action_cancel">Annulla</string>
+    <string name="action_save">Salva</string>
+    <string name="action_delete">Elimina</string>
+    <string name="action_edit">Modifica</string>
+    <string name="cd_back">Indietro</string>
+
+    <string name="review_status_in_progress">In corso</string>
+    <string name="review_status_completed">Completato</string>
+    <string name="review_status_abandoned">Abbandonato</string>
+
+    <string name="label_platforms">Piattaforme</string>
+    <string name="label_genres">Generi</string>
+    <string name="label_tags">Tag</string>
+    <string name="label_hours_played">Ore di gioco</string>
+    <string name="label_pros">Pro</string>
+    <string name="label_cons">Contro</string>
+    <string name="label_status">Stato</string>
+    <string name="review_not_found">Recensione non trovata</string>
+    <string name="review_new_title">Nuova recensione</string>
+    <string name="review_edit_title">Modifica recensione</string>
+
+    <string name="export_completed">Esportazione completata</string>
+    <string name="export_failed">Esportazione non riuscita: %1$s</string>
+    <string name="export_action_json">Esporta JSON</string>
+    <string name="export_action_csv">Esporta CSV</string>
+    <string name="export_action_pdf">Esporta PDF</string>
+    <string name="export_action_markdown">Esporta Markdown</string>
+
+    <!-- Impostazioni -->
+    <string name="settings_title">Impostazioni</string>
+
+    <string name="settings_preferences_section_title">Preferenze</string>
+    <string name="settings_theme_label">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Chiaro</string>
+    <string name="theme_dark">Scuro</string>
+    <string name="settings_language_label">Lingua</string>
+    <string name="language_system">Sistema</string>
+    <string name="language_italian">Italiano</string>
+    <string name="language_english">English</string>
+
+    <string name="settings_backup_section_title">Backup cloud</string>
+    <string name="settings_backup_description">Il backup viene salvato nella cartella privata dell\'app su Google Drive (appDataFolder): non visibile né condivisibile dall\'interfaccia di Drive.</string>
+    <string name="settings_auto_backup_title">Backup automatico</string>
+    <string name="settings_auto_backup_description">Una volta al giorno, quando il dispositivo è connesso</string>
+    <string name="settings_backup_now">Esegui backup ora</string>
+    <string name="settings_last_backup_success">Ultimo backup riuscito: %1$s</string>
+    <string name="settings_last_backup_error">Ultimo errore: %1$s</string>
+
+    <string name="settings_restore_section_title">Ripristina da backup</string>
+    <string name="cd_refresh_backups">Aggiorna elenco backup</string>
+    <string name="settings_no_backups">Nessun backup trovato su Drive</string>
+    <string name="settings_backup_size_kb">%1$d KB</string>
+    <string name="cd_restore_backup">Ripristina questo backup</string>
+    <string name="settings_restore_confirm_title">Ripristinare questo backup?</string>
+    <string name="settings_restore_confirm_message">Tutti i dati locali attuali (recensioni e copertine) verranno sostituiti dal contenuto di \"%1$s\". L\'operazione non è reversibile.</string>
+    <string name="settings_restore_confirm_button">Ripristina</string>
+
+    <string name="settings_backup_completed">Backup completato</string>
+    <string name="settings_restore_completed">Ripristino completato</string>
+    <string name="settings_operation_failed">Operazione non riuscita</string>
+    <string name="settings_drive_consent_cancelled">Autorizzazione Drive annullata</string>
+    <string name="settings_drive_consent_incomplete">Autorizzazione Drive non completata</string>
+
+    <!-- Componenti comuni -->
+    <string name="common_date_picker_confirm">OK</string>
+    <string name="common_date_picker_remove">Rimuovi</string>
+    <string name="common_tag_add_cd">Aggiungi %1$s</string>
+    <string name="common_tag_remove_cd">Rimuovi %1$s</string>
+
+    <!-- Libreria -->
+    <string name="cd_filters">Filtri</string>
+    <string name="cd_export_library">Esporta libreria</string>
+    <string name="library_search_placeholder">Cerca titolo, testo, pro/contro…</string>
+    <string name="library_empty_title">Nessuna recensione ancora</string>
+    <string name="library_empty_subtitle">Tocca + per aggiungere la prima recensione</string>
+    <string name="library_no_results_title">Nessun risultato con i filtri attuali</string>
+    <string name="library_reset_filters">Reimposta filtri</string>
+
+    <!-- Filtri -->
+    <string name="filter_sheet_title">Filtri</string>
+    <string name="filter_section_status">Stato</string>
+    <string name="filter_section_platform">Piattaforma</string>
+    <string name="filter_section_genre">Genere</string>
+    <string name="filter_section_tags">Tag</string>
+    <string name="filter_rating_range">Voto: %1$s – %2$s</string>
+    <string name="filter_date_range_title">Intervallo date</string>
+    <string name="filter_date_from">Da</string>
+    <string name="filter_date_to">A</string>
+    <string name="filter_reset">Reimposta</string>
+    <string name="filter_apply">Applica</string>
+
+    <!-- Ordinamento -->
+    <string name="cd_sort">Ordina</string>
+    <string name="sort_field_date">Data</string>
+    <string name="sort_field_rating">Voto</string>
+    <string name="sort_field_title">Titolo</string>
+    <string name="sort_field_hours_played">Ore di gioco</string>
+
+    <!-- Dettaglio -->
+    <string name="cd_export_review">Esporta recensione</string>
+    <string name="detail_started_label">Iniziato il</string>
+    <string name="detail_finished_label">Terminato il</string>
+    <string name="detail_hours_value">%1$.1f h</string>
+    <string name="detail_review_text_label">Recensione</string>
+    <string name="detail_delete_confirm_title">Eliminare la recensione?</string>
+    <string name="detail_delete_confirm_message">L\'azione non può essere annullata.</string>
+
+    <!-- Form crea/modifica -->
+    <string name="form_field_title">Titolo</string>
+    <string name="form_field_review_text">Recensione (markdown)</string>
+    <string name="form_rating_label">Voto: %1$s</string>
+    <string name="form_date_start">Data inizio</string>
+    <string name="form_date_end">Data fine</string>
+    <string name="form_validation_title_required">Il titolo è obbligatorio</string>
+    <string name="form_validation_rating_range">Il voto deve essere tra 0 e 10</string>
+    <string name="form_validation_date_order">La data di fine non può precedere quella di inizio</string>
+
+    <string name="cover_cd">Copertina</string>
+    <string name="cover_remove_cd">Rimuovi copertina</string>
+    <string name="cover_add_cd">Aggiungi copertina</string>
+
+    <string name="list_item_remove_cd">Rimuovi</string>
+    <string name="dynamic_list_add_label">Aggiungi</string>
+
+    <!-- Statistiche -->
+    <string name="stats_title">Statistiche</string>
+    <string name="stats_empty_message">Nessuna recensione ancora: aggiungine una per vedere le statistiche</string>
+    <string name="stats_reviews_label">Recensioni</string>
+    <string name="stats_avg_rating_label">Voto medio</string>
+    <string name="stats_total_hours_label">Ore totali</string>
+    <string name="stats_hours_value">%1$.0f h</string>
+    <string name="stats_platform_distribution">Distribuzione per piattaforma</string>
+    <string name="stats_genre_distribution">Distribuzione per genere</string>
+    <string name="stats_status_count_percentage">%1$d (%2$.0f%%)</string>
 </resources>

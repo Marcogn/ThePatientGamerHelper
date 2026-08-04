@@ -1,7 +1,7 @@
 # Specifica funzionale e tecnica — App recensioni videoludiche
 
-**Versione:** 0.1 (bozza di lavoro)
-**Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato e backup cloud in fase futura.
+**Versione:** 1.0 (roadmap completata, Fase 5)
+**Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato e backup cloud. Nato come documento di progettazione iniziale, ora tenuto aggiornato come riferimento sullo stato della roadmap — il dettaglio implementativo di ogni fase vive in `CLAUDE.md`.
 
 ---
 
@@ -139,8 +139,14 @@ Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configu
 2. **Fase 2 — Export** ✅: JSON/CSV → Markdown → PDF (in quest'ordine di complessità crescente)
 3. **Fase 3 — Statistiche libreria** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
 4. **Fase 4 — Backup cloud Google Drive** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
+5. **Fase 5 — Internazionalizzazione, tema e documentazione** ✅: app tradotta
+   IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema, e
+   documentazione riorganizzata sotto `docs/` (più `docs/en/` per la
+   traduzione inglese). Vedi `CLAUDE.md` per il dettaglio implementativo.
 
-Export DOCX: **non più in roadmap**, decisione definitiva — vedi sezione 5.
+Con la Fase 5 si chiude la roadmap originaria di questo documento: le fasi
+elencate sopra sono tutte completate. Export DOCX resta **non implementato**,
+decisione definitiva — vedi sezione 5.
 
 ---
 

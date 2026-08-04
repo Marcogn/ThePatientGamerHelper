@@ -25,8 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.marcogn.gamereviewer.domain.model.Review
-import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.RatingBadge
+import com.marcogn.gamereviewer.ui.common.displayName
 
 @Composable
 fun ReviewListItem(review: Review, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -57,7 +57,7 @@ fun ReviewListItem(review: Review, onClick: () -> Unit, modifier: Modifier = Mod
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = review.status.label(),
+                    text = review.status.displayName(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )

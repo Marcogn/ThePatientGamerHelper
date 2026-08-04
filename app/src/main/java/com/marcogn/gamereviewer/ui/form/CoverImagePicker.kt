@@ -21,8 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.marcogn.gamereviewer.R
 
 /** Cover picker backed by the Android Photo Picker: no runtime storage permission required. */
 @Composable
@@ -50,7 +52,7 @@ fun CoverImagePicker(
         if (coverImagePath != null) {
             AsyncImage(
                 model = coverImagePath,
-                contentDescription = "Copertina",
+                contentDescription = stringResource(R.string.cover_cd),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().height(160.dp),
             )
@@ -61,12 +63,12 @@ fun CoverImagePicker(
                     .size(32.dp)
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f), RoundedCornerShape(50)),
             ) {
-                Icon(Icons.Filled.Close, contentDescription = "Rimuovi copertina", tint = MaterialTheme.colorScheme.surface)
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cover_remove_cd), tint = MaterialTheme.colorScheme.surface)
             }
         } else {
             Icon(
                 imageVector = Icons.Filled.AddPhotoAlternate,
-                contentDescription = "Aggiungi copertina",
+                contentDescription = stringResource(R.string.cover_add_cd),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp),
             )

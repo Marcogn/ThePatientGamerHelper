@@ -32,13 +32,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.domain.model.DistributionEntry
 import com.marcogn.gamereviewer.domain.model.LibraryStatistics
 import com.marcogn.gamereviewer.domain.model.ReviewStatus
 import com.marcogn.gamereviewer.domain.model.StatusShare
-import com.marcogn.gamereviewer.domain.model.label
+import com.marcogn.gamereviewer.ui.common.displayName
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,10 +51,10 @@ fun StatsScreen(onBack: () -> Unit, viewModel: StatsViewModel = hiltViewModel())
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statistiche") },
+                title = { Text(stringResource(R.string.stats_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
             )
@@ -70,7 +72,7 @@ fun StatsScreen(onBack: () -> Unit, viewModel: StatsViewModel = hiltViewModel())
 private fun EmptyStatsMessage(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-            text = "Nessuna recensione ancora: aggiungine una per vedere le statistiche",
+            text = stringResource(R.string.stats_empty_message),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -88,35 +90,35 @@ private fun StatsContent(statistics: LibraryStatistics, modifier: Modifier = Mod
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
-                label = "Recensioni",
+                label = stringResource(R.string.stats_reviews_label),
                 value = statistics.totalReviews.toString(),
                 modifier = Modifier.weight(1f),
             )
             StatCard(
-                label = "Voto medio",
+                label = stringResource(R.string.stats_avg_rating_label),
                 value = statistics.averageRating?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
                 modifier = Modifier.weight(1f),
             )
             StatCard(
-                label = "Ore totali",
-                value = String.format(Locale.getDefault(), "%.0f h", statistics.totalHoursPlayed),
+                label = stringResource(R.string.stats_total_hours_label),
+                value = stringResource(R.string.stats_hours_value, statistics.totalHoursPlayed),
                 modifier = Modifier.weight(1f),
             )
         }
 
         HorizontalDivider()
-        StatsSection(title = "Stato") { StatusBreakdownChart(shares = statistics.statusBreakdown) }
+        StatsSection(title = stringResource(R.string.label_status)) { StatusBreakdownChart(shares = statistics.statusBreakdown) }
 
         if (statistics.platformDistribution.isNotEmpty()) {
             HorizontalDivider()
-            StatsSection(title = "Distribuzione per piattaforma") {
+            StatsSection(title = stringResource(R.string.stats_platform_distribution)) {
                 DistributionBarChart(entries = statistics.platformDistribution)
             }
         }
 
         if (statistics.genreDistribution.isNotEmpty()) {
             HorizontalDivider()
-            StatsSection(title = "Distribuzione per genere") {
+            StatsSection(title = stringResource(R.string.stats_genre_distribution)) {
                 DistributionBarChart(entries = statistics.genreDistribution)
             }
         }
@@ -228,9 +230,9 @@ private fun StatusBreakdownChart(shares: List<StatusShare>) {
                         .clip(RoundedCornerShape(2.dp))
                         .background(colors[share.status.chartColor]),
                 )
-                Text(text = share.status.label(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(text = share.status.displayName(), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Text(
-                    text = String.format(Locale.getDefault(), "%d (%.0f%%)", share.count, share.percentage),
+                    text = stringResource(R.string.stats_status_count_percentage, share.count, share.percentage),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

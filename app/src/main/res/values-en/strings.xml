@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Game Reviews</string>
+
+    <!-- Shared across screens -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="cd_back">Back</string>
+
+    <string name="review_status_in_progress">In progress</string>
+    <string name="review_status_completed">Completed</string>
+    <string name="review_status_abandoned">Abandoned</string>
+
+    <string name="label_platforms">Platforms</string>
+    <string name="label_genres">Genres</string>
+    <string name="label_tags">Tags</string>
+    <string name="label_hours_played">Hours played</string>
+    <string name="label_pros">Pros</string>
+    <string name="label_cons">Cons</string>
+    <string name="label_status">Status</string>
+    <string name="review_not_found">Review not found</string>
+    <string name="review_new_title">New review</string>
+    <string name="review_edit_title">Edit review</string>
+
+    <string name="export_completed">Export complete</string>
+    <string name="export_failed">Export failed: %1$s</string>
+    <string name="export_action_json">Export JSON</string>
+    <string name="export_action_csv">Export CSV</string>
+    <string name="export_action_pdf">Export PDF</string>
+    <string name="export_action_markdown">Export Markdown</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+
+    <string name="settings_preferences_section_title">Preferences</string>
+    <string name="settings_theme_label">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_language_label">Language</string>
+    <string name="language_system">System</string>
+    <string name="language_italian">Italiano</string>
+    <string name="language_english">English</string>
+
+    <string name="settings_backup_section_title">Cloud backup</string>
+    <string name="settings_backup_description">The backup is saved to the app\'s private folder on Google Drive (appDataFolder): not visible or shareable from the Drive interface.</string>
+    <string name="settings_auto_backup_title">Automatic backup</string>
+    <string name="settings_auto_backup_description">Once a day, while the device is connected</string>
+    <string name="settings_backup_now">Back up now</string>
+    <string name="settings_last_backup_success">Last successful backup: %1$s</string>
+    <string name="settings_last_backup_error">Last error: %1$s</string>
+
+    <string name="settings_restore_section_title">Restore from backup</string>
+    <string name="cd_refresh_backups">Refresh backup list</string>
+    <string name="settings_no_backups">No backups found on Drive</string>
+    <string name="settings_backup_size_kb">%1$d KB</string>
+    <string name="cd_restore_backup">Restore this backup</string>
+    <string name="settings_restore_confirm_title">Restore this backup?</string>
+    <string name="settings_restore_confirm_message">All current local data (reviews and cover images) will be replaced with the contents of \"%1$s\". This cannot be undone.</string>
+    <string name="settings_restore_confirm_button">Restore</string>
+
+    <string name="settings_backup_completed">Backup complete</string>
+    <string name="settings_restore_completed">Restore complete</string>
+    <string name="settings_operation_failed">Operation failed</string>
+    <string name="settings_drive_consent_cancelled">Drive authorization cancelled</string>
+    <string name="settings_drive_consent_incomplete">Drive authorization not completed</string>
+
+    <!-- Common components -->
+    <string name="common_date_picker_confirm">OK</string>
+    <string name="common_date_picker_remove">Remove</string>
+    <string name="common_tag_add_cd">Add %1$s</string>
+    <string name="common_tag_remove_cd">Remove %1$s</string>
+
+    <!-- Library -->
+    <string name="cd_filters">Filters</string>
+    <string name="cd_export_library">Export library</string>
+    <string name="library_search_placeholder">Search title, text, pros/cons…</string>
+    <string name="library_empty_title">No reviews yet</string>
+    <string name="library_empty_subtitle">Tap + to add your first review</string>
+    <string name="library_no_results_title">No results with the current filters</string>
+    <string name="library_reset_filters">Reset filters</string>
+
+    <!-- Filters -->
+    <string name="filter_sheet_title">Filters</string>
+    <string name="filter_section_status">Status</string>
+    <string name="filter_section_platform">Platform</string>
+    <string name="filter_section_genre">Genre</string>
+    <string name="filter_section_tags">Tags</string>
+    <string name="filter_rating_range">Rating: %1$s – %2$s</string>
+    <string name="filter_date_range_title">Date range</string>
+    <string name="filter_date_from">From</string>
+    <string name="filter_date_to">To</string>
+    <string name="filter_reset">Reset</string>
+    <string name="filter_apply">Apply</string>
+
+    <!-- Sorting -->
+    <string name="cd_sort">Sort</string>
+    <string name="sort_field_date">Date</string>
+    <string name="sort_field_rating">Rating</string>
+    <string name="sort_field_title">Title</string>
+    <string name="sort_field_hours_played">Hours played</string>
+
+    <!-- Detail -->
+    <string name="cd_export_review">Export review</string>
+    <string name="detail_started_label">Started on</string>
+    <string name="detail_finished_label">Finished on</string>
+    <string name="detail_hours_value">%1$.1f h</string>
+    <string name="detail_review_text_label">Review</string>
+    <string name="detail_delete_confirm_title">Delete this review?</string>
+    <string name="detail_delete_confirm_message">This action cannot be undone.</string>
+
+    <!-- Create/edit form -->
+    <string name="form_field_title">Title</string>
+    <string name="form_field_review_text">Review (markdown)</string>
+    <string name="form_rating_label">Rating: %1$s</string>
+    <string name="form_date_start">Start date</string>
+    <string name="form_date_end">End date</string>
+    <string name="form_validation_title_required">Title is required</string>
+    <string name="form_validation_rating_range">Rating must be between 0 and 10</string>
+    <string name="form_validation_date_order">End date cannot be before the start date</string>
+
+    <string name="cover_cd">Cover</string>
+    <string name="cover_remove_cd">Remove cover</string>
+    <string name="cover_add_cd">Add cover</string>
+
+    <string name="list_item_remove_cd">Remove</string>
+    <string name="dynamic_list_add_label">Add</string>
+
+    <!-- Statistics -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_empty_message">No reviews yet: add one to see your statistics</string>
+    <string name="stats_reviews_label">Reviews</string>
+    <string name="stats_avg_rating_label">Average rating</string>
+    <string name="stats_total_hours_label">Total hours</string>
+    <string name="stats_hours_value">%1$.0f h</string>
+    <string name="stats_platform_distribution">Platform distribution</string>
+    <string name="stats_genre_distribution">Genre distribution</string>
+    <string name="stats_status_count_percentage">%1$d (%2$.0f%%)</string>
+</resources>

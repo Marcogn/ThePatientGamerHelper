@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.marcogn.gamereviewer.R
 
 /** Single-review export entry point (Fase 2): Reddit-flavored Markdown and PDF. */
 @Composable
@@ -21,15 +23,15 @@ fun DetailExportMenu(onExportMarkdown: () -> Unit, onExportPdf: () -> Unit) {
 
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.Download, contentDescription = "Esporta recensione")
+            Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.cd_export_review))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("Esporta Markdown") },
+                text = { Text(stringResource(R.string.export_action_markdown)) },
                 onClick = { expanded = false; onExportMarkdown() },
             )
             DropdownMenuItem(
-                text = { Text("Esporta PDF") },
+                text = { Text(stringResource(R.string.export_action_pdf)) },
                 onClick = { expanded = false; onExportPdf() },
             )
         }

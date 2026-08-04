@@ -1,61 +1,100 @@
-# game-reviewer
+# Game Reviewer
 
-App Android nativa, single-user e offline-first per gestire le mie
-recensioni di videogiochi (supporto al flusso di scrittura per
-r/patientgamer). Vedi `spec-app-recensioni-videogiochi.md` per la specifica
-completa e `CLAUDE.md` per le note di architettura/sviluppo.
+App Android nativa per tenere traccia delle recensioni dei videogiochi che
+finisco (o abbandono). Nasce per sostituire un flusso che tenevo a mano tra
+note sparse e post per r/patientgamer: una scheda per gioco con voto,
+piattaforma, genere, pro e contro, e uno spazio libero per il testo della
+recensione vera e propria.
 
-## Stato
+Single-user, offline-first: i dati vivono sul dispositivo, non serve nessun
+account per usarla, il cloud entra in gioco solo come backup opzionale.
 
-- **Fase 1 (MVP locale)** completata: CRUD recensioni, libreria con
-  ricerca/filtri/ordinamento, dettaglio, form crea/modifica con copertina
-  immagine.
-- **Fase 2 (Export)** completata: JSON/CSV per l'intera libreria, Markdown
-  compatibile Reddit per singola recensione, PDF (singola recensione o
-  libreria in batch). Salvataggio sempre tramite Storage Access Framework.
-- **Fase 3 (Statistiche libreria)** completata: schermata Statistiche
-  raggiungibile dalla libreria con totali/medie, distribuzione per
-  piattaforma/genere e ripartizione per stato.
-- **Fase 4 (Backup cloud Google Drive)** completata: backup manuale e
-  automatico (WorkManager) su Google Drive (appDataFolder, via Credential
-  Manager + AuthorizationClient), ripristino da elenco backup disponibili.
+## Cosa fa
 
-Export DOCX non è più in roadmap: vedi `CLAUDE.md` per il perché.
+- **Libreria recensioni**: crea, modifica, cancella. Ricerca full-text e
+  filtri combinabili per piattaforma, genere, tag, voto, stato e intervallo
+  di date. Ordinamento per data, voto, titolo o ore di gioco. Copertina
+  presa dalla galleria del telefono, senza permessi di storage.
+- **Statistiche**: numero di recensioni, voto medio, ore totali giocate,
+  distribuzione per piattaforma e genere, ripartizione tra completati, in
+  corso e abbandonati.
+- **Export**: Markdown pronto per essere incollato su Reddit, JSON e CSV
+  per portabilità dei dati, PDF per singola recensione o per l'intera
+  libreria in un unico file.
+- **Backup su Google Drive**: manuale o automatico una volta al giorno,
+  salvato nella cartella privata dell'app (non visibile né condivisibile
+  dall'interfaccia di Drive). Ripristino da un elenco dei backup disponibili.
+- **Lingua e tema**: interfaccia in italiano o inglese, selezionabile
+  dall'app indipendentemente dalla lingua di sistema; tema chiaro, scuro o
+  a scarto automatico su quello di sistema.
 
-## Stack
+Nessuna di queste funzionalità richiede un account: il backup su Drive è
+l'unica eccezione, ed è comunque facoltativo.
 
-- Kotlin, Jetpack Compose, Material 3
-- Room (persistenza locale, single source of truth via `Flow`)
-- Hilt (dependency injection)
-- ViewModel + `StateFlow`, unidirectional data flow
-- WorkManager (backup automatico periodico) + Credential Manager /
-  AuthorizationClient (autenticazione/autorizzazione Google Drive)
+## Stack tecnico
+
+Kotlin e Jetpack Compose con Material 3, seguendo le linee guida
+architetturali correnti di Google piuttosto che il vecchio sistema a View.
+
+- **Room** come unica fonte di verità per i dati, esposta via `Flow`
+- **Hilt** per la dependency injection
+- **ViewModel + StateFlow**, flusso di dati unidirezionale (gli eventi
+  salgono, lo stato scende)
+- **WorkManager** per il backup periodico in background
+- **Preferences DataStore** per la preferenza di tema
+- **Credential Manager** e **AuthorizationClient** per l'autenticazione e
+  l'autorizzazione verso Google Drive (non la vecchia `GoogleSignInClient`,
+  ormai deprecata)
 - `minSdk 26`, `targetSdk 36`, `compileSdk 36`
+
+Nessuna dipendenza pesante dove non serve: niente libreria di charting per
+le statistiche (bastano barre Compose native), niente client Java ufficiale
+di Google per Drive (un client REST scritto a mano con `HttpURLConnection`
+copre i tre endpoint che servono), niente Apache POI o iText per il PDF
+(`android.graphics.pdf.PdfDocument` nativo, iText7 è AGPL e quindi escluso a
+priori).
 
 ## Build
 
 ```bash
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest
+./gradlew lint
 ```
 
-Richiede Android SDK (`compileSdk 36`) e accesso al repository Maven di
-Google. Vedi `CLAUDE.md` per una nota sui limiti dell'ambiente di sviluppo
-usato per lo scaffolding iniziale.
+Richiede l'Android SDK (`compileSdk 36`) e accesso al repository Maven di
+Google. Per usare il backup su Drive va anche configurato un client OAuth
+in Google Cloud Console — i dettagli sono in `CLAUDE.md`.
 
-## Struttura
+## Struttura del progetto
 
 ```
 app/src/main/java/com/marcogn/gamereviewer/
 ├── data/       # Room (entity/dao), repository, export (SAF/PDF), backup/drive
-│               # (Google Drive, WorkManager), seed dati di debug
+│               # (Google Drive, WorkManager), preferenze (tema), seed dati di debug
 ├── domain/     # Modelli puri, logica di filtro/ordinamento, formattazione export/backup
 ├── di/         # Moduli Hilt
-└── ui/         # Schermate Compose (libreria, dettaglio, form, impostazioni) + navigazione
+└── ui/         # Schermate Compose (libreria, dettaglio, form, statistiche,
+                # impostazioni) + tema + navigazione
 ```
 
-## Dati demo (solo debug)
+## Documentazione
+
+- `docs/spec.md` — specifica funzionale e tecnica, con la roadmap delle fasi
+  di sviluppo
+- `docs/decisioni-implementazione.md` — scelte tecniche non ovvie prese
+  durante lo sviluppo, fase per fase
+- `CLAUDE.md` — guida di riferimento per chi (o cosa) lavora su questo
+  codice: architettura, convenzioni, limiti noti
+- `docs/en/` — traduzione inglese della documentazione sopra (l'italiano
+  resta la fonte di verità)
+
+## Dati demo
 
 Le build `debug` seedano automaticamente qualche recensione di esempio
-(`data/debug/DebugSeeder.kt`) per facilitare lo sviluppo/anteprima UI. Le
-build `release` non includono mai dati mock.
+(`data/debug/DebugSeeder.kt`) per non partire da uno schermo vuoto durante
+lo sviluppo. Le build `release` non includono mai dati finti.
+
+## Licenza
+
+MIT, vedi `LICENSE`.

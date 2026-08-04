@@ -38,14 +38,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.domain.export.ExportFormat
 import com.marcogn.gamereviewer.domain.export.suggestedReviewFileName
 import com.marcogn.gamereviewer.domain.model.Review
-import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.RatingBadge
+import com.marcogn.gamereviewer.ui.common.displayName
 import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -84,7 +86,7 @@ fun DetailScreen(
                 title = { Text(review?.title.orEmpty()) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
@@ -102,10 +104,10 @@ fun DetailScreen(
                             },
                         )
                         IconButton(onClick = { onEdit(review.id) }) {
-                            Icon(Icons.Filled.Edit, contentDescription = "Modifica")
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.action_edit))
                         }
                         IconButton(onClick = { showDeleteConfirmation = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Elimina")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.action_delete))
                         }
                     }
                 },
@@ -115,7 +117,7 @@ fun DetailScreen(
     ) { padding ->
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
-            review == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Recensione non trovata") }
+            review == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text(stringResource(R.string.review_not_found)) }
             else -> ReviewDetailContent(review = review, modifier = Modifier.padding(padding))
         }
     }
@@ -123,16 +125,16 @@ fun DetailScreen(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Eliminare la recensione?") },
-            text = { Text("L'azione non può essere annullata.") },
+            title = { Text(stringResource(R.string.detail_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.detail_delete_confirm_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirmation = false
                     viewModel.deleteReview(onDeleted = onDeleted)
-                }) { Text("Elimina") }
+                }) { Text(stringResource(R.string.action_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) { Text("Annulla") }
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -160,30 +162,33 @@ private fun ReviewDetailContent(review: Review, modifier: Modifier = Modifier) {
 
         RatingBadge(rating = review.rating)
 
-        Text(text = review.status.label(), style = MaterialTheme.typography.titleSmall)
+        Text(text = review.status.displayName(), style = MaterialTheme.typography.titleSmall)
 
-        InfoRow(label = "Piattaforme", value = review.platforms.joinToString { it.name }.ifBlank { "—" })
-        InfoRow(label = "Generi", value = review.genres.joinToString { it.name }.ifBlank { "—" })
-        InfoRow(label = "Tag", value = review.tags.joinToString { it.name }.ifBlank { "—" })
-        InfoRow(label = "Iniziato il", value = review.startDate.format(dateFormatter))
-        InfoRow(label = "Terminato il", value = review.endDate?.format(dateFormatter) ?: "—")
-        InfoRow(label = "Ore di gioco", value = review.hoursPlayed?.let { "%.1f h".format(it) } ?: "—")
+        InfoRow(label = stringResource(R.string.label_platforms), value = review.platforms.joinToString { it.name }.ifBlank { "—" })
+        InfoRow(label = stringResource(R.string.label_genres), value = review.genres.joinToString { it.name }.ifBlank { "—" })
+        InfoRow(label = stringResource(R.string.label_tags), value = review.tags.joinToString { it.name }.ifBlank { "—" })
+        InfoRow(label = stringResource(R.string.detail_started_label), value = review.startDate.format(dateFormatter))
+        InfoRow(label = stringResource(R.string.detail_finished_label), value = review.endDate?.format(dateFormatter) ?: "—")
+        InfoRow(
+            label = stringResource(R.string.label_hours_played),
+            value = review.hoursPlayed?.let { stringResource(R.string.detail_hours_value, it) } ?: "—",
+        )
 
         if (review.pros.isNotEmpty()) {
             HorizontalDivider()
-            Text(text = "Pro", style = MaterialTheme.typography.titleSmall)
+            Text(text = stringResource(R.string.label_pros), style = MaterialTheme.typography.titleSmall)
             review.pros.forEach { Text(text = "• $it") }
         }
 
         if (review.cons.isNotEmpty()) {
             HorizontalDivider()
-            Text(text = "Contro", style = MaterialTheme.typography.titleSmall)
+            Text(text = stringResource(R.string.label_cons), style = MaterialTheme.typography.titleSmall)
             review.cons.forEach { Text(text = "• $it") }
         }
 
         if (review.reviewText.isNotBlank()) {
             HorizontalDivider()
-            Text(text = "Recensione", style = MaterialTheme.typography.titleSmall)
+            Text(text = stringResource(R.string.detail_review_text_label), style = MaterialTheme.typography.titleSmall)
             Text(text = review.reviewText, style = MaterialTheme.typography.bodyLarge)
         }
     }

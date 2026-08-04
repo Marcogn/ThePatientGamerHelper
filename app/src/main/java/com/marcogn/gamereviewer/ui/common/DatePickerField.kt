@@ -13,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.marcogn.gamereviewer.R
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -50,16 +52,16 @@ fun DatePickerField(
                     val millis = state.selectedDateMillis
                     onDateChange(millis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() })
                     showPicker = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.common_date_picker_confirm)) }
             },
             dismissButton = {
                 if (clearable) {
                     TextButton(onClick = {
                         onDateChange(null)
                         showPicker = false
-                    }) { Text("Rimuovi") }
+                    }) { Text(stringResource(R.string.common_date_picker_remove)) }
                 } else {
-                    TextButton(onClick = { showPicker = false }) { Text("Annulla") }
+                    TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.action_cancel)) }
                 }
             },
         ) {

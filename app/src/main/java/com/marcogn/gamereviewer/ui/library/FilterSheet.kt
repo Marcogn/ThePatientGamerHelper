@@ -20,14 +20,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.domain.filter.LibraryFilters
 import com.marcogn.gamereviewer.domain.model.Genre
 import com.marcogn.gamereviewer.domain.model.Platform
 import com.marcogn.gamereviewer.domain.model.ReviewStatus
 import com.marcogn.gamereviewer.domain.model.Tag
-import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.DatePickerField
+import com.marcogn.gamereviewer.ui.common.displayName
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,9 +49,9 @@ fun FilterSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
         ) {
-            Text("Filtri", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.filter_sheet_title), style = MaterialTheme.typography.titleLarge)
 
-            FilterSection(title = "Stato") {
+            FilterSection(title = stringResource(R.string.filter_section_status)) {
                 ReviewStatus.entries.forEach { status ->
                     FilterChip(
                         selected = status in filters.statuses,
@@ -61,13 +63,13 @@ fun FilterSheet(
                             }
                             onFiltersChange(filters.copy(statuses = updated))
                         },
-                        label = { Text(status.label()) },
+                        label = { Text(status.displayName()) },
                     )
                 }
             }
 
             if (availablePlatforms.isNotEmpty()) {
-                FilterSection(title = "Piattaforma") {
+                FilterSection(title = stringResource(R.string.filter_section_platform)) {
                     availablePlatforms.forEach { platform ->
                         FilterChip(
                             selected = platform.name in filters.platforms,
@@ -79,7 +81,7 @@ fun FilterSheet(
             }
 
             if (availableGenres.isNotEmpty()) {
-                FilterSection(title = "Genere") {
+                FilterSection(title = stringResource(R.string.filter_section_genre)) {
                     availableGenres.forEach { genre ->
                         FilterChip(
                             selected = genre.name in filters.genres,
@@ -91,7 +93,7 @@ fun FilterSheet(
             }
 
             if (availableTags.isNotEmpty()) {
-                FilterSection(title = "Tag") {
+                FilterSection(title = stringResource(R.string.filter_section_tags)) {
                     availableTags.forEach { tag ->
                         FilterChip(
                             selected = tag.name in filters.tags,
@@ -105,7 +107,7 @@ fun FilterSheet(
             val minRating = (filters.minRating ?: 0.0).toFloat()
             val maxRating = (filters.maxRating ?: 10.0).toFloat()
             Text(
-                text = "Voto: ${"%.1f".format(minRating)} – ${"%.1f".format(maxRating)}",
+                text = stringResource(R.string.filter_rating_range, "%.1f".format(minRating), "%.1f".format(maxRating)),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(top = 16.dp),
             )
@@ -124,7 +126,7 @@ fun FilterSheet(
             )
 
             Text(
-                text = "Intervallo date",
+                text = stringResource(R.string.filter_date_range_title),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(top = 8.dp),
             )
@@ -135,13 +137,13 @@ fun FilterSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 DatePickerField(
-                    label = "Da",
+                    label = stringResource(R.string.filter_date_from),
                     date = filters.dateFrom,
                     modifier = Modifier.weight(1f),
                     onDateChange = { onFiltersChange(filters.copy(dateFrom = it)) },
                 )
                 DatePickerField(
-                    label = "A",
+                    label = stringResource(R.string.filter_date_to),
                     date = filters.dateTo,
                     modifier = Modifier.weight(1f),
                     onDateChange = { onFiltersChange(filters.copy(dateTo = it)) },
@@ -155,10 +157,10 @@ fun FilterSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 TextButton(onClick = onClear, modifier = Modifier.weight(1f)) {
-                    Text("Reimposta")
+                    Text(stringResource(R.string.filter_reset))
                 }
                 Button(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                    Text("Applica")
+                    Text(stringResource(R.string.filter_apply))
                 }
             }
         }

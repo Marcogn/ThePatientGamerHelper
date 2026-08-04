@@ -13,6 +13,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.marcogn.gamereviewer.R
 
 /** Whole-library export entry point (Fase 2): raw data backup formats plus a batch PDF. */
 @Composable
@@ -21,19 +23,19 @@ fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit, onExpor
 
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Filled.Download, contentDescription = "Esporta libreria")
+            Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.cd_export_library))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("Esporta JSON") },
+                text = { Text(stringResource(R.string.export_action_json)) },
                 onClick = { expanded = false; onExportJson() },
             )
             DropdownMenuItem(
-                text = { Text("Esporta CSV") },
+                text = { Text(stringResource(R.string.export_action_csv)) },
                 onClick = { expanded = false; onExportCsv() },
             )
             DropdownMenuItem(
-                text = { Text("Esporta PDF") },
+                text = { Text(stringResource(R.string.export_action_pdf)) },
                 onClick = { expanded = false; onExportPdf() },
             )
         }
