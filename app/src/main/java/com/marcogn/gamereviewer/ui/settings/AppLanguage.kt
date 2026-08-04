@@ -3,6 +3,7 @@ package com.marcogn.gamereviewer.ui.settings
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 
@@ -24,14 +25,21 @@ fun currentAppLanguage(): AppLanguage {
 
 /**
  * autoStoreLocales (manifest) persiste automaticamente la scelta, nessuno storage custom
- * necessario. [context] serve solo per richiedere un `recreate()` dell'activity corrente: senza
- * AppCompatActivity (qui usiamo ComponentActivity per Compose puro) il ricalcolo delle risorse
- * localizzate non è automatico su tutte le API prima della 33.
+ * necessario. [context] serve per richiedere un `recreate()` esplicito dell'activity corrente,
+ * ma **solo sotto API 33**: da Android 13 in su `setApplicationLocales()` è un vero cambio di
+ * configurazione gestito dal sistema, che ricrea da sé le activity in primo piano (vale anche per
+ * `ComponentActivity`, non solo `AppCompatActivity`). Chiamare comunque `recreate()` anche lì
+ * produce due ricreazioni in corsa sulla stessa activity — quella innescata dal sistema e quella
+ * manuale — e nella pratica manda la UI in stallo (schermo bloccato, nessuna risposta al tocco).
+ * Sotto API 33 invece il ricalcolo automatico non è garantito per un'activity che non estende
+ * AppCompatActivity, quindi la `recreate()` esplicita resta necessaria.
  */
 fun applyAppLanguage(context: Context, language: AppLanguage) {
     val locales = language.tag?.let(LocaleListCompat::forLanguageTags) ?: LocaleListCompat.getEmptyLocaleList()
     AppCompatDelegate.setApplicationLocales(locales)
-    context.findActivity()?.recreate()
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+        context.findActivity()?.recreate()
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

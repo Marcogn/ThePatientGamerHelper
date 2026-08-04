@@ -48,19 +48,38 @@ extra parameter in the Hilt constructor), and doesn't introduce a new
 abstractions beyond what's needed" principle already followed elsewhere in
 the project.
 
-### Explicit `recreate()` after a language change
+### Explicit `recreate()` after a language change — only below API 33
 
 `AppCompatDelegate.setApplicationLocales()` on its own updates the persisted
 language preference, but the automatic recalculation of resources/running
-Activities that AppCompat offers is tied to the `AppCompatActivity`
+Activities that AppCompat reliably offers is tied to the `AppCompatActivity`
 lifecycle. This project uses `ComponentActivity` (pure Compose, no View
-system), so an explicit `recreate()` on the current Activity was added right
-after changing the language (`ui/settings/AppLanguage.kt`, the Activity
-resolved from `Context` via `ContextWrapper`). Without this step the
-language change would still be correctly persisted (thanks to
-`autoStoreLocales`) but not visible until the user left and reopened the
-app — a confusing behavior to run into, not acceptable for a switch living
-in Settings.
+system), so the first version always called an explicit `recreate()` on the
+current Activity right after changing the language
+(`ui/settings/AppLanguage.kt`, the Activity resolved from `Context` via
+`ContextWrapper`).
+
+**Bug found during manual verification on a real device (API 33+)**: from
+Android 13 onward, `setApplicationLocales()` is a configuration change
+handled by the OS itself, which recreates foreground activities on its own —
+this applies to any Activity, not just `AppCompatActivity`. Calling the
+explicit `recreate()` there too produced two recreations of the same
+Activity racing each other (the one triggered by the system and the manual
+one), resulting in a UI stuck on a solid-colored screen, no longer
+responsive to touch, consistently reproducible. Fix: the explicit
+`recreate()` is now gated on `Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU`
+— below API 33 it's still needed (automatic recalculation isn't guaranteed
+for an Activity that doesn't extend `AppCompatActivity`), from API 33 up the
+system already handles it and it shouldn't be duplicated.
+
+Separate note, not a bug: after a language change that triggers a real
+Activity recreation (by the system on API 33+, or by the manual
+`recreate()` below API 33), the Settings screen restarts from scratch and
+its backup-loading `LaunchedEffect(Unit)` runs again — if Google Drive isn't
+configured (`google_oauth_web_client_id` still at the placeholder) this
+makes the "Drive not configured" message reappear as if it were tied to the
+language change. It isn't: it's the same behavior already present since
+Phase 4 any time the Settings screen gets recomposed from scratch.
 
 ### `ThemeMode` with Italian names, like `ReviewStatus`
 
