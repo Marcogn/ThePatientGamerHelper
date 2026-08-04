@@ -36,6 +36,7 @@ class SettingsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         SettingsUiState(
+            isDriveConfigured = driveAuthManager.isConfigured(),
             autoBackupEnabled = preferences.autoBackupEnabled,
             lastBackupAt = preferences.lastBackupAt,
             lastBackupError = preferences.lastBackupError,
@@ -56,8 +57,24 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(autoBackupEnabled = enabled) }
     }
 
+    /**
+     * The single "Accedi con Google" entry point: picks/confirms the account (Credential Manager),
+     * then grants the Drive scope for it (AuthorizationClient) — both steps behind one button.
+     */
+    fun onLoginClick(activityContext: Context) = runBusy {
+        val email = driveAuthManager.signIn(activityContext)
+        val accessToken = resolve(driveAuthManager.authorize(activityContext), activityContext)
+        _uiState.update { it.copy(signedInEmail = email) }
+        loadBackups(accessToken)
+    }
+
+    /** Forgets the local "signed in" state. Doesn't revoke the Drive grant — a re-login reuses it silently. */
+    fun onLogout() {
+        _uiState.update { it.copy(signedInEmail = null, backups = emptyList()) }
+    }
+
     fun onBackupNow(activityContext: Context) = runBusy {
-        val accessToken = obtainAccessToken(activityContext)
+        val accessToken = ensureAccessToken(activityContext)
         backupManager.createBackup(accessToken)
         _uiState.update {
             it.copy(
@@ -69,12 +86,12 @@ class SettingsViewModel @Inject constructor(
         loadBackups(accessToken)
     }
 
-    fun onLoadBackups(activityContext: Context) = runBusy {
-        loadBackups(obtainAccessToken(activityContext))
+    fun onRefreshBackups(activityContext: Context) = runBusy {
+        loadBackups(ensureAccessToken(activityContext))
     }
 
     fun onRestore(activityContext: Context, backup: BackupFile) = runBusy {
-        val accessToken = obtainAccessToken(activityContext)
+        val accessToken = ensureAccessToken(activityContext)
         backupManager.restoreBackup(accessToken, backup)
         _uiState.update { it.copy(message = appContext.getString(R.string.settings_restore_completed)) }
     }
@@ -100,7 +117,7 @@ class SettingsViewModel @Inject constructor(
 
     private suspend fun loadBackups(accessToken: String) {
         val backups = backupManager.listBackups(accessToken)
-        _uiState.update { it.copy(backups = backups, hasLoadedBackups = true) }
+        _uiState.update { it.copy(backups = backups) }
     }
 
     private fun runBusy(block: suspend () -> Unit) {
@@ -121,8 +138,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private suspend fun obtainAccessToken(activityContext: Context): String {
-        driveAuthManager.signIn(activityContext)
+    /** Requires a completed [onLoginClick] — only refreshes the Drive token, no account picker. */
+    private suspend fun ensureAccessToken(activityContext: Context): String {
+        check(_uiState.value.signedInEmail != null) { appContext.getString(R.string.settings_drive_not_signed_in) }
         return resolve(driveAuthManager.authorize(activityContext), activityContext)
     }
 

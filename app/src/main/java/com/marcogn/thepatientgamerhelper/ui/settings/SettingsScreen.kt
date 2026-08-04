@@ -14,9 +14,12 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -77,9 +80,6 @@ fun SettingsScreen(
     LaunchedEffect(consentRequest) {
         consentRequest?.let { consentLauncher.launch(it) }
     }
-    LaunchedEffect(Unit) {
-        if (!uiState.hasLoadedBackups) viewModel.onLoadBackups(context)
-    }
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -115,19 +115,29 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
-            BackupSection(
-                uiState = uiState,
-                onToggleAutoBackup = viewModel::onToggleAutoBackup,
-                onBackupNow = { viewModel.onBackupNow(context) },
-            )
+            when {
+                !uiState.isDriveConfigured -> DriveNotConfiguredCard()
+                !uiState.isSignedIn -> GoogleLoginCard(isBusy = uiState.isBusy, onLoginClick = { viewModel.onLoginClick(context) })
+                else -> {
+                    ConnectedAccountRow(email = uiState.signedInEmail.orEmpty(), onLogout = viewModel::onLogout)
 
-            HorizontalDivider()
+                    HorizontalDivider()
 
-            RestoreSection(
-                uiState = uiState,
-                onRefresh = { viewModel.onLoadBackups(context) },
-                onRestoreClick = { backupPendingRestore = it },
-            )
+                    BackupSection(
+                        uiState = uiState,
+                        onToggleAutoBackup = viewModel::onToggleAutoBackup,
+                        onBackupNow = { viewModel.onBackupNow(context) },
+                    )
+
+                    HorizontalDivider()
+
+                    RestoreSection(
+                        uiState = uiState,
+                        onRefresh = { viewModel.onRefreshBackups(context) },
+                        onRestoreClick = { backupPendingRestore = it },
+                    )
+                }
+            }
 
             HorizontalDivider()
 
@@ -211,6 +221,58 @@ private fun AppLanguage.labelRes(): Int = when (this) {
     AppLanguage.SISTEMA -> R.string.language_system
     AppLanguage.ITALIANO -> R.string.language_italian
     AppLanguage.ENGLISH -> R.string.language_english
+}
+
+@Composable
+private fun DriveNotConfiguredCard() {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Filled.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                Text(
+                    text = stringResource(R.string.settings_drive_not_configured_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+            Text(
+                text = stringResource(R.string.settings_drive_not_configured_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GoogleLoginCard(isBusy: Boolean, onLoginClick: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = stringResource(R.string.settings_backup_section_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.settings_drive_login_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Button(onClick = onLoginClick, enabled = !isBusy, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.AccountCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text(stringResource(R.string.settings_login_with_google))
+        }
+    }
+}
+
+@Composable
+private fun ConnectedAccountRow(email: String, onLogout: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(text = stringResource(R.string.settings_connected_to_drive), style = MaterialTheme.typography.bodyLarge)
+            Text(text = email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = onLogout) { Text(stringResource(R.string.settings_logout)) }
+    }
 }
 
 @Composable

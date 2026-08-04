@@ -293,6 +293,30 @@ bisogno dell'SDK Android o di Robolectric.
   `CompletableDeferred<ActivityResult>` nel ViewModel per sospendere la
   coroutine di autorizzazione finché l'utente non risponde al consenso.
   Route: `Destination.Settings` in `ui/navigation/Destinations.kt`.
+- **Login esplicito, non implicito**: la prima versione faceva scattare
+  `signIn()` (bottom sheet di Credential Manager) a ogni singola azione
+  (backup, elenco backup, ripristino) — funzionale ma confuso, l'utente
+  vedeva il picker dell'account senza un punto di ingresso chiaro. Ora
+  `SettingsUiState.signedInEmail` traccia lo stato "connesso" della
+  sessione (solo in memoria nel ViewModel, non persistito su disco — niente
+  refresh token salvato: un riavvio dell'app richiede un nuovo login, scelta
+  deliberata per non introdurre storage di credenziali). Un unico tasto
+  "Accedi con Google" (`onLoginClick`) esegue `signIn()` + `authorize()`
+  insieme; finché `signedInEmail == null` la UI mostra solo quel tasto e
+  nasconde backup/ripristino (le sezioni Preferenze e TheGamesDB restano
+  visibili, non dipendono da Drive). Le azioni successive
+  (`onBackupNow`/`onRefreshBackups`/`onRestore`) richiamano solo
+  `authorize()` (silenzioso una volta concesso lo scope, niente altro
+  picker) tramite `ensureAccessToken()`, non più `signIn()`.
+  `DriveAuthManager.isConfigured()` espone se `google_oauth_web_client_id`
+  è ancora al placeholder: se sì, la schermata mostra direttamente in-app
+  (`DriveNotConfiguredCard`, stringhe localizzate IT/EN) una card che
+  spiega cosa manca e dove va configurato — invece di un errore generico
+  dopo aver premuto login. Il client ID OAuth resta comunque l'unica cosa
+  che **deve** vivere in un file di risorse: è la registrazione one-time
+  dell'app su Google Cloud Console (legata a SHA-1 + `applicationId`), non
+  un dato per-utente — nessuna API Google permette di crearla da codice a
+  runtime, quindi non è spostabile dietro un tasto di login.
 - **Configurazione esterna richiesta** (fuori dallo scope di queste
   modifiche): `res/values/drive_config.xml` contiene
   `google_oauth_web_client_id` con placeholder `[DA_COMPLETARE]` — va
