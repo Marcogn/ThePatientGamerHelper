@@ -4,6 +4,147 @@ Questo file documenta le scelte tecniche prese durante l'implementazione
 delle varie fasi che non erano già esplicitate in `docs/spec.md` o in
 `CLAUDE.md`.
 
+## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
+
+Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
+TheGamesDB" in `CLAUDE.md` per il riepilogo architetturale completo. Qui
+solo le scelte che non erano ovvie dalla richiesta originale.
+
+### Rinominare anche `applicationId`/package, non solo il nome visualizzato
+
+La richiesta era "cambia il nome dell'app ovunque", che di per sé avrebbe
+potuto voler dire solo la stringa `app_name` mostrata in UI. Ho chiesto
+esplicitamente all'utente se il cambio dovesse estendersi anche a
+`applicationId`/package Kotlin (`com.marcogn.gamereviewer` →
+`com.marcogn.thepatientgamerhelper`), spiegando le due conseguenze concrete
+prima di procedere:
+- Chi ha già installato l'app la perde come "app diversa": Android
+  considera l'`applicationId` l'identità dell'app, un `applicationId`
+  diverso non è un aggiornamento ma una nuova installazione — nessuna
+  migrazione automatica dei dati locali (database Room, immagini
+  copertina).
+- Il client OAuth Drive configurato in Google Cloud Console (Fase 4) è
+  registrato per la coppia `applicationId`+SHA1 del certificato di firma:
+  un nuovo `applicationId` richiede una nuova registrazione, quella
+  esistente (ancora al placeholder `[DA_COMPLETARE]` al momento di questa
+  modifica) non è comunque interessata da questo cambio a runtime, ma un
+  domani che venga configurata andrà rifatta per il nuovo `applicationId`.
+
+Risposta ricevuta: rinominare anche `applicationId`/package. Eseguito come
+spostamento meccanico di directory (`git mv`) + sostituzione testuale
+(`sed`) di `com.marcogn.gamereviewer`→`com.marcogn.thepatientgamerhelper` e
+`GameReviewer`→`ThePatientGamerHelper` su tutti i file `.kt`/`.xml`/build
+script/documentazione, seguito da verifiche statiche multiple (bilanciamento
+parentesi, corrispondenza package/percorso directory, validità XML, parità
+chiavi stringhe IT/EN) — lo stesso sandbox di questa sessione non ha accesso
+a `dl.google.com` quindi non è stato possibile compilare per verificare.
+
+### Cosa è rimasto deliberatamente non rinominato
+
+- **Il nome del repository GitHub** (`Marcogn/GameReviewer`): non richiesto
+  esplicitamente, e rinominare un repository ha un raggio d'azione che va
+  oltre il codice (link esistenti, integrazioni CI, fork) — fuori scope per
+  una richiesta che parlava di "nome dell'app", non del repository che la
+  ospita.
+- **Il prefisso `recensioni-videogiochi-` in `domain/export/ExportFileNaming.kt`**
+  (nome dei file esportati da JSON/CSV/PDF): descrive il *contenuto* del
+  file esportato ("recensioni videogiochi"), non deriva dal nome
+  dell'applicazione — resta coerente con la scelta di Fase 5 di lasciare le
+  etichette di `domain/export` fisse in italiano indipendentemente
+  dall'app.
+- **Il nome utente HTTP nello `User-Agent` di `TheGamesDbApiClient`**: la
+  sostituzione testuale in blocco (`GameReviewer`→`ThePatientGamerHelper`)
+  avrebbe corrotto anche l'URL del repository GitHub incluso lì
+  (`github.com/Marcogn/GameReviewer`, non rinominato — vedi punto sopra),
+  trasformandolo in un URL che non esiste. Individuato prima di eseguire il
+  `sed` e ripristinato manualmente al valore corretto dopo.
+
+### Nome del database Room non rinominabile via `sed`
+
+`DATABASE_NAME` in `ThePatientGamerHelperDatabase.kt` era `"game_reviewer.db"`
+(snake_case), non intercettato dai pattern `sed` usati per
+`com.marcogn.gamereviewer`/`GameReviewer` (case diverso). Rinominato a mano
+in `"the_patient_gamer_helper.db"`. **Nota**: questo, combinato col cambio
+di `applicationId`, significa che un'installazione esistente (con
+`applicationId` vecchio) non viene comunque toccata da questo rename — è
+letteralmente un'app diversa agli occhi di Android, quindi non esiste un
+percorso di migrazione file system da gestire qui.
+
+### Navigazione: cassetto laterale (hamburger) invece di icone in top bar
+
+La richiesta descriveva esplicitamente il meccanismo voluto ("menù laterale
+sx richiamabile da hamburger in alto a sx"), quindi non è stata una scelta
+tra alternative ma un'implementazione diretta:
+`ModalNavigationDrawer` (Material 3 Compose) attorno a tutto il `NavHost`,
+con lo stato del drawer (`rememberDrawerState`) sollevato al livello del
+grafo di navigazione — ogni schermata riceve solo una lambda `onMenuClick`
+che apre il drawer, non lo stato del drawer stesso. Le voci del drawer
+(Recensioni/Backlog/Statistiche + separatore + Impostazioni) navigano con
+`popUpTo(Destination.Home) { saveState = true }` +
+`launchSingleTop = true` + `restoreState = true`, il pattern standard
+raccomandato da Google per navigazione stile drawer/bottom-bar (evita di
+accumulare un backstack profondo quando si passa ripetutamente tra le
+stesse 3-4 destinazioni principali).
+
+`Destination.Settings` è rimasta raggiungibile solo dal drawer, con una
+freccia "indietro" (non l'hamburger) nella sua stessa top bar — è una
+destinazione "in fondo", non una delle tre sezioni principali tra cui si
+salta liberamente, coerente con come l'utente l'ha descritta ("con in fondo
+le impostazioni").
+
+### Nuova schermata Home come selettore, non redirect automatico
+
+La richiesta chiedeva una schermata "cosa vuoi fare?" con 3 scelte, distinta
+dalla libreria che prima era la schermata iniziale. Ho aggiunto
+`Destination.Home` come nuova `startDestination` del grafo di navigazione
+(la libreria/`Destination.Library` non è più la prima schermata mostrata
+all'apertura dell'app) invece di, per esempio, ricordare l'ultima sezione
+visitata e riaprirla direttamente: l'utente ha chiesto esplicitamente un
+punto di ingresso "cosa vuoi fare?", che perderebbe senso se l'app saltasse
+automaticamente altrove. Nessuno stato persistito per "ultima sezione
+usata" — coerente con "non introdurre funzionalità/stato non richiesti"
+già seguito nelle fasi precedenti.
+
+### Fix ricerca TheGamesDB: la causa visibile era un messaggio generico, non necessariamente l'unico bug
+
+Il sintomo riportato ("la ricerca è sempre 'non riuscita', non si capisce
+perché") ha una causa certa e diagnosticabile staticamente:
+`GameMetadataSearchCoordinator.search()` catturava qualunque eccezione
+(errore di rete, HTTP non-2xx, parsing JSON) e la sostituiva sempre con lo
+stesso testo generico (`R.string.game_search_failed`), scartando il
+messaggio reale dell'eccezione. Corretto loggando l'eccezione completa
+(`Log.w`, visibile in Logcat) e **accodando** il messaggio dell'eccezione
+(quando presente) al testo generico mostrato nel dialog, invece di
+sostituirlo — così un futuro fallimento mostra sia il messaggio
+rassicurante generico sia il dettaglio tecnico utile per diagnosticare
+(es. "HTTP 401: ..." per una chiave non valida).
+
+Questo sandbox non ha accesso di rete a `api.thegamesdb.net` (bloccato
+esplicitamente dalla policy del proxy in uscita, verificato con
+`/__agentproxy/status` prima di escludere un problema temporaneo), quindi
+non è stato possibile riprodurre il fallimento originale né verificare in
+modo definitivo quale fosse la causa sottostante specifica. Ho comunque
+applicato correzioni difensive plausibili basate su ricerca (non su
+riproduzione diretta) mentre sistemavo lo swallow dell'eccezione:
+- Header `Accept: application/json` e timeout espliciti
+  (connect/read) mancanti sulla connessione — assenti prima, alcuni
+  endpoint REST rispondono con un content-type inatteso o restano appesi
+  indefinitamente senza un timeout esplicito.
+- Il campo `"platform"` nella lista `fields` richiesti a `Games/ByGameName`
+  non risulta un campo valido per quell'endpoint secondo la documentazione
+  TheGamesDB consultata — rimosso dalla lista.
+- Il filtro per piattaforma nella query (`filter[platform]`) usa la sintassi
+  di array indicizzato tipica di API PHP/Laravel (`filter[platform][0]=`),
+  non la forma senza indice usata in precedenza — TheGamesDB è
+  implementata in Laravel.
+
+**Il fix che risolve con certezza il sintomo riportato** è il primo (lo
+swallow del messaggio): anche se le correzioni difensive sopra si
+rivelassero non centrare la causa reale, il prossimo fallimento mostrerà
+ora un messaggio diagnosticabile invece dello stesso testo opaco, rendendo
+possibile una diagnosi ulteriore senza bisogno di accesso diretto all'API
+da parte di chi scrive il codice.
+
 ## Fase 6 (Backlog tracciabile e fetch metadati TheGamesDB)
 
 Vedi la sezione "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)"
@@ -209,7 +350,7 @@ piuttosto che introdurre due convenzioni diverse nello stesso codebase.
 ### Due istanze di `ThemeViewModel`, nessuno scope condiviso
 
 `ThemeViewModel` viene creato via `hiltViewModel()` sia nella root
-dell'app (`MainActivity.GameReviewerApp`, per applicare il tema) sia in
+dell'app (`MainActivity.ThePatientGamerHelperApp`, per applicare il tema) sia in
 `SettingsScreen` (per mostrare/cambiare la selezione) — due istanze
 `ViewModel` distinte, scope diverso (Activity vs backstack entry della
 route Settings). Non ho introdotto un'istanza condivisa a livello di grafo

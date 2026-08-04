@@ -8,6 +8,138 @@ This file documents technical choices made during implementation of the
 various phases that weren't already spelled out in `docs/spec.md` or in
 `CLAUDE.md`.
 
+## Phase 7 (ThePatientGamerHelper rebrand, drawer navigation, TheGamesDB search fix)
+
+See the "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
+TheGamesDB" section in `CLAUDE.md` for the full architectural summary.
+Only the choices that weren't obvious from the original request are
+covered here.
+
+### Renaming `applicationId`/package too, not just the display name
+
+The request was "rename the app everywhere", which on its own could have
+meant just the `app_name` string shown in the UI. I explicitly asked
+whether the rename should also extend to `applicationId`/the Kotlin
+package (`com.marcogn.gamereviewer` → `com.marcogn.thepatientgamerhelper`),
+explaining two concrete consequences first:
+- Anyone who already installed the app loses it as a "different app":
+  Android treats `applicationId` as the app's identity, so a different
+  `applicationId` isn't an update but a fresh install — no automatic
+  migration of local data (Room database, cover images).
+- The Drive OAuth client configured in Google Cloud Console (Phase 4) is
+  registered for the `applicationId`+signing-certificate-SHA1 pair: a new
+  `applicationId` requires a new registration. The existing one (still at
+  the `[DA_COMPLETARE]` placeholder at the time of this change) isn't
+  affected at runtime by this rename, but will need re-registration for the
+  new `applicationId` whenever it does get configured.
+
+Answer received: rename `applicationId`/package too. Done as a mechanical
+directory move (`git mv`) + text substitution (`sed`) of
+`com.marcogn.gamereviewer`→`com.marcogn.thepatientgamerhelper` and
+`GameReviewer`→`ThePatientGamerHelper` across every `.kt`/`.xml`/build
+script/doc file, followed by multiple static checks (brace balance,
+package-declaration-vs-directory-path match, XML validity, IT/EN string key
+parity) — this session's sandbox has no access to `dl.google.com`, so an
+actual build could not be run to confirm.
+
+### What was deliberately left un-renamed
+
+- **The GitHub repository name** (`Marcogn/GameReviewer`): not explicitly
+  requested, and renaming a repository has a blast radius beyond the code
+  (existing links, CI integrations, forks) — out of scope for a request
+  that talked about the "app name", not the repository hosting it.
+- **The `recensioni-videogiochi-` prefix in `domain/export/ExportFileNaming.kt`**
+  (exported JSON/CSV/PDF file names): describes the *content* of the
+  exported file ("video game reviews"), it isn't derived from the app
+  name — consistent with the Phase 5 choice to keep `domain/export` labels
+  fixed in Italian regardless of the app's display name.
+- **The HTTP User-Agent string in `TheGamesDbApiClient`**: the blanket text
+  substitution (`GameReviewer`→`ThePatientGamerHelper`) would also have
+  corrupted the GitHub repository URL embedded there
+  (`github.com/Marcogn/GameReviewer`, not renamed — see above), turning it
+  into a URL that points nowhere. Caught before running the `sed` and
+  manually restored to the correct value afterward.
+
+### Room database name not catchable by `sed`
+
+`DATABASE_NAME` in `ThePatientGamerHelperDatabase.kt` was
+`"game_reviewer.db"` (snake_case), not matched by the `sed` patterns used
+for `com.marcogn.gamereviewer`/`GameReviewer` (different casing). Renamed
+by hand to `"the_patient_gamer_helper.db"`. **Note**: combined with the
+`applicationId` change, this means an existing install (with the old
+`applicationId`) is untouched by this rename either way — it's literally a
+different app as far as Android is concerned, so there's no filesystem
+migration path to handle here.
+
+### Navigation: side drawer (hamburger) instead of top-bar icons
+
+The request explicitly described the desired mechanism ("side drawer
+opened via a top-left hamburger"), so this wasn't a choice between
+alternatives but a direct implementation: `ModalNavigationDrawer`
+(Material 3 Compose) wraps the entire `NavHost`, with drawer state
+(`rememberDrawerState`) hoisted at the navigation graph level — each
+screen only receives an `onMenuClick` lambda that opens the drawer, not
+the drawer state itself. Drawer items (Reviews/Backlog/Statistics +
+divider + Settings) navigate with `popUpTo(Destination.Home) { saveState = true }`
++ `launchSingleTop = true` + `restoreState = true`, the standard pattern
+Google recommends for drawer/bottom-bar-style navigation (avoids piling up
+a deep backstack when repeatedly switching between the same 3-4 main
+destinations).
+
+`Destination.Settings` stays reachable only from the drawer, with a
+"back" arrow (not the hamburger) in its own top bar — it's a destination
+"at the bottom", not one of the three main sections freely switched
+between, consistent with how the user described it.
+
+### New Home screen as a chooser, not an automatic redirect
+
+The request asked for a "what do you want to do?" screen with 3 choices,
+distinct from the library which used to be the initial screen. I added
+`Destination.Home` as the navigation graph's new `startDestination` (the
+library/`Destination.Library` is no longer the first screen shown on app
+open) instead of, say, remembering the last-visited section and reopening
+it directly: the user explicitly asked for a "what do you want to do?"
+entry point, which would lose its purpose if the app jumped elsewhere
+automatically. No persisted "last section used" state — consistent with
+"don't introduce unrequested features/state" already followed in earlier
+phases.
+
+### TheGamesDB search fix: the visible cause was a generic message, not necessarily the only bug
+
+The reported symptom ("search always fails, unclear why") has one certain,
+statically diagnosable cause: `GameMetadataSearchCoordinator.search()`
+caught any exception (network error, non-2xx HTTP, JSON parsing) and
+always replaced it with the same generic text (`R.string.game_search_failed`),
+discarding the exception's real message. Fixed by logging the full
+exception (`Log.w`, visible in Logcat) and **appending** the exception's
+message (when present) to the generic text shown in the dialog, instead of
+replacing it — so a future failure shows both the reassuring generic text
+and the technical detail useful for diagnosis (e.g. "HTTP 401: ..." for an
+invalid key).
+
+This sandbox has no network access to `api.thegamesdb.net` (explicitly
+blocked by the outbound proxy policy, confirmed via `/__agentproxy/status`
+before ruling out a transient issue), so it wasn't possible to reproduce
+the original failure or conclusively confirm the specific underlying
+cause. Plausible defensive fixes based on research (not direct
+reproduction) were applied alongside fixing the swallowed exception:
+- Missing `Accept: application/json` header and explicit connect/read
+  timeouts on the connection — previously absent; some REST endpoints
+  respond with an unexpected content type or hang indefinitely without an
+  explicit timeout.
+- The `"platform"` field in the `fields` list requested from
+  `Games/ByGameName` doesn't appear to be a valid field for that endpoint
+  per the TheGamesDB documentation consulted — removed from the list.
+- The platform filter in the query (`filter[platform]`) uses the indexed
+  array syntax typical of PHP/Laravel APIs (`filter[platform][0]=`), not
+  the unindexed form used previously — TheGamesDB is built on Laravel.
+
+**The fix that certainly resolves the reported symptom** is the first one
+(the swallowed message): even if the defensive fixes above turn out not to
+address the real cause, the next failure will now show a diagnosable
+message instead of the same opaque text, making further diagnosis possible
+without whoever writes the code needing direct API access.
+
 ## Phase 6 (Trackable backlog and TheGamesDB metadata fetch)
 
 See the "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)"
@@ -208,7 +340,7 @@ introducing two different conventions in the same codebase.
 ### Two `ThemeViewModel` instances, no shared scope
 
 `ThemeViewModel` is created via `hiltViewModel()` both at the app root
-(`MainActivity.GameReviewerApp`, to apply the theme) and in `SettingsScreen`
+(`MainActivity.ThePatientGamerHelperApp`, to apply the theme) and in `SettingsScreen`
 (to show/change the selection) — two distinct `ViewModel` instances, with
 different scopes (Activity vs the Settings route's backstack entry). No
 shared instance was introduced at the navigation graph level:

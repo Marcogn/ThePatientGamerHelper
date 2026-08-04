@@ -1,4 +1,4 @@
-# Game Reviewer
+# ThePatientGamerHelper
 
 App Android nativa per tenere traccia delle recensioni dei videogiochi che
 finisco (o abbandono). Nasce per sostituire un flusso che tenevo a mano tra
@@ -82,7 +82,7 @@ in Google Cloud Console — i dettagli sono in `CLAUDE.md`.
 ## Struttura del progetto
 
 ```
-app/src/main/java/com/marcogn/gamereviewer/
+app/src/main/java/com/marcogn/thepatientgamerhelper/
 ├── data/       # Room (entity/dao), repository, export (SAF/PDF), backup/drive
 │               # (Google Drive, WorkManager), thegamesdb (ricerca online),
 │               # preferenze (tema), seed dati di debug

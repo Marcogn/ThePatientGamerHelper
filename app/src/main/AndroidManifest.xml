@@ -7,17 +7,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:name=".GameReviewerApplication"
+        android:name=".ThePatientGamerHelperApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GameReviewer">
+        android:theme="@style/Theme.ThePatientGamerHelper">
 
         <!--
-          GameReviewerApplication implementa Configuration.Provider (Fase 4, per iniettare
+          ThePatientGamerHelperApplication implementa Configuration.Provider (Fase 4, per iniettare
           HiltWorkerFactory): l'inizializzazione di default di WorkManager va rimossa esplicitamente,
           altrimenti entrerebbe in conflitto con quella custom lazy-inizializzata al primo
           WorkManager.getInstance(context) — vedi lint RemoveWorkManagerInitializer.
@@ -45,7 +45,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.GameReviewer">
+            android:theme="@style/Theme.ThePatientGamerHelper">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

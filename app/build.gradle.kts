@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.marcogn.gamereviewer"
+    namespace = "com.marcogn.thepatientgamerhelper"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.marcogn.gamereviewer"
+        applicationId = "com.marcogn.thepatientgamerhelper"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

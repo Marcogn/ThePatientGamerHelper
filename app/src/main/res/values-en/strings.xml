@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Game Reviews</string>
+    <string name="app_name">ThePatientGamerHelper</string>
 
     <!-- Shared across screens -->
     <string name="action_cancel">Cancel</string>
@@ -13,6 +13,23 @@
     <string name="cd_move_up">Move up</string>
     <string name="cd_move_down">Move down</string>
     <string name="cd_drag_handle">Drag to reorder</string>
+    <string name="cd_menu">Menu</string>
+
+    <!-- Home -->
+    <string name="home_subtitle">What do you want to do?</string>
+    <string name="home_option_reviews_title">Reviews</string>
+    <string name="home_option_reviews_subtitle">Browse, search and write your reviews</string>
+    <string name="home_option_backlog_title">Backlog</string>
+    <string name="home_option_backlog_subtitle">Games to start, lists and priorities</string>
+    <string name="home_option_stats_title">Statistics</string>
+    <string name="home_option_stats_subtitle">Numbers and distributions across your library</string>
+
+    <!-- Side menu -->
+    <string name="nav_drawer_reviews">Reviews</string>
+    <string name="nav_drawer_backlog">Backlog</string>
+    <string name="nav_drawer_stats">Statistics</string>
+
+    <string name="library_title">Reviews</string>
 
     <string name="review_status_in_progress">In progress</string>
     <string name="review_status_completed">Completed</string>

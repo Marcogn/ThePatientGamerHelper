@@ -33,6 +33,12 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
   "Cerca online" (TheGamesDB) nei form di backlog e recensione per
   precompilare copertina/piattaforma/genere (+ anno/sviluppatore per il
   backlog). Vedi sezione dedicata sotto.
+- **Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB**: ✅
+  completata (app rinominata ThePatientGamerHelper ovunque, incluso
+  `applicationId`/package Kotlin; nuova schermata Home "cosa vuoi fare?" +
+  cassetto laterale hamburger con le 3 sezioni principali + impostazioni;
+  fix del bug "ricerca TheGamesDB sempre fallita"). Vedi sezione dedicata
+  sotto.
 - **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
   "Export DOCX — perché non è stato implementato" sotto.
 
@@ -65,7 +71,7 @@ nuova sessione.
 ## Package/architettura
 
 ```
-com.marcogn.gamereviewer
+com.marcogn.thepatientgamerhelper
 ├── data/
 │   ├── local/
 │   │   ├── entity/      # Entità Room (Review, Platform, Genre, Tag, cross-ref, ProCon,
@@ -106,8 +112,15 @@ com.marcogn.gamereviewer
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
     ├── theme/             # Tema Material 3 (Compose) + ThemeViewModel (Fase 5, legge ThemePreferences)
-    ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization)
-    ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export)
+    ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization).
+    │                      # Fase 7: ModalNavigationDrawer attorno al NavHost (cassetto
+    │                      # hamburger con le 3 sezioni + impostazioni), Destination.Home
+    │                      # come startDestination
+    ├── home/              # Fase 7: HomeScreen, schermata "cosa vuoi fare?" con le 3 scelte
+    │                      # principali (recensioni/backlog/statistiche)
+    ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export).
+    │                      # Fase 7: non più startDestination, top bar senza nome app/icone
+    │                      # backlog/statistiche/impostazioni (ora nel drawer)
     ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
     ├── form/              # Form crea/modifica recensione (+ "Cerca online" e pre-popolamento
     │                      # da backlog item, Fase 6)
@@ -195,7 +208,7 @@ bisogno dell'SDK Android o di Robolectric.
   distribuzioni dovessero diventare più ricche (es. grafici a torta, trend nel
   tempo), rivalutare Vico prima di scrivere altro codice di rendering a mano.
 - Route di navigazione: `Destination.Stats` in
-  `ui/navigation/Destinations.kt`, wiring in `GameReviewerNavGraph.kt`.
+  `ui/navigation/Destinations.kt`, wiring in `ThePatientGamerHelperNavGraph.kt`.
 
 ## Fase 4 — Backup cloud Google Drive
 
@@ -259,7 +272,7 @@ bisogno dell'SDK Android o di Robolectric.
   cadenza fissa giornaliera (`BackupScheduler`, 24h,
   `NetworkType.CONNECTED`) — nessuna UI per configurare l'intervallo, stesso
   principio "non over-engineerare" già applicato in Fase 3.
-  `GameReviewerApplication` implementa `Configuration.Provider` per iniettare
+  `ThePatientGamerHelperApplication` implementa `Configuration.Provider` per iniettare
   `HiltWorkerFactory`; il manifest rimuove esplicitamente
   `androidx.startup.InitializationProvider`
   (`tools:node="remove"`) — necessario perché Android Lint
@@ -364,14 +377,14 @@ bisogno dell'SDK Android o di Robolectric.
 - `ui/theme/ThemeViewModel.kt` espone `themeMode` come `StateFlow` letto da
   `ThemePreferences.themeMode` (`Flow`, single source of truth) via
   `stateIn`. Due punti di consumo indipendenti, entrambi tramite
-  `hiltViewModel()`: la root `GameReviewerApp` in `MainActivity.kt` (decide
-  se applicare `darkTheme = true/false` a `GameReviewerTheme`, rispettando
+  `hiltViewModel()`: la root `ThePatientGamerHelperApp` in `MainActivity.kt` (decide
+  se applicare `darkTheme = true/false` a `ThePatientGamerHelperTheme`, rispettando
   `isSystemInDarkTheme()` quando il modo è `SISTEMA`) e `SettingsScreen`
   (per mostrare/cambiare la selezione). Sono due istanze `ViewModel`
   diverse ma leggono lo stesso `DataStore`, quindi restano sincronizzate
   senza bisogno di uno scope condiviso — stesso principio "Room/DataStore
   come single source of truth via Flow" già in uso per il resto dell'app.
-- `GameReviewerTheme` (`ui/theme/Theme.kt`) non è cambiato nella firma:
+- `ThePatientGamerHelperTheme` (`ui/theme/Theme.kt`) non è cambiato nella firma:
   accetta già `darkTheme: Boolean`, è solo il chiamante in `MainActivity`
   che ora lo calcola da `ThemeMode` invece di usare sempre il default
   `isSystemInDarkTheme()`.
@@ -405,7 +418,7 @@ Tappa 2, come da richiesta).
   dalle recensioni (`platforms`/`genres`/`tags`, nuove cross-ref
   `backlog_item_*_cross_ref`) — stesso pool di autocomplete tra backlog e
   recensioni, coerente col resto del modello dati.
-- **Migration additiva, non distruttiva**: `GameReviewerDatabase` passa da
+- **Migration additiva, non distruttiva**: `ThePatientGamerHelperDatabase` passa da
   `version = 1` a `version = 2`. **Non** è stato usato
   `fallbackToDestructiveMigration()`: l'app è già in uso reale (vedi intro di
   questo file), un `fallbackToDestructiveMigration()` avrebbe cancellato le
@@ -556,6 +569,98 @@ verificata su CI al momento di scrivere questa nota** — lo stesso sandbox
 isolato senza accesso a `dl.google.com` descritto sotto "Limitazione nota
 dell'ambiente sandbox" era in vigore anche per questa sessione. Controlla lo
 stato dei check sulla relativa PR prima di considerarla verde.
+
+## Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB
+
+Tre richieste distinte nella stessa sessione, trattate come un'unica
+modifica coordinata.
+
+### Rebranding ThePatientGamerHelper
+
+- App rinominata **ovunque**, incluso `applicationId`/package Kotlin (non
+  solo il nome visualizzato): `com.marcogn.gamereviewer` →
+  `com.marcogn.thepatientgamerhelper`. Scelta confermata esplicitamente
+  dall'utente dopo aver segnalato le due conseguenze concrete (nessuna
+  migrazione dati per installazioni esistenti — `applicationId` diverso è
+  un'app diversa per Android; il client OAuth Drive andrà ri-registrato per
+  il nuovo `applicationId`+SHA1 quando configurato). Vedi
+  `docs/decisioni-implementazione.md`, sezione Fase 7, per il dettaglio
+  completo del ragionamento e di cosa è rimasto intenzionalmente
+  invariato (nome del repository GitHub, prefisso file di export in
+  `domain/export/ExportFileNaming.kt`).
+- File/classi rinominate: `GameReviewerNavGraph.kt` →
+  `ThePatientGamerHelperNavGraph.kt`, `GameReviewerApplication.kt` →
+  `ThePatientGamerHelperApplication.kt`,
+  `data/local/GameReviewerDatabase.kt` →
+  `data/local/ThePatientGamerHelperDatabase.kt` (con
+  `DATABASE_NAME = "the_patient_gamer_helper.db"`, cambiato a mano perché
+  snake_case non intercettato dal `sed` di rename).
+- `app_name` (`values/strings.xml`/`values-en/strings.xml`): ora
+  `"ThePatientGamerHelper"` in entrambe le lingue (prima "Recensioni
+  Videogiochi"/"Game Reviews").
+
+### Navigazione: Home chooser + drawer hamburger
+
+- Nuova `Destination.Home` (`ui/navigation/Destinations.kt`), ora
+  `startDestination` del grafo — sostituisce `Destination.Library` come
+  prima schermata mostrata. `ui/home/HomeScreen.kt`: top bar con hamburger
+  + testo "cosa vuoi fare?" + tre card (Recensioni/Backlog/Statistiche,
+  ciascuna con icona/titolo/sottotitolo/chevron), nessun dato mock — solo
+  navigazione, nessuna lettura da Room.
+- `ThePatientGamerHelperNavGraph.kt` avvolge l'intero `NavHost` in un
+  `ModalNavigationDrawer` (Material 3), con `drawerState` sollevato al
+  livello del grafo. Le voci del drawer (Recensioni, Backlog, Statistiche,
+  poi un separatore e Impostazioni in fondo) navigano con
+  `popUpTo(Destination.Home) { saveState = true }` +
+  `launchSingleTop = true` + `restoreState = true` — pattern standard
+  drawer/bottom-bar, evita di accumulare backstack quando si passa
+  ripetutamente tra le stesse sezioni.
+- Ogni schermata riceve solo una lambda `onMenuClick: () -> Unit` (apre il
+  drawer), mai lo stato del drawer stesso — coerente con UDF (eventi
+  salgono, stato scende) già seguito nel resto dell'app.
+- **`LibraryScreen`**: top bar senza più il nome dell'app (ora
+  `stringResource(R.string.library_title)`, "Recensioni"/"Reviews"),
+  icona hamburger al posto della freccia indietro, rimossi gli
+  `IconButton` di Backlog/Statistiche/Impostazioni dalla toolbar (ora
+  raggiungibili solo dal drawer). `BacklogScreen`/`StatsScreen`: stesso
+  trattamento (`onBack` → `onMenuClick`, icona freccia → hamburger).
+  `SettingsScreen` **non** ha ricevuto l'hamburger: resta raggiungibile
+  solo dal drawer, con una freccia indietro nella propria top bar — è "in
+  fondo" al drawer, non una delle tre sezioni principali.
+
+### Fix ricerca TheGamesDB sempre fallita
+
+- **Causa certa e corretta**: `GameMetadataSearchCoordinator.search()`
+  sostituiva qualunque eccezione (rete, HTTP, parsing) con lo stesso
+  messaggio generico fisso, scartando il dettaglio reale. Ora logga
+  l'eccezione (`Log.w`) e **accoda** il suo messaggio (quando presente) al
+  testo generico mostrato nel dialog — un futuro fallimento sarà
+  diagnosticabile dall'utente stesso (es. "HTTP 401: ..." per una chiave
+  non valida) invece di restare un misterioso "non riuscita".
+- **Correzioni difensive aggiuntive** (basate su ricerca, non su
+  riproduzione diretta — questo sandbox non ha accesso di rete a
+  `api.thegamesdb.net`, bloccato esplicitamente dalla policy del proxy):
+  header `Accept: application/json` + timeout connect/read espliciti
+  mancanti sulla connessione; rimosso `"platform"` dai `fields` richiesti a
+  `Games/ByGameName` (non un campo valido per quell'endpoint); sintassi del
+  filtro piattaforma corretta alla forma indicizzata Laravel
+  (`filter[platform][0]=` invece di `filter[platform]=`).
+  Vedi `docs/decisioni-implementazione.md` per il dettaglio completo —
+  incluso perché il primo fix (il messaggio non più generico) è l'unico di
+  cui è garantita la correttezza, indipendentemente da quanto le altre
+  correzioni difensive si rivelino centrate.
+
+**Stato build**: come per le Fasi 5 e 6, questa modifica è stata scritta e
+rivista staticamente (bilanciamento parentesi su ogni file `.kt` toccato,
+corrispondenza package/percorso directory dopo il rename massivo, validità
+XML su tutte le risorse, parità 1:1 delle chiavi `strings.xml` IT/EN) ma
+**non verificata su CI al momento di scrivere questa nota** — stesso
+sandbox isolato senza accesso a `dl.google.com` (build) né a
+`api.thegamesdb.net` (fix ricerca) descritto sotto "Limitazione nota
+dell'ambiente sandbox". Controlla lo stato dei check sulla relativa PR
+prima di considerarla verde, e verifica manualmente su device/emulatore che
+il fix della ricerca TheGamesDB mostri ora un messaggio d'errore
+utile quando la ricerca fallisce.
 
 ## Export DOCX — perché non è stato implementato
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Recensioni Videogiochi</string>
+    <string name="app_name">ThePatientGamerHelper</string>
 
     <!-- Comuni / condivise fra più schermate -->
     <string name="action_cancel">Annulla</string>
@@ -13,6 +13,23 @@
     <string name="cd_move_up">Sposta su</string>
     <string name="cd_move_down">Sposta giù</string>
     <string name="cd_drag_handle">Trascina per riordinare</string>
+    <string name="cd_menu">Menu</string>
+
+    <!-- Home -->
+    <string name="home_subtitle">Cosa vuoi fare?</string>
+    <string name="home_option_reviews_title">Recensioni</string>
+    <string name="home_option_reviews_subtitle">Sfoglia, cerca e scrivi le tue recensioni</string>
+    <string name="home_option_backlog_title">Backlog</string>
+    <string name="home_option_backlog_subtitle">Giochi da iniziare, liste e priorità</string>
+    <string name="home_option_stats_title">Statistiche</string>
+    <string name="home_option_stats_subtitle">Numeri e distribuzioni sulla tua libreria</string>
+
+    <!-- Menu laterale -->
+    <string name="nav_drawer_reviews">Recensioni</string>
+    <string name="nav_drawer_backlog">Backlog</string>
+    <string name="nav_drawer_stats">Statistiche</string>
+
+    <string name="library_title">Recensioni</string>
 
     <string name="review_status_in_progress">In corso</string>
     <string name="review_status_completed">Completato</string>
