@@ -13,9 +13,11 @@ completa e `CLAUDE.md` per le note di architettura/sviluppo.
 - **Fase 2 (Export)** completata: JSON/CSV per l'intera libreria, Markdown
   compatibile Reddit per singola recensione, PDF (singola recensione o
   libreria in batch). Salvataggio sempre tramite Storage Access Framework.
+- **Fase 3 (Statistiche libreria)** completata: schermata Statistiche
+  raggiungibile dalla libreria con totali/medie, distribuzione per
+  piattaforma/genere e ripartizione per stato.
 
-Statistiche libreria e backup cloud sono fasi future, non ancora
-implementate.
+Backup cloud è una fase futura, non ancora implementata.
 
 ## Stack
 

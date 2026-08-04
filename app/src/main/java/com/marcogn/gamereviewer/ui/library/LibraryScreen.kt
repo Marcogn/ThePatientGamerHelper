@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
@@ -51,6 +52,7 @@ import com.marcogn.gamereviewer.domain.model.Review
 fun LibraryScreen(
     onReviewClick: (String) -> Unit,
     onAddClick: () -> Unit,
+    onStatsClick: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -91,6 +93,9 @@ fun LibraryScreen(
                         }
                     }
                     SortMenu(sort = uiState.sort, onSortChange = viewModel::onSortChange)
+                    IconButton(onClick = onStatsClick) {
+                        Icon(Icons.Filled.BarChart, contentDescription = "Statistiche")
+                    }
                 },
             )
         },
