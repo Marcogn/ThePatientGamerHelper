@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import com.marcogn.gamereviewer.ui.detail.DetailScreen
 import com.marcogn.gamereviewer.ui.form.ReviewFormScreen
 import com.marcogn.gamereviewer.ui.library.LibraryScreen
+import com.marcogn.gamereviewer.ui.settings.SettingsScreen
 import com.marcogn.gamereviewer.ui.stats.StatsScreen
 
 @Composable
@@ -18,10 +19,14 @@ fun GameReviewerNavGraph(navController: NavHostController = rememberNavControlle
                 onReviewClick = { id -> navController.navigate(Destination.Detail(id)) },
                 onAddClick = { navController.navigate(Destination.Form()) },
                 onStatsClick = { navController.navigate(Destination.Stats) },
+                onSettingsClick = { navController.navigate(Destination.Settings) },
             )
         }
         composable<Destination.Stats> {
             StatsScreen(onBack = { navController.popBackStack() })
+        }
+        composable<Destination.Settings> {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable<Destination.Detail> {
             DetailScreen(

@@ -21,6 +21,9 @@ interface PlatformDao {
     @Query("SELECT * FROM platforms WHERE normalizedName = :normalizedName LIMIT 1")
     suspend fun findByNormalizedName(normalizedName: String): PlatformEntity?
 
+    @Query("DELETE FROM platforms")
+    suspend fun deleteAll()
+
     @Transaction
     suspend fun getOrCreate(rawName: String): Long {
         val trimmed = rawName.trim()
@@ -42,6 +45,9 @@ interface GenreDao {
     @Query("SELECT * FROM genres WHERE normalizedName = :normalizedName LIMIT 1")
     suspend fun findByNormalizedName(normalizedName: String): GenreEntity?
 
+    @Query("DELETE FROM genres")
+    suspend fun deleteAll()
+
     @Transaction
     suspend fun getOrCreate(rawName: String): Long {
         val trimmed = rawName.trim()
@@ -62,6 +68,9 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE normalizedName = :normalizedName LIMIT 1")
     suspend fun findByNormalizedName(normalizedName: String): TagEntity?
+
+    @Query("DELETE FROM tags")
+    suspend fun deleteAll()
 
     @Transaction
     suspend fun getOrCreate(rawName: String): Long {

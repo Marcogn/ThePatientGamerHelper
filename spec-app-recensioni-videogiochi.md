@@ -63,10 +63,15 @@ tecniche in `CLAUDE.md` e `docs/decisioni-implementazione.md`.
 - **Markdown**: formattazione compatibile con la sintassi di Reddit, per copia-incolla diretto nei tuoi post
 - **JSON/CSV**: dati grezzi, per backup/portabilità e per eventuale elaborazione esterna
 - **PDF**: singola recensione o intera libreria in batch
-- **DOCX**: vedi nota tecnica dedicata sotto — è il formato più oneroso da generare nativamente
+- **DOCX**: **non implementato, decisione definitiva** — vedi nota tecnica dedicata sotto
 
-### 3.4 Backup cloud su Google Drive (Fase 4)
-Backup manuale e automatico (periodico via WorkManager) di un archivio contenente JSON completo + immagini.
+### 3.4 Backup cloud su Google Drive (Fase 4) ✅ completata
+Backup manuale e automatico (periodico via WorkManager) di un archivio ZIP
+(JSON completo + cartella immagini) salvato nella appDataFolder di Google
+Drive. Ripristino: elenco dei backup disponibili, selezione, download e
+reimport in Room con sovrascrittura completa dei dati locali (nessun
+merge). Dettaglio implementativo e scelte tecniche in `CLAUDE.md`, sezione
+"Fase 4 — Backup cloud Google Drive".
 
 ---
 
@@ -98,14 +103,19 @@ Nessuna libreria necessaria: è generazione di stringhe a template, il formato p
 ### CSV/JSON
 `kotlinx.serialization` per JSON (idiomatico in Kotlin); per CSV un writer manuale o OpenCSV, senza particolari insidie.
 
-### DOCX — nota di onestà tecnica
+### DOCX — nota di onestà tecnica (e decisione presa)
 Qui va detta la cosa scomoda: **non esiste un writer DOCX leggero e maturo pensato per Android**. Apache POI (lo standard JVM per Office) ha problemi noti su Android — dipende da classi `java.awt` non disponibili sulla piattaforma e appesantisce parecchio l'APK. I wrapper Kotlin che si trovano in giro (es. DocxKtm) sono comunque costruiti sopra docx4j, che porta con sé lo stesso tipo di dipendenze pesanti.
 
-Due opzioni realistiche, in ordine di pragmatismo:
-1. **Generare il DOCX manualmente come archivio ZIP di XML** (un file .docx è tecnicamente uno ZIP con dentro `document.xml` + file di struttura OOXML). Per un documento semplice — titolo, paragrafi, elenchi puntati — è fattibile senza librerie pesanti: scrivi tu il template XML minimo. Richiede un po' di lavoro iniziale ma zero dipendenze problematiche.
-2. **Posticipare il DOCX** a una fase successiva, dato che Markdown e JSON/CSV coprono già rispettivamente il caso "condivisione leggibile" e il caso "dato grezzo portabile" — il DOCX diventa un nice-to-have più che una necessità funzionale.
+L'unica strada praticabile senza dipendenze pesanti sarebbe generare il
+DOCX manualmente come archivio ZIP di XML (un file .docx è tecnicamente uno
+ZIP con dentro `document.xml` + file di struttura OOXML) — fattibile per un
+documento semplice, ma con un investimento iniziale non banale.
 
-Consiglio la seconda opzione per l'MVP, e la prima se/quando il DOCX diventa davvero prioritario.
+**Decisione presa** (non più un punto aperto): **non implementare l'export
+DOCX**. Con Markdown (condivisione leggibile, compatibile Reddit) e
+JSON/CSV (dato grezzo portabile) già coperti dalla Fase 2, il DOCX resta un
+nice-to-have senza un caso d'uso concreto che ne giustifichi il costo di
+implementazione. Non fa più parte della roadmap del progetto.
 
 ---
 
@@ -128,8 +138,9 @@ Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configu
 1. **Fase 1 — MVP locale** ✅: CRUD, lista, filtri, dettaglio recensione
 2. **Fase 2 — Export** ✅: JSON/CSV → Markdown → PDF (in quest'ordine di complessità crescente)
 3. **Fase 3 — Statistiche libreria** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
-4. **Fase 4 — Backup cloud Google Drive**
-5. **Fase 5 (opzionale) — Export DOCX**, se resta prioritario dopo aver vissuto con gli altri tre formati
+4. **Fase 4 — Backup cloud Google Drive** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
+
+Export DOCX: **non più in roadmap**, decisione definitiva — vedi sezione 5.
 
 ---
 

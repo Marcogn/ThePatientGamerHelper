@@ -19,4 +19,12 @@ interface ReviewRepository {
     suspend fun save(id: String?, draft: ReviewDraft): String
 
     suspend fun delete(id: String): Unit
+
+    /**
+     * Restore-only bulk write: wipes every review (and lookup rows/cross-refs) and reinserts
+     * [reviews] verbatim, preserving id/createdAt/updatedAt from the backup instead of the
+     * create/update semantics `save()` uses. Single-user app, no merge — a restore is a full
+     * overwrite of local data.
+     */
+    suspend fun replaceAll(reviews: List<Review>)
 }

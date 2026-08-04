@@ -33,6 +33,9 @@ interface ReviewDao {
     @Query("DELETE FROM reviews WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query("DELETE FROM reviews")
+    suspend fun deleteAll()
+
     @Query("DELETE FROM review_platform_cross_ref WHERE reviewId = :reviewId")
     suspend fun clearPlatformCrossRefs(reviewId: String)
 

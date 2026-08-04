@@ -58,33 +58,11 @@ class ReviewRepositoryImpl @Inject constructor(
                 updatedAt = now,
             ),
         )
-
-        val platformIds = distinctNames(draft.platformNames).map { platformDao.getOrCreate(it) }
         reviewDao.clearPlatformCrossRefs(reviewId)
-        if (platformIds.isNotEmpty()) {
-            reviewDao.insertPlatformCrossRefs(platformIds.map { ReviewPlatformCrossRef(reviewId, it) })
-        }
-
-        val genreIds = distinctNames(draft.genreNames).map { genreDao.getOrCreate(it) }
         reviewDao.clearGenreCrossRefs(reviewId)
-        if (genreIds.isNotEmpty()) {
-            reviewDao.insertGenreCrossRefs(genreIds.map { ReviewGenreCrossRef(reviewId, it) })
-        }
-
-        val tagIds = distinctNames(draft.tagNames).map { tagDao.getOrCreate(it) }
         reviewDao.clearTagCrossRefs(reviewId)
-        if (tagIds.isNotEmpty()) {
-            reviewDao.insertTagCrossRefs(tagIds.map { ReviewTagCrossRef(reviewId, it) })
-        }
-
         reviewDao.clearProCon(reviewId)
-        val proConEntities = draft.pros.filter { it.isNotBlank() }
-            .mapIndexed { index, text -> ReviewProConEntity(reviewId = reviewId, type = ProConType.PRO, text = text.trim(), position = index) } +
-            draft.cons.filter { it.isNotBlank() }
-                .mapIndexed { index, text -> ReviewProConEntity(reviewId = reviewId, type = ProConType.CONTRO, text = text.trim(), position = index) }
-        if (proConEntities.isNotEmpty()) {
-            reviewDao.insertProCon(proConEntities)
-        }
+        writeRelations(reviewId, draft.platformNames, draft.genreNames, draft.tagNames, draft.pros, draft.cons)
 
         reviewId
     }
@@ -93,6 +71,72 @@ class ReviewRepositoryImpl @Inject constructor(
         val entity = reviewDao.getReviewEntity(id)
         reviewDao.deleteById(id)
         imageStorage.delete(entity?.coverImagePath)
+    }
+
+    override suspend fun replaceAll(reviews: List<Review>) = database.withTransaction {
+        reviewDao.deleteAll()
+        platformDao.deleteAll()
+        genreDao.deleteAll()
+        tagDao.deleteAll()
+
+        reviews.forEach { review ->
+            reviewDao.upsertReview(
+                ReviewEntity(
+                    id = review.id,
+                    title = review.title,
+                    rating = review.rating,
+                    startDate = review.startDate,
+                    endDate = review.endDate,
+                    hoursPlayed = review.hoursPlayed,
+                    status = review.status,
+                    reviewText = review.reviewText,
+                    coverImagePath = review.coverImagePath,
+                    createdAt = review.createdAt,
+                    updatedAt = review.updatedAt,
+                ),
+            )
+            writeRelations(
+                reviewId = review.id,
+                platformNames = review.platforms.map { it.name },
+                genreNames = review.genres.map { it.name },
+                tagNames = review.tags.map { it.name },
+                pros = review.pros,
+                cons = review.cons,
+            )
+        }
+    }
+
+    /** Resolves lookup names to ids and writes cross-refs + pro/con rows for a review that already exists. */
+    private suspend fun writeRelations(
+        reviewId: String,
+        platformNames: List<String>,
+        genreNames: List<String>,
+        tagNames: List<String>,
+        pros: List<String>,
+        cons: List<String>,
+    ) {
+        val platformIds = distinctNames(platformNames).map { platformDao.getOrCreate(it) }
+        if (platformIds.isNotEmpty()) {
+            reviewDao.insertPlatformCrossRefs(platformIds.map { ReviewPlatformCrossRef(reviewId, it) })
+        }
+
+        val genreIds = distinctNames(genreNames).map { genreDao.getOrCreate(it) }
+        if (genreIds.isNotEmpty()) {
+            reviewDao.insertGenreCrossRefs(genreIds.map { ReviewGenreCrossRef(reviewId, it) })
+        }
+
+        val tagIds = distinctNames(tagNames).map { tagDao.getOrCreate(it) }
+        if (tagIds.isNotEmpty()) {
+            reviewDao.insertTagCrossRefs(tagIds.map { ReviewTagCrossRef(reviewId, it) })
+        }
+
+        val proConEntities = pros.filter { it.isNotBlank() }
+            .mapIndexed { index, text -> ReviewProConEntity(reviewId = reviewId, type = ProConType.PRO, text = text.trim(), position = index) } +
+            cons.filter { it.isNotBlank() }
+                .mapIndexed { index, text -> ReviewProConEntity(reviewId = reviewId, type = ProConType.CONTRO, text = text.trim(), position = index) }
+        if (proConEntities.isNotEmpty()) {
+            reviewDao.insertProCon(proConEntities)
+        }
     }
 
     private fun distinctNames(names: List<String>): List<String> =

@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Fase 4: chiamate REST a Drive (googleapis.com) per il backup cloud. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".GameReviewerApplication"
@@ -9,6 +13,18 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.GameReviewer">
+
+        <!--
+          GameReviewerApplication implementa Configuration.Provider (Fase 4, per iniettare
+          HiltWorkerFactory): l'inizializzazione di default di WorkManager va rimossa esplicitamente,
+          altrimenti entrerebbe in conflitto con quella custom lazy-inizializzata al primo
+          WorkManager.getInstance(context) — vedi lint RemoveWorkManagerInitializer.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="remove" />
 
         <activity
             android:name=".MainActivity"
