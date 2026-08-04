@@ -305,38 +305,66 @@ non introduce un nuovo tipo "risultato" solo per veicolare una stringa
 localizzata — coerente con "niente astrazioni oltre quello che serve" già
 seguito nel resto del progetto.
 
-### `recreate()` esplicito dopo il cambio lingua — solo sotto API 33
+### Cambio lingua rotto in due modi diversi prima del fix vero: serve `AppCompatActivity`
 
-`AppCompatDelegate.setApplicationLocales()` da solo aggiorna la preferenza
-di lingua persistita, ma il ricalcolo automatico delle risorse/Activity in
-esecuzione che AppCompat offre in modo affidabile è legato al ciclo di vita
-di `AppCompatActivity`. Questo progetto usa `ComponentActivity` (Compose
-puro, niente View system), quindi la prima versione chiamava sempre una
-`recreate()` esplicita sull'Activity corrente subito dopo aver cambiato la
-lingua (`ui/settings/AppLanguage.kt`, risolta da `Context` tramite
-`ContextWrapper`).
+Il cambio lingua è stato verificato manualmente su device reale dopo il
+merge della Fase 5, e ha richiesto due iterazioni sbagliate prima di
+arrivare alla causa reale — vale la pena documentarle entrambe, non solo la
+soluzione finale.
 
-**Bug scoperto in verifica manuale su device reale (API 33+)**: da Android
-13 in su, `setApplicationLocales()` è un cambio di configurazione gestito
-dal sistema operativo, che ricrea da sé le activity in primo piano — vale
-per qualunque Activity, non solo `AppCompatActivity`. Chiamare comunque la
-`recreate()` esplicita anche lì produceva due ricreazioni della stessa
-Activity in corsa tra loro (quella innescata dal sistema e quella manuale),
-con il risultato di una UI bloccata su schermo a tinta unita, non più
-reattiva al tocco, riproducibile in modo consistente. Fix: la `recreate()`
-esplicita ora è condizionata a `Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU`
-— sotto API 33 resta necessaria (il ricalcolo automatico non è garantito per
-un'Activity che non estende `AppCompatActivity`), da API 33 in su il sistema
-se ne occupa già e non va duplicata.
+**Tentativo 1**: `MainActivity` era una `ComponentActivity` pura (Compose,
+niente View system). Poiché la ricreazione automatica delle Activity che
+AppCompat offre in modo affidabile è legata al ciclo di vita di
+`AppCompatActivity`, `applyAppLanguage()` chiamava sempre una `recreate()`
+esplicita sull'Activity corrente subito dopo `setApplicationLocales()`
+(risolta da `Context` tramite `ContextWrapper`). Risultato su device reale
+(API 33+): selezionando una lingua compariva l'errore "Drive non
+configurato" (vedi nota sotto) e, tornando indietro e riaprendo l'app, la UI
+restava bloccata su schermo a tinta unita, non più reattiva al tocco.
 
-Nota separata, non un bug: dopo un cambio lingua che innesca una vera
-ricreazione dell'Activity (dal sistema su API 33+, o dalla `recreate()`
-manuale sotto API 33), la schermata Impostazioni riparte da zero e il suo
-`LaunchedEffect(Unit)` di caricamento backup si ripete — se Google Drive non
-è configurato (`google_oauth_web_client_id` ancora al placeholder) questo
-fa ricomparire il messaggio "Drive non configurato" come se fosse legato al
-cambio lingua. Non lo è: è lo stesso comportamento già presente dalla Fase 4
-ogni volta che la schermata Impostazioni viene ricomposta da zero.
+**Tentativo 2**: ipotesi (sbagliata) che il blocco fosse dovuto a due
+`recreate()` in corsa — quella del sistema operativo (che da Android 13 in
+su gestisce il cambio lingua come un vero cambio di configurazione e ricrea
+da sé le activity in primo piano) più quella manuale. Fix applicato:
+condizionare la `recreate()` esplicita a `Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU`.
+Risultato su device reale: il blocco spariva, ma il cambio lingua smetteva
+di funzionare del tutto — nessun errore, nessuna reazione, la UI restava
+sempre in italiano. Il sintomo per esclusione ha smentito l'ipotesi della
+doppia `recreate()`.
+
+**Causa reale**: la documentazione ufficiale Android è esplicita — *"If
+you're using Compose with setApplicationLocales, you must extend your
+activity from AppCompatActivity. Otherwise, setting the app locale won't
+work."* `ComponentActivity` non ha semplicemente un supporto "meno
+affidabile" per il cambio lingua sotto Compose: **non funziona per niente**,
+perché manca l'aggancio che porta la nuova configurazione (la locale) fino
+al meccanismo di ricomposizione di Compose. Chiamare `recreate()` a mano su
+una `ComponentActivity` in questo stato non risolve il problema alla radice
+— ricrea l'Activity, ma senza che la configurazione risolta rifletta la
+nuova lingua, lasciando l'app in uno stato incoerente (da cui il blocco
+visto nel Tentativo 1).
+
+**Fix definitivo**: `MainActivity` estende ora `AppCompatActivity` (non
+`ComponentActivity`) — resta comunque Compose puro, `setContent {}` è
+l'unico entry point della UI, nessun layout XML introdotto.
+`AppCompatActivity` richiede un tema Android che discenda da
+`Theme.AppCompat` (altrimenti lancia un'eccezione a runtime): il tema in
+`res/values/themes.xml`, prima `android:Theme.Material.Light.NoActionBar`,
+è diventato `Theme.AppCompat.DayNight.NoActionBar`. Con questa base class,
+`setApplicationLocales()` innesca da sola la ricreazione corretta
+dell'Activity, sia su API 33+ che sotto — `applyAppLanguage()` in
+`ui/settings/AppLanguage.kt` si limita a chiamare `setApplicationLocales()`,
+nessuna `recreate()` manuale, nessuna condizione sull'API level.
+
+Nota (superata dalla Fase 7): al momento della diagnosi, un cambio lingua
+che innescava una vera ricreazione dell'Activity faceva ripartire da zero
+anche il caricamento automatico dei backup nella schermata Impostazioni,
+riportando in vista il messaggio "Drive non configurato" — non un effetto
+del cambio lingua in sé, solo dello stesso `LaunchedEffect(Unit)` già
+presente dalla Fase 4 ogni volta che la schermata veniva ricomposta.
+Il rework della UI di backup nella Fase 7 (login Google esplicito, nessun
+caricamento automatico prima del sign-in) ha eliminato questo effetto
+collaterale.
 
 ### `ThemeMode` con nomi italiani, come `ReviewStatus`
 
