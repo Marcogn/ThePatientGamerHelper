@@ -8,6 +8,9 @@ sealed interface Destination {
     data object Library : Destination
 
     @Serializable
+    data object Stats : Destination
+
+    @Serializable
     data class Detail(val reviewId: String) : Destination
 
     /** [reviewId] null creates a new review, non-null edits the existing one. */

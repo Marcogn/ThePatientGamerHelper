@@ -47,11 +47,17 @@ Entità di supporto: **Piattaforma** e **Genere** come tabelle di lookup separat
 - Ordinamento per data, voto, titolo, ore di gioco
 - Vista dettaglio recensione
 
-### 3.2 Statistiche libreria (Fase 3)
+### 3.2 Statistiche libreria (Fase 3) ✅ completata
 Dato il tuo profilo (alto tasso di completamento, attenzione a backlog e serie complete), ha senso includere:
 - numero totale recensioni, voto medio, ore totali tracciate
 - distribuzione per piattaforma/genere
 - percentuale completato vs abbandonato
+
+Implementata come nuova schermata Statistiche raggiungibile dalla libreria,
+con le metriche sopra più la quota "in corso" (percentuale calcolata solo sul
+campo stato, a scelta singola — non su piattaforma/genere, che sono
+many-to-many e non sommerebbero a 100%). Dettaglio implementativo e scelte
+tecniche in `CLAUDE.md` e `docs/decisioni-implementazione.md`.
 
 ### 3.3 Export (Fase 2)
 - **Markdown**: formattazione compatibile con la sintassi di Reddit, per copia-incolla diretto nei tuoi post
@@ -119,9 +125,9 @@ Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configu
 
 ## 7. Fasi di sviluppo proposte
 
-1. **Fase 1 — MVP locale**: CRUD, lista, filtri, dettaglio recensione
-2. **Fase 2 — Export**: JSON/CSV → Markdown → PDF (in quest'ordine di complessità crescente)
-3. **Fase 3 — Statistiche libreria**
+1. **Fase 1 — MVP locale** ✅: CRUD, lista, filtri, dettaglio recensione
+2. **Fase 2 — Export** ✅: JSON/CSV → Markdown → PDF (in quest'ordine di complessità crescente)
+3. **Fase 3 — Statistiche libreria** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
 4. **Fase 4 — Backup cloud Google Drive**
 5. **Fase 5 (opzionale) — Export DOCX**, se resta prioritario dopo aver vissuto con gli altri tre formati
 

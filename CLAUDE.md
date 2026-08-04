@@ -16,7 +16,9 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
 - **Fase 2 — Export**: ✅ completata (JSON/CSV per l'intera libreria, Markdown
   compatibile Reddit per singola recensione, PDF nativo per singola
   recensione e libreria in batch). Vedi sezione dedicata sotto.
-- **Fase 3 — Statistiche libreria**: non iniziata, fuori scope.
+- **Fase 3 — Statistiche libreria**: ✅ completata (nuova schermata Statistiche
+  raggiungibile dalla libreria: totali/medie, distribuzione piattaforma/genere,
+  ripartizione per stato). Vedi sezione dedicata sotto.
 - **Fase 4 — Backup cloud Google Drive**: non iniziata, fuori scope.
 - **Fase 5 — Export DOCX**: non iniziata, fuori scope, opzionale.
 
@@ -117,6 +119,34 @@ bisogno dell'SDK Android o di Robolectric.
   nessun rendering reale) — se tocchi la logica di impaginazione/pagine,
   verificala a mano in Android Studio con un device/emulatore.
 
+## Fase 3 — Statistiche libreria
+
+- Metriche calcolate: numero totale recensioni, voto medio, ore totali
+  tracciate (somma `oreGioco`, `null` trattato come 0), distribuzione per
+  piattaforma, distribuzione per genere, ripartizione percentuale per
+  `stato` (`IN_CORSO`/`COMPLETATO`/`ABBANDONATO`).
+- `domain/stats/LibraryStatisticsCalculator.kt`: funzione pura
+  `computeLibraryStatistics(List<Review>): LibraryStatistics`, nessun import
+  Android, unit-testata in JVM puro (`domain/model/LibraryStatistics.kt` per
+  i modelli) — stesso pattern di `domain/filter`.
+- Le distribuzioni piattaforma/genere **non** portano una percentuale: sono
+  campi many-to-many (una recensione può avere più piattaforme/generi), quindi
+  le quote non sommerebbero a 100% e una percentuale sarebbe fuorviante. Solo
+  la ripartizione per `stato` (campo singolo) espone una percentuale, come
+  richiesto dalla spec. Vedi `docs/decisioni-implementazione.md`.
+- UI: nuova schermata `ui/stats/StatsScreen.kt` (+ `StatsViewModel`,
+  `StatsUiState`), raggiungibile da un'icona nella top bar della libreria
+  (`ui/library/LibraryScreen.kt`). Le distribuzioni sono barre orizzontali
+  costruite con Compose nativo (`Box` + `fillMaxWidth(fraction = ...)`), la
+  ripartizione per stato è una barra impilata a segmenti + legenda — **nessuna
+  nuova dipendenza di charting introdotta** (niente Vico): con al più una
+  manciata di piattaforme/generi per una libreria single-user, la complessità
+  di una libreria di grafici non è sembrata giustificata. Se in futuro le
+  distribuzioni dovessero diventare più ricche (es. grafici a torta, trend nel
+  tempo), rivalutare Vico prima di scrivere altro codice di rendering a mano.
+- Route di navigazione: `Destination.Stats` in
+  `ui/navigation/Destinations.kt`, wiring in `GameReviewerNavGraph.kt`.
+
 ## Comandi di build/test
 
 ```bash
@@ -186,13 +216,14 @@ Cosa è stato verificato:
 - ID recensioni/entità di lookup: `String` (UUID) per le recensioni; le
   tabelle di lookup (Platform/Genre/Tag) usano `Long` autogenerato con
   vincolo `UNIQUE` sul nome normalizzato (trim + lowercase per il confronto).
-- Non introdurre nuove dipendenze per Fase 3/4 (statistiche, backup) senza
-  che sia esplicitamente richiesto: se emergono necessità relative,
-  segnalale invece di implementarle.
+- Non introdurre nuove dipendenze per la Fase 4 (backup) senza che sia
+  esplicitamente richiesto: se emergono necessità relative, segnalale invece
+  di implementarle. Stesso principio già applicato in Fase 3 (statistiche):
+  nessuna libreria di charting aggiunta, vedi sezione dedicata sopra.
 - Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
   Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
 
 ## Cosa NON fare finché non richiesto esplicitamente
 
-Export DOCX (Fase 5), statistiche libreria (Fase 3), backup cloud Google
-Drive (Fase 4), autenticazione: fuori scope anche se menzionati nella spec.
+Export DOCX (Fase 5), backup cloud Google Drive (Fase 4), autenticazione:
+fuori scope anche se menzionati nella spec.
