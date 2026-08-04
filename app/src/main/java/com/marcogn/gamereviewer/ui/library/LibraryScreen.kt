@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ fun LibraryScreen(
     onAddClick: () -> Unit,
     onStatsClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onBacklogClick: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -95,6 +97,9 @@ fun LibraryScreen(
                         }
                     }
                     SortMenu(sort = uiState.sort, onSortChange = viewModel::onSortChange)
+                    IconButton(onClick = onBacklogClick) {
+                        Icon(Icons.Filled.ViewList, contentDescription = stringResource(R.string.backlog_title))
+                    }
                     IconButton(onClick = onStatsClick) {
                         Icon(Icons.Filled.BarChart, contentDescription = stringResource(R.string.stats_title))
                     }

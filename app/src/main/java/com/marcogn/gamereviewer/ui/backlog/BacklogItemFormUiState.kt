@@ -1,10 +1,10 @@
-package com.marcogn.gamereviewer.ui.form
+package com.marcogn.gamereviewer.ui.backlog
 
+import com.marcogn.gamereviewer.domain.model.BacklogItemDraft
 import com.marcogn.gamereviewer.domain.model.GameMetadataSearchResult
-import com.marcogn.gamereviewer.domain.model.ReviewDraft
 
-data class ReviewFormUiState(
-    val draft: ReviewDraft = ReviewDraft.empty(),
+data class BacklogItemFormUiState(
+    val draft: BacklogItemDraft = BacklogItemDraft.empty(),
     val isEditMode: Boolean = false,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,

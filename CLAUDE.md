@@ -26,12 +26,20 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
   (app tradotta IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema
   persistito con DataStore, documentazione riorganizzata sotto `docs/` con
   traduzione inglese in `docs/en/`). Vedi sezione dedicata sotto.
+- **Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)**: ✅
+  completata in due tappe — Tappa 1: nuova sezione Backlog (liste di
+  gioco, item con stato/commenti/storico automatico/riordino manuale,
+  trigger "scrivi una recensione" al completamento). Tappa 2: pulsante
+  "Cerca online" (TheGamesDB) nei form di backlog e recensione per
+  precompilare copertina/piattaforma/genere (+ anno/sviluppatore per il
+  backlog). Vedi sezione dedicata sotto.
 - **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
   "Export DOCX — perché non è stato implementato" sotto.
 
-Con la Fase 5 la roadmap originaria (vedi `docs/spec.md`) è completa. Non
-implementare funzionalità non ancora presenti in questo file o nella spec a
-meno che l'utente non lo richieda esplicitamente in una nuova sessione.
+Con la Fase 6 la roadmap è ulteriormente estesa oltre quella originaria (vedi
+`docs/spec.md`). Non implementare funzionalità non ancora presenti in questo
+file o nella spec a meno che l'utente non lo richieda esplicitamente in una
+nuova sessione.
 
 ## Decisioni di prodotto già prese (non richiederle di nuovo)
 
@@ -60,9 +68,11 @@ meno che l'utente non lo richieda esplicitamente in una nuova sessione.
 com.marcogn.gamereviewer
 ├── data/
 │   ├── local/
-│   │   ├── entity/      # Entità Room (Review, Platform, Genre, Tag, cross-ref, ProCon)
-│   │   ├── dao/          # DAO Room, esposti come Flow
-│   │   └── Converters.kt # TypeConverter per LocalDate/Instant/enum
+│   │   ├── entity/      # Entità Room (Review, Platform, Genre, Tag, cross-ref, ProCon,
+│   │   │                # Backlog* dalla Fase 6)
+│   │   ├── dao/          # DAO Room, esposti come Flow (ReviewDao, LookupDaos, BacklogDao)
+│   │   ├── Converters.kt # TypeConverter per LocalDate/Instant/enum
+│   │   └── Migrations.kt # MIGRATION_1_2 (Fase 6: tabelle backlog, additiva, dati esistenti intatti)
 │   ├── repository/       # Implementazioni dei repository (upsert transazionale)
 │   ├── export/            # I/O Android per l'export: ExportFileWriter (SAF),
 │   │                      # PdfReviewRenderer (PdfDocument), ReviewExporter (classe
@@ -74,27 +84,42 @@ com.marcogn.gamereviewer
 │   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
 │   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
 │   ├── settings/          # ThemePreferences (Fase 5, Preferences DataStore)
+│   ├── thegamesdb/        # Fase 6, Tappa 2: TheGamesDbApiClient (HttpURLConnection, stesso
+│   │                      # pattern di DriveApiClient), TheGamesDbPreferences (SharedPreferences,
+│   │                      # API key inserita a runtime dall'utente), GameMetadataSearchCoordinator
+│   │                      # (logica condivisa "cerca online" tra form recensione e form backlog)
 │   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
 ├── domain/
-│   ├── model/            # Modelli di dominio puri (no dipendenze Android), incluso ThemeMode
-│   ├── filter/            # Logica di filtro/ordinamento libreria, pure function, unit-testata
+│   ├── model/            # Modelli di dominio puri (no dipendenze Android), incluso ThemeMode,
+│   │                      # Backlog* e GameMetadataSearchResult (Fase 6)
+│   ├── filter/            # Logica di filtro/ordinamento libreria e backlog, pure function, unit-testata
+│   ├── stats/             # Aggregazioni pure: LibraryStatisticsCalculator (Fase 3),
+│   │                      # BacklogStatisticsCalculator (Fase 6, conteggi per stato/lista)
 │   ├── export/            # Formattazione export pura: JSON (kotlinx.serialization),
 │   │                      # CSV (writer manuale), Markdown (template stringhe) —
 │   │                      # nessun import Android, unit-testabile in JVM puro. Le etichette
 │   │                      # restano in italiano fisso (vedi Fase 5, non seguono la lingua app)
-│   └── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
-│                          # mapping Review<->DTO, naming file — stesso pattern di domain/export
+│   ├── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
+│   │                      # mapping Review<->DTO, naming file — stesso pattern di domain/export
+│   └── repository/        # Interfacce repository (ReviewRepository, LookupRepository,
+│                          # BacklogRepository dalla Fase 6)
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
     ├── theme/             # Tema Material 3 (Compose) + ThemeViewModel (Fase 5, legge ThemePreferences)
     ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization)
     ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export)
     ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
-    ├── form/              # Form crea/modifica
+    ├── form/              # Form crea/modifica recensione (+ "Cerca online" e pre-popolamento
+    │                      # da backlog item, Fase 6)
+    ├── backlog/            # Fase 6: BacklogScreen (liste + ricerca/filtro unificata + stats
+    │                       # aggregate leggere), BacklogListDetailScreen (drag-to-reorder),
+    │                       # BacklogItemFormScreen, BacklogItemDetailScreen (stato/commenti/
+    │                       # storico/nota abbandono)
     ├── settings/           # Schermata Impostazioni: preferenze tema/lingua (Fase 5), backup
-    │                       # manuale/automatico, ripristino
-    └── common/            # Composable condivisi (chip input, rating, date picker, ReviewStatus
-                            # display Fase 5, ecc.)
+    │                       # manuale/automatico, ripristino, API key TheGamesDB (Fase 6)
+    └── common/            # Composable condivisi (chip input, rating, date picker, cover
+                            # thumbnail, ReviewStatus/BacklogItemStatus display, GameSearchDialog
+                            # Fase 6, ecc.)
 ```
 
 Risorse (`app/src/main/res/`): `values/strings.xml` è l'italiano (lingua di
@@ -364,6 +389,174 @@ bisogno dell'SDK Android o di Robolectric.
   nel tempo. `CLAUDE.md` resta solo in italiano: è operativo per l'agente,
   non documentazione rivolta a chi legge il repository.
 
+## Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)
+
+Due tappe, sviluppate in sequenza (Tappa 1 verificata prima di iniziare la
+Tappa 2, come da richiesta).
+
+### Tappa 1 — Backlog tracciabile
+
+- **Modello dati**: `BacklogListEntity` (liste create/rinominate/eliminate/
+  riordinate dall'utente), `BacklogItemEntity` (titolo, stato, posizione,
+  date, `reviewId` opzionale, `abandonNote`, `releaseYear`/`developer` —
+  questi ultimi due popolati solo dalla Tappa 2, vedi sotto),
+  `BacklogCommentEntity`, `BacklogHistoryEntryEntity`. Piattaforma/genere/tag
+  dell'item sono many-to-many **sulle stesse tabelle di lookup** già usate
+  dalle recensioni (`platforms`/`genres`/`tags`, nuove cross-ref
+  `backlog_item_*_cross_ref`) — stesso pool di autocomplete tra backlog e
+  recensioni, coerente col resto del modello dati.
+- **Migration additiva, non distruttiva**: `GameReviewerDatabase` passa da
+  `version = 1` a `version = 2`. **Non** è stato usato
+  `fallbackToDestructiveMigration()`: l'app è già in uso reale (vedi intro di
+  questo file), un `fallbackToDestructiveMigration()` avrebbe cancellato le
+  recensioni esistenti al primo avvio dopo l'aggiornamento. `MIGRATION_1_2`
+  in `data/local/Migrations.kt` crea solo le nuove tabelle/indici via SQL
+  raw, non tocca `reviews`/`platforms`/`genres`/`tags`.
+- **Storico automatico**: generato interamente da `BacklogRepositoryImpl`,
+  non da input manuale — `CREATO` alla creazione item, `CAMBIO_STATO` solo
+  quando lo stato cambia davvero (non ad ogni scrittura di `abandonNote`),
+  `CAMBIO_LISTA` quando l'item viene spostato (`moveItem`), `COMMENTO` ad
+  ogni commento aggiunto, `RECENSIONE_COLLEGATA` quando l'item viene
+  collegato a una recensione. Il campo `detail` porta un payload
+  interpretabile dalla UI in base al tipo (es. il nome dello stato per
+  `CAMBIO_STATO`, il nome della lista di destinazione per `CAMBIO_LISTA`) —
+  vedi `ui/backlog/BacklogHistoryDisplay.kt`.
+- **`dataInizio`/`dataCompletamento` auto-popolate, nessun editor manuale**:
+  la spec elenca questi due campi come opzionali sull'item ma non chiede un
+  controllo UI per impostarli a mano (a differenza della recensione, che ha
+  `DatePickerField` espliciti). L'unico modo sensato per valorizzarli è
+  quindi automaticamente alla transizione di stato:
+  `BacklogRepository.updateStatus()` imposta `startDate` la prima volta che
+  lo stato passa a `IN_CORSO` (se non già impostata) e `completedDate` la
+  prima volta che passa a `COMPLETATO`, senza mai sovrascrivere un valore
+  già presente (così un item che torna "in corso" dopo essere stato
+  completato non perde la data di completamento originale).
+- **`updateStatus()` distinto da `saveItem()`**: la spec elenca "cambio
+  stato tramite selettore" come funzionalità separata dal CRUD item. Il form
+  di creazione/modifica (`BacklogItemFormScreen`) non tocca mai lo stato;
+  solo `BacklogItemDetailScreen` lo fa, tramite un selettore dedicato che
+  chiama `updateStatus()` — un solo punto che genera storico e date
+  automatiche, invece di duplicare quella logica anche nel form.
+- **Riordino**: le liste (tipicamente poche) si riordinano con frecce
+  su/giù su `BacklogScreen` — niente drag-and-drop per un elenco di
+  quell'ordine di grandezza. Gli item dentro una lista (potenzialmente
+  numerosi, "utile per prioritizzare" da spec) hanno invece drag-to-reorder
+  vero, implementato a mano in `BacklogListDetailScreen.kt` con
+  `Modifier.pointerInput` + `detectDragGestures` su un'icona "maniglia"
+  dedicata (non sull'intera riga, per evitare conflitti tra il gesto di
+  drag e il click che apre il dettaglio) — **nessuna libreria di reorder
+  aggiunta**, coerente con la sezione "non introdurre dipendenze senza
+  necessità" più sotto. L'ordine finale viene scritto una sola volta a fine
+  gesto (`onDragEnd`), non ad ogni frame.
+- **Ricerca/filtro unificata**: `BacklogScreen` mostra normalmente l'elenco
+  delle liste (con conteggio item e vista aggregata leggera per
+  stato/lista); non appena una ricerca testuale o un filtro (lista, stato,
+  piattaforma, genere) è attivo, la stessa schermata passa a un elenco
+  piatto di risultati cross-lista (ogni riga mostra a quale lista
+  appartiene) — stessa struttura search+filtro della libreria recensioni
+  (`domain/filter/BacklogFilters.kt`/`BacklogFiltering.kt`, pure function,
+  stesso pattern di `LibraryFilters`/`LibraryFiltering`), ma senza
+  introdurre una schermata separata solo per la ricerca.
+- **Trigger "vuoi scrivere una recensione?"**: quando `updateStatus()`
+  imposta `COMPLETATO` e l'item non ha ancora `reviewId`,
+  `BacklogItemDetailViewModel` espone un evento one-shot che la UI
+  intercetta per mostrare il dialog di conferma. Alla conferma, naviga a
+  `Destination.Form(backlogItemId = itemId)` — `Destination.Form` ha ora un
+  secondo parametro opzionale, usato solo in creazione (ignorato se
+  `reviewId` è già impostato). `ReviewFormViewModel` precompila il draft da
+  `BacklogItem` (titolo/piattaforme/generi/date/copertina) e, al salvataggio
+  riuscito, chiama `BacklogRepository.linkReview()` per richiudere il
+  cerchio (registra anche la voce di storico `RECENSIONE_COLLEGATA`). La
+  copertina **non** viene condivisa per riferimento tra backlog item e
+  recensione: `ImageStorage.duplicate()` (nuovo metodo) copia il file su un
+  nome nuovo, così cancellare la recensione in seguito non fa sparire la
+  copertina mostrata nel backlog (o viceversa) — due file indipendenti sullo
+  stesso contenuto iniziale.
+
+### Tappa 2 — Fetch automatico copertina e metadati (TheGamesDB)
+
+- **La API key è sempre richiesta, non è stata una scelta**: prima di
+  implementare, ho verificato online (come richiesto) i limiti/requisiti
+  attuali dell'API pubblica di TheGamesDB. Risultato, diverso
+  dall'assunzione di partenza ("non dovrebbe servire, per ES-DE non
+  serve"): **dal 17/02/2026 TheGamesDB ha cambiato policy e richiede una
+  `apikey` su ogni richiesta**, pubblica o privata che sia — non esiste più
+  accesso anonimo. ES-DE/Skyscraper non chiedono una chiave *personale*
+  perché ne incorporano una propria (pubblica, condivisa, rate-limited) nel
+  loro codice sorgente, ma quella chiave esiste comunque. Non avendo un modo
+  affidabile di recuperarne il valore letterale attuale, ho chiesto
+  esplicitamente all'utente come procedere invece di indovinare o incollare
+  una chiave trovata online senza certezza.
+- **Configurazione runtime, non un placeholder di build**: a differenza del
+  client ID OAuth di Drive (Fase 4, `res/values/drive_config.xml`,
+  `[DA_COMPLETARE]` sostituito prima della build), la API key TheGamesDB è
+  un campo che l'utente compila **dentro l'app** (nuova sezione in
+  Impostazioni, `TheGamesDbPreferences`, `SharedPreferences` — stesso
+  pattern minimale di `BackupPreferences`, non DataStore). Nessuna build
+  contiene una chiave, reale o placeholder: finché il campo è vuoto, il
+  pulsante "Cerca online" fa scattare `GameMetadataSearchCoordinator`, che
+  restituisce un messaggio informativo invece di chiamare l'API — mai un
+  crash, mai una build che smette di compilare per una chiave mancante.
+- **Client REST scritto a mano, non Retrofit/Ktor**: la richiesta originale
+  citava Retrofit/Ktor come esempio ("se non già presente"), ma il progetto
+  ha già risolto lo stesso problema in Fase 4 (`DriveApiClient`) con un
+  client minimale `HttpURLConnection` + `kotlinx.serialization`. Ho seguito
+  lo stesso pattern per `TheGamesDbApiClient` invece di introdurre una nuova
+  dipendenza HTTP: quattro soli endpoint GET (ricerca +
+  Platforms/Genres/Developers) non giustificano un client HTTP completo,
+  coerente con "non introdurre dipendenze senza necessità" già applicato tre
+  volte prima (Drive, PDF, charting statistiche). **Nessuna nuova
+  dipendenza aggiunta in Fase 6.**
+- **Cache in-memory dei lookup, non persistita**: `TheGamesDbApiClient`
+  tiene in memoria (per la durata del processo) le mappe id→nome di
+  Platforms/Genres/Developers, popolate al primo utilizzo e riusate per le
+  ricerche successive nella stessa sessione app. Con un rate limit
+  pubblico nell'ordine delle migliaia di richieste al mese, evitare tre
+  chiamate di lookup extra ad ogni singola ricerca è stata una scelta
+  deliberata, non un'ottimizzazione prematura.
+- **Risultati multipli, nessuna auto-selezione**: `Games/ByGameName`
+  (opzionalmente filtrato per piattaforma, dedotta dal primo tag piattaforma
+  già inserito nel form, per disambiguare remaster/edizioni regionali) può
+  restituire più corrispondenze; `GameSearchDialog` (composable condiviso
+  tra `ReviewFormScreen` e `BacklogItemFormScreen`, `ui/common/`) le elenca
+  tutte con copertina/piattaforma/anno, l'utente sceglie. Alla selezione, la
+  copertina viene scaricata e salvata **localmente** con
+  `ImageStorage.writeBytes()` (stesso storage delle copertine caricate a
+  mano) — mai solo l'URL remoto.
+- **`releaseYear`/`developer` solo su `BacklogItem`, non su `Review`**: la
+  spec chiedeva di salvare "piattaforma, genere, anno, sviluppatore" come
+  metadati utili. Piattaforma e genere sono già campi esistenti su entrambi
+  i modelli; anno e sviluppatore no. Ho scelto di aggiungerli **solo** a
+  `BacklogItemEntity`/`BacklogItem` (utili come dati di catalogazione prima
+  ancora di aver giocato) e di **non** estendere `ReviewEntity`/`Review`:
+  farlo avrebbe richiesto toccare uno schema maturo con cinque fasi di
+  funzionalità già costruite sopra (export JSON/CSV/PDF/Markdown, DTO di
+  backup, statistiche), per due campi bibliografici che non sono mai stati
+  parte del cuore di una recensione (voto/pro/contro/testo). La ricerca
+  online nel form recensione resta quindi limitata a
+  titolo/piattaforma/genere/copertina, come il resto del form.
+- **Fallback silenzioso, mai un crash**: `GameMetadataSearchCoordinator`
+  centralizza la logica condivisa tra i due form — chiave mancante, nessun
+  risultato, errore di rete/HTTP diventano tutti un `Outcome.Message`
+  testuale mostrato nel dialog, mai un'eccezione propagata. Il flusso
+  manuale esistente (digitare i campi a mano) resta sempre disponibile
+  sotto, invariato.
+- **Non testabile in modo significativo via Robolectric**: stesso discorso
+  già fatto per Drive in Fase 4 — chiamate `HttpURLConnection` reali verso
+  `api.thegamesdb.net` richiedono rete vera. Sono invece unit-testate le
+  parti pure aggiunte in Fase 6: `domain/filter/BacklogFilteringTest.kt` e
+  `domain/stats/BacklogStatisticsCalculatorTest.kt`, stesso pattern di
+  `LibraryFilteringTest`/`LibraryStatisticsCalculatorTest`.
+
+**Stato build**: come per la Fase 5, questa modifica è stata scritta e
+rivista staticamente riga per riga (bilanciamento parentesi, import,
+corrispondenza 1:1 delle chiavi `strings.xml` IT/EN, coerenza delle
+signature Room `@Relation`/`@Junction`/`@ForeignKey`) ma **non ancora
+verificata su CI al momento di scrivere questa nota** — lo stesso sandbox
+isolato senza accesso a `dl.google.com` descritto sotto "Limitazione nota
+dell'ambiente sandbox" era in vigore anche per questa sessione. Controlla lo
+stato dei check sulla relativa PR prima di considerarla verde.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
@@ -469,7 +662,11 @@ Cosa è stato verificato:
   AuthorizationClient, WorkManager) più `googleid` e `androidx.hilt:hilt-work`,
   necessarie di conseguenza e documentate lì. In Fase 5 idem: solo
   `androidx.datastore:datastore-preferences` (tema) e `androidx.appcompat`
-  (lingua per-app), entrambe esplicitamente richieste.
+  (lingua per-app), entrambe esplicitamente richieste. In Fase 6 **nessuna
+  dipendenza aggiunta**: client TheGamesDB scritto a mano come Drive (niente
+  Retrofit/Ktor nonostante fossero citati come esempio nella richiesta),
+  drag-to-reorder del backlog implementato con Compose Foundation puro
+  (niente libreria di reorder).
 - Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
   Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
 - Nessuna stringa hardcoded nelle schermate: ogni testo visibile in `ui/`

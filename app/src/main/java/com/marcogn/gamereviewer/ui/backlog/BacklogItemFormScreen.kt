@@ -1,14 +1,12 @@
-package com.marcogn.gamereviewer.ui.form
+package com.marcogn.gamereviewer.ui.backlog
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,14 +14,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,23 +30,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.gamereviewer.R
-import com.marcogn.gamereviewer.domain.model.ReviewStatus
-import com.marcogn.gamereviewer.ui.common.DatePickerField
 import com.marcogn.gamereviewer.ui.common.GameSearchDialog
 import com.marcogn.gamereviewer.ui.common.TagInputField
-import com.marcogn.gamereviewer.ui.common.displayName
-import java.util.Locale
+import com.marcogn.gamereviewer.ui.form.CoverImagePicker
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReviewFormScreen(
+fun BacklogItemFormScreen(
     onSaved: (String) -> Unit,
     onCancel: () -> Unit,
-    viewModel: ReviewFormViewModel = hiltViewModel(),
+    viewModel: BacklogItemFormViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showSearchDialog by remember { mutableStateOf(false) }
@@ -62,9 +53,9 @@ fun ReviewFormScreen(
                 title = {
                     Text(
                         if (uiState.isEditMode) {
-                            stringResource(R.string.review_edit_title)
+                            stringResource(R.string.backlog_item_edit_title)
                         } else {
-                            stringResource(R.string.review_new_title)
+                            stringResource(R.string.backlog_item_new_title)
                         },
                     )
                 },
@@ -82,12 +73,9 @@ fun ReviewFormScreen(
         },
     ) { padding ->
         if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) { CircularProgressIndicator() }
+            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
             return@Scaffold
         }
 
@@ -143,61 +131,6 @@ fun ReviewFormScreen(
                 onSelectedChange = viewModel::onTagsChange,
             )
 
-            RatingField(rating = uiState.draft.rating, onRatingChange = viewModel::onRatingChange)
-
-            StatusSelector(status = uiState.draft.status, onStatusChange = viewModel::onStatusChange)
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DatePickerField(
-                    label = stringResource(R.string.form_date_start),
-                    date = uiState.draft.startDate,
-                    clearable = false,
-                    modifier = Modifier.weight(1f),
-                    onDateChange = { it?.let(viewModel::onStartDateChange) },
-                )
-                DatePickerField(
-                    label = stringResource(R.string.form_date_end),
-                    date = uiState.draft.endDate,
-                    modifier = Modifier.weight(1f),
-                    onDateChange = viewModel::onEndDateChange,
-                )
-            }
-
-            OutlinedTextField(
-                value = uiState.draft.hoursPlayed?.let { formatHours(it) } ?: "",
-                onValueChange = { text ->
-                    viewModel.onHoursPlayedChange(text.replace(',', '.').toDoubleOrNull())
-                },
-                label = { Text(stringResource(R.string.label_hours_played)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            HorizontalDivider()
-
-            DynamicStringListEditor(
-                label = stringResource(R.string.label_pros),
-                items = uiState.draft.pros,
-                onItemsChange = viewModel::onProsChange,
-            )
-
-            DynamicStringListEditor(
-                label = stringResource(R.string.label_cons),
-                items = uiState.draft.cons,
-                onItemsChange = viewModel::onConsChange,
-            )
-
-            HorizontalDivider()
-
-            OutlinedTextField(
-                value = uiState.draft.reviewText,
-                onValueChange = viewModel::onReviewTextChange,
-                label = { Text(stringResource(R.string.form_field_review_text)) },
-                minLines = 6,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
             uiState.errorMessage?.let { message ->
                 Text(text = message, color = MaterialTheme.colorScheme.error)
             }
@@ -227,38 +160,3 @@ fun ReviewFormScreen(
         )
     }
 }
-
-@Composable
-private fun RatingField(rating: Double, onRatingChange: (Double) -> Unit) {
-    Column {
-        Text(
-            text = stringResource(R.string.form_rating_label, "%.1f".format(Locale.getDefault(), rating)),
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Slider(
-            value = rating.toFloat(),
-            onValueChange = { onRatingChange(it.toDouble()) },
-            valueRange = 0f..10f,
-            steps = 99,
-        )
-    }
-}
-
-@Composable
-private fun StatusSelector(status: ReviewStatus, onStatusChange: (ReviewStatus) -> Unit) {
-    Column {
-        Text(text = stringResource(R.string.label_status), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReviewStatus.entries.forEach { candidate ->
-                FilterChip(
-                    selected = status == candidate,
-                    onClick = { onStatusChange(candidate) },
-                    label = { Text(candidate.displayName()) },
-                )
-            }
-        }
-    }
-}
-
-private fun formatHours(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()

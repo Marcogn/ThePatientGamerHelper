@@ -1,7 +1,7 @@
 # Specifica funzionale e tecnica — App recensioni videoludiche
 
-**Versione:** 1.0 (roadmap completata, Fase 5)
-**Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato e backup cloud. Nato come documento di progettazione iniziale, ora tenuto aggiornato come riferimento sullo stato della roadmap — il dettaglio implementativo di ogni fase vive in `CLAUDE.md`.
+**Versione:** 1.1 (roadmap estesa oltre l'originaria, Fase 6)
+**Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato, backup cloud e backlog tracciabile. Nato come documento di progettazione iniziale, ora tenuto aggiornato come riferimento sullo stato della roadmap — il dettaglio implementativo di ogni fase vive in `CLAUDE.md`.
 
 ---
 
@@ -36,6 +36,17 @@ Entità principale: **Recensione** (1 recensione = 1 gioco recensito).
 | `creatoIl` / `modificatoIl` | timestamp | metadati |
 
 Entità di supporto: **Piattaforma** e **Genere** come tabelle di lookup separate, per garantire autocomplete coerente senza duplicare stringhe (evita "PS5" vs "Playstation 5" come tag diversi).
+
+### 2.1 Backlog (Fase 6)
+
+Entità aggiuntive per tracciare i giochi non ancora recensiti:
+
+| Entità | Campi principali | Note |
+|---|---|---|
+| **Lista backlog** | `id`, `nome`, `ordine`, `dataCreazione` | create/rinominate/eliminate/riordinate liberamente dall'utente |
+| **Item backlog** | `id`, `listId`, `titolo`, piattaforma/genere/tag (many-to-many, stesse tabelle di lookup delle recensioni), `copertina`, `stato` (`da_iniziare`/`in_corso`/`completato`/`abbandonato`/`in_pausa`), `dataAggiunta`, `dataInizio`/`dataCompletamento` (opzionali, valorizzate automaticamente al cambio stato), `recensioneId` (opzionale), `notaAbbandono`, `anno`/`sviluppatore` (opzionali, valorizzati solo dalla ricerca online) | una recensione per item al massimo |
+| **Commento** | `id`, `itemId`, `testo`, `timestamp` | multipli per item, ordine cronologico |
+| **Voce di storico** | `id`, `itemId`, `tipoEvento`, `timestamp`, `dettaglio` | generata automaticamente dal sistema, non richiede input manuale |
 
 ---
 
@@ -72,6 +83,28 @@ Drive. Ripristino: elenco dei backup disponibili, selezione, download e
 reimport in Room con sovrascrittura completa dei dati locali (nessun
 merge). Dettaglio implementativo e scelte tecniche in `CLAUDE.md`, sezione
 "Fase 4 — Backup cloud Google Drive".
+
+### 3.5 Backlog tracciabile (Fase 6, Tappa 1) ✅ completata
+CRUD liste e item, cambio stato tramite selettore dedicato, commenti
+multipli in ordine cronologico, storico automatico (timeline eventi),
+riordino manuale item dentro una lista (drag-to-reorder), ricerca/filtro
+unificata (lista, stato, piattaforma, genere) coerente con l'esperienza
+della libreria recensioni, vista aggregata leggera (conteggi per
+stato/lista), nota libera sul motivo di un abbandono. Al passaggio a
+"completato" viene proposto di scrivere subito la recensione, con il form
+precompilato dai dati già noti dal backlog. Dettaglio implementativo in
+`CLAUDE.md`, sezione "Fase 6 — Backlog tracciabile e fetch metadati
+(TheGamesDB)".
+
+### 3.6 Fetch automatico copertina e metadati (Fase 6, Tappa 2) ✅ completata
+Pulsante "Cerca online" (TheGamesDB) nel form di aggiunta al backlog e nel
+form recensione: interroga per titolo (+ piattaforma per disambiguare),
+mostra tutti i risultati per scelta manuale (nessuna auto-selezione),
+scarica e salva localmente copertina e metadati utili alla selezione. Il
+caricamento manuale della copertina resta sempre disponibile come
+alternativa. Richiede una API key TheGamesDB configurabile nelle
+Impostazioni (nessuna chiave inclusa nella build). Dettaglio implementativo
+in `CLAUDE.md`, stessa sezione sopra.
 
 ---
 
@@ -143,10 +176,14 @@ Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configu
    IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema, e
    documentazione riorganizzata sotto `docs/` (più `docs/en/` per la
    traduzione inglese). Vedi `CLAUDE.md` per il dettaglio implementativo.
+6. **Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)** ✅: nuova
+   sezione Backlog (liste, item, commenti, storico automatico) e ricerca
+   online TheGamesDB per copertina/metadati, in due tappe. Vedi `CLAUDE.md`
+   per il dettaglio implementativo.
 
-Con la Fase 5 si chiude la roadmap originaria di questo documento: le fasi
-elencate sopra sono tutte completate. Export DOCX resta **non implementato**,
-decisione definitiva — vedi sezione 5.
+Con la Fase 5 si era chiusa la roadmap originaria di questo documento; la
+Fase 6 la estende su richiesta esplicita in una sessione successiva. Export
+DOCX resta **non implementato**, decisione definitiva — vedi sezione 5.
 
 ---
 
@@ -170,3 +207,5 @@ Questi sono scelte di prodotto che non presumo per te:
 - ironpdf.com / medium.com — confronto licenze iText7 (AGPL) vs alternative
 - dev.to — Kotlin PDF Libraries: Free & Paid (panoramica PDFBox)
 - discuss.kotlinlang.org / github.com (DocxKtm) — stato dei tool di generazione DOCX su Android/Kotlin
+- forums.thegamesdb.net — policy di accesso API (cambio 17/02/2026, richiesta apikey su ogni endpoint) e limiti della public key condivisa
+- github.com (muldjord/skyscraper, sselph/scraper, picandocodigo/gamesdb) — struttura reale degli endpoint TheGamesDB v1 (ricerca, include=boxart, lookup Platforms/Genres/Developers) usata per implementare `TheGamesDbApiClient` senza documentazione ufficiale raggiungibile

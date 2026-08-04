@@ -4,6 +4,126 @@ Questo file documenta le scelte tecniche prese durante l'implementazione
 delle varie fasi che non erano già esplicitate in `docs/spec.md` o in
 `CLAUDE.md`.
 
+## Fase 6 (Backlog tracciabile e fetch metadati TheGamesDB)
+
+Vedi la sezione "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)"
+in `CLAUDE.md` per il riepilogo architetturale completo. Qui solo le
+scelte che non erano ovvie dalla richiesta originale.
+
+### La API key TheGamesDB: verificare prima di assumere
+
+La richiesta di partenza conteneva un'assunzione esplicita ("non dovrebbe
+essere necessaria per gamedb, per esde non lo è") con l'istruzione di
+verificarla prima di implementare un placeholder inutile. La verifica
+(ricerca sul forum ufficiale e sui changelog di scraper open source come
+Skyscraper e sselph/scraper) ha dato un risultato opposto: **dal 17/02/2026
+TheGamesDB richiede una `apikey` su ogni endpoint**, pubblico o privato che
+sia — l'accesso anonimo non esiste più. ES-DE e Skyscraper non chiedono una
+chiave *personale* all'utente finale, ma incorporano nel proprio codice
+sorgente una chiave pubblica condivisa (rate-limited per IP) — la chiave
+c'è comunque, solo che non la vede l'utente finale dello scraper.
+
+Non avendo un modo affidabile per recuperare il valore letterale di quella
+chiave pubblica condivisa dai risultati di ricerca disponibili (pagine del
+sito principale non raggiungibili, 403), e non volendo incollare una
+stringa trovata online senza certezza che sia quella corretta/valida
+tuttora, ho **chiesto esplicitamente all'utente** come procedere invece di
+indovinare — coerente con l'istruzione esplicita della sessione ("se
+qualcosa è ambiguo, fermati e chiedimi"). Risposta ricevuta: la chiave deve
+essere compilabile **dentro l'app** a runtime, nessun placeholder nella
+build. Da qui `TheGamesDbPreferences` (vedi sotto) invece del pattern
+`[DA_COMPLETARE]` già usato per Drive in Fase 4.
+
+### Perché non lo stesso pattern di `drive_config.xml`
+
+Il client ID OAuth di Drive (Fase 4) è un valore che l'utente sostituisce
+**nel codice sorgente prima della build** (`res/values/drive_config.xml`,
+placeholder `[DA_COMPLETARE]`), perché è legato alla registrazione
+dell'app su Google Cloud Console — un valore di configurazione
+dell'applicazione, non dell'utente finale. La API key TheGamesDB è invece
+personale all'account che l'utente registra sul sito: due utenti diversi
+dello stesso APK avrebbero chiavi diverse. Un placeholder di build avrebbe
+quindi richiesto di ricompilare l'app ad ogni cambio di chiave (o di
+account), mentre un campo in Impostazioni permette di cambiarla senza
+toccare il codice — pattern più corretto per un valore per-utente, non
+per-installazione.
+
+### Retrofit/Ktor citati nella richiesta, ma non aggiunti
+
+La richiesta menzionava Retrofit/Ktor come esempio di libreria HTTP "se non
+già presente". Il progetto aveva già risolto lo stesso problema in Fase 4
+con `DriveApiClient` (`HttpURLConnection` + `kotlinx.serialization`, zero
+dipendenze aggiuntive oltre a quella già presente per JSON). Per coerenza
+interna e perché CLAUDE.md chiede esplicitamente di non aggiungere
+dipendenze senza necessità reale, ho scritto `TheGamesDbApiClient` con lo
+stesso pattern hand-rolled invece di introdurre Retrofit/Ktor — quattro
+endpoint GET (ricerca + tre lookup id→nome) non sono abbastanza per
+giustificare un intero client HTTP con la sua catena di dipendenze
+(OkHttp/converter JSON, interceptor, ecc.), che peraltro finirebbe per
+duplicare quello che `DriveApiClient` già dimostra funzionare bene per
+questo progetto.
+
+### `releaseYear`/`developer` solo sul backlog, non sulla recensione
+
+La richiesta elencava "piattaforma, genere, anno, sviluppatore" come
+metadati da salvare dalla ricerca online, genericamente per "Tappa 2" (che
+tocca sia il form backlog sia il form recensione). Piattaforma e genere
+esistevano già su entrambi i modelli; anno e sviluppatore no. Estendere
+`ReviewEntity`/`Review` — uno schema con cinque fasi di funzionalità già
+costruite sopra (export JSON/CSV/PDF/Markdown, DTO di backup dedicato,
+calcolo statistiche) — per due campi bibliografici mai stati parte del
+nucleo di una recensione (voto/pro/contro/testo libero) avrebbe avuto un
+raggio d'azione sproporzionato rispetto al beneficio: nuova migration,
+nuovi campi in ogni formatter di export, nuovo campo nel DTO di backup,
+possibile impatto sul calcolo statistiche. Ho aggiunto i due campi solo a
+`BacklogItemEntity`/`BacklogItem`, dove hanno più senso concettualmente
+(dati di catalogazione per un gioco non ancora giocato) e dove il raggio
+d'azione è contenuto a un'entità introdotta in questa stessa sessione. La
+ricerca online nel form recensione resta quindi limitata a
+titolo/piattaforma/genere/copertina — la stessa scelta di campi già usata
+per la pre-popolazione da backlog item (Tappa 1).
+
+### Migration additiva invece di `fallbackToDestructiveMigration()`
+
+L'app introdotta da questo progetto è già in uso reale sul dispositivo di
+chi lo sta sviluppando (vedi l'apertura di `CLAUDE.md`), non un prototipo
+usa-e-getta. Un `fallbackToDestructiveMigration()` da versione 1 a 2 del
+database Room avrebbe cancellato silenziosamente tutte le recensioni
+esistenti al primo avvio dopo l'aggiornamento — inaccettabile. Ho scritto
+`MIGRATION_1_2` (`data/local/Migrations.kt`) con SQL raw che crea solo le
+sette nuove tabelle/indici del backlog, senza toccare `reviews` o le
+tabelle di lookup esistenti.
+
+### Drag-to-reorder scritto a mano, gesto separato dal click della riga
+
+Il riordino manuale degli item dentro una lista era esplicitamente
+richiesto ("drag-to-reorder, utile per prioritizzare"). Senza aggiungere
+una libreria di terze parti, l'opzione più semplice sarebbe stata applicare
+`Modifier.pointerInput`/`detectDragGestures` all'intera riga cliccabile —
+ma la stessa riga deve anche aprire il dettaglio item al tap. Sovrapporre
+un rilevatore di drag e un `clickable` sullo stesso elemento in Compose
+porta a conflitti di gestione del gesto non banali da risolvere in modo
+affidabile. Ho invece isolato il gesto di drag su una piccola icona
+"maniglia" dedicata a fianco della riga (che resta cliccabile per aprire il
+dettaglio), traducendo verticalmente l'intera riga tramite stato sollevato
+condiviso (`graphicsLayer { translationY = ... }`) mentre il
+`pointerInput` resta solo sulla maniglia. L'ordine finale viene scritto sul
+repository una sola volta al rilascio del gesto (`onDragEnd`), non ad ogni
+variazione di offset durante il trascinamento.
+
+### Liste riordinate con frecce, non drag-and-drop
+
+Spec e CLAUDE.md non specificano il meccanismo di riordino per le liste
+stesse (solo per gli item dentro una lista). Il numero di liste in un
+backlog personale è tipicamente piccolo (una manciata: "da comprare", "in
+corso", ecc.), a differenza degli item che possono essere numerosi e per
+cui la spec chiede esplicitamente drag-to-reorder ("utile per
+prioritizzare"). Per le liste ho scelto pulsanti su/giù — riordino
+altrettanto funzionale con una complessità di implementazione/interazione
+molto minore, evitando di scrivere due volte la stessa logica di drag per
+un caso d'uso dove il beneficio (poter trascinare invece di premere una
+freccia un paio di volte) è marginale.
+
 ## Fase 5 (Internazionalizzazione, tema, documentazione)
 
 Vedi la sezione "Fase 5 — Internazionalizzazione, tema e documentazione" in

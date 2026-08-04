@@ -3,8 +3,8 @@
 
 # Functional and technical specification — Video game review app
 
-**Version:** 1.0 (roadmap complete, Phase 5)
-**Purpose of this document:** define scope, data model, features and architecture for a personal Android app that replaces/supports the review workflow for r/patientgamer, with multi-format export and cloud backup. Originally a design document, now kept up to date as a reference for roadmap status — implementation detail for each phase lives in `CLAUDE.md`.
+**Version:** 1.1 (roadmap extended beyond the original, Phase 6)
+**Purpose of this document:** define scope, data model, features and architecture for a personal Android app that replaces/supports the review workflow for r/patientgamer, with multi-format export, cloud backup and a trackable backlog. Originally a design document, now kept up to date as a reference for roadmap status — implementation detail for each phase lives in `CLAUDE.md`.
 
 ---
 
@@ -38,6 +38,17 @@ Main entity: **Review** (1 review = 1 reviewed game).
 
 Supporting entities: **Platform** and **Genre** as separate lookup tables, to guarantee consistent autocomplete without duplicating strings (avoids "PS5" vs "Playstation 5" as different tags).
 
+### 2.1 Backlog (Phase 6)
+
+Additional entities for tracking games not yet reviewed:
+
+| Entity | Main fields | Notes |
+|---|---|---|
+| **Backlog list** | `id`, `name`, `order`, `createdAt` | freely created/renamed/deleted/reordered by the user |
+| **Backlog item** | `id`, `listId`, `title`, platform/genre/tag (many-to-many, same lookup tables as reviews), `coverImage`, `status` (`to_start`/`in_progress`/`completed`/`abandoned`/`paused`), `addedAt`, `startDate`/`completedDate` (optional, auto-filled on status change), `reviewId` (optional), `abandonNote`, `releaseYear`/`developer` (optional, filled only by online search) | at most one review per item |
+| **Comment** | `id`, `itemId`, `text`, `timestamp` | multiple per item, chronological order |
+| **History entry** | `id`, `itemId`, `eventType`, `timestamp`, `detail` | generated automatically by the system, no manual input |
+
 ---
 
 ## 3. Features
@@ -64,6 +75,12 @@ Implemented as a new Statistics screen reachable from the library, with the metr
 
 ### 3.4 Cloud backup on Google Drive (Phase 4) — complete
 Manual and automatic (periodic via WorkManager) backup of a ZIP archive (full JSON + image folder) saved in Google Drive's appDataFolder. Restore: list of available backups, selection, download and reimport into Room with a full overwrite of local data (no merge). Implementation detail and technical choices in `CLAUDE.md`, section "Fase 4 — Backup cloud Google Drive".
+
+### 3.5 Trackable backlog (Phase 6, Step 1) — complete
+List and item CRUD, status change through a dedicated selector, multiple comments in chronological order, automatic history (event timeline), manual reordering of items within a list (drag-to-reorder), unified search/filter (list, status, platform, genre) consistent with the review library's experience, lightweight aggregate view (counts per status/list), free-text note for the reason behind an abandonment. Reaching "completed" offers to write the review right away, with the form pre-filled from what the backlog already knows. Implementation detail in `CLAUDE.md`, section "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)".
+
+### 3.6 Automatic cover art and metadata fetch (Phase 6, Step 2) — complete
+A "Search online" button (TheGamesDB) in both the add-to-backlog form and the review form: searches by title (+ platform to disambiguate), lists every result for manual choice (never auto-selected), downloads and saves cover art and useful metadata locally on selection. Manually picking a cover image always stays available as an alternative. Requires a TheGamesDB API key configurable in Settings (no key shipped in the build). Implementation detail in `CLAUDE.md`, same section above.
 
 ---
 
@@ -126,8 +143,12 @@ Practical note: the app still needs to be registered in Google Cloud Console wit
    IT/EN with an in-app language switcher, light/dark/system theme, and
    documentation reorganized under `docs/` (plus `docs/en/` for the
    English translation). See `CLAUDE.md` for implementation detail.
+6. **Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)** —
+   complete: a new Backlog section (lists, items, comments, automatic
+   history) and TheGamesDB online search for cover art/metadata, in two
+   steps. See `CLAUDE.md` for implementation detail.
 
-Phase 5 closes out this document's original roadmap: every phase listed above is complete. DOCX export remains **not implemented**, a final decision — see section 5.
+Phase 5 had closed out this document's original roadmap; Phase 6 extends it on explicit request in a later session. DOCX export remains **not implemented**, a final decision — see section 5.
 
 ---
 
@@ -151,3 +172,5 @@ These were product choices not assumed up front (now resolved — see `CLAUDE.md
 - ironpdf.com / medium.com — iText7 (AGPL) license comparison vs alternatives
 - dev.to — Kotlin PDF Libraries: Free & Paid (PDFBox overview)
 - discuss.kotlinlang.org / github.com (DocxKtm) — state of DOCX generation tools on Android/Kotlin
+- forums.thegamesdb.net — API access policy (2026-02-17 change, apikey now required on every endpoint) and the shared public key's limits
+- github.com (muldjord/skyscraper, sselph/scraper, picandocodigo/gamesdb) — real shape of the TheGamesDB v1 endpoints (search, include=boxart, Platforms/Genres/Developers lookups) used to implement `TheGamesDbApiClient` without reachable official docs

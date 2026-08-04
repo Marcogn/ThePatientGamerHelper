@@ -2,7 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Fase 4: chiamate REST a Drive (googleapis.com) per il backup cloud. -->
+    <!-- Fase 4: chiamate REST a Drive (googleapis.com) per il backup cloud.
+         Tappa 2 (backlog): stesso permesso, riusato per le chiamate REST a TheGamesDB. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application

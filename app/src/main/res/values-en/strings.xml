@@ -7,7 +7,12 @@
     <string name="action_save">Save</string>
     <string name="action_delete">Delete</string>
     <string name="action_edit">Edit</string>
+    <string name="action_yes">Yes</string>
+    <string name="action_no">No</string>
     <string name="cd_back">Back</string>
+    <string name="cd_move_up">Move up</string>
+    <string name="cd_move_down">Move down</string>
+    <string name="cd_drag_handle">Drag to reorder</string>
 
     <string name="review_status_in_progress">In progress</string>
     <string name="review_status_completed">Completed</string>
@@ -67,6 +72,11 @@
     <string name="settings_drive_consent_cancelled">Drive authorization cancelled</string>
     <string name="settings_drive_consent_incomplete">Drive authorization not completed</string>
 
+    <string name="settings_thegamesdb_section_title">Online search (TheGamesDB)</string>
+    <string name="settings_thegamesdb_description">Used by the \"Search online\" button in the backlog and review forms to find cover art and metadata. TheGamesDB requires an API key for every request: register at thegamesdb.net and paste it here. Without a key the search stays disabled, the rest of the app works as usual.</string>
+    <string name="settings_thegamesdb_key_label">TheGamesDB API key</string>
+    <string name="settings_thegamesdb_key_saved">API key saved</string>
+
     <!-- Common components -->
     <string name="common_date_picker_confirm">OK</string>
     <string name="common_date_picker_remove">Remove</string>
@@ -88,6 +98,7 @@
     <string name="filter_section_platform">Platform</string>
     <string name="filter_section_genre">Genre</string>
     <string name="filter_section_tags">Tags</string>
+    <string name="filter_section_list">List</string>
     <string name="filter_rating_range">Rating: %1$s – %2$s</string>
     <string name="filter_date_range_title">Date range</string>
     <string name="filter_date_from">From</string>
@@ -138,4 +149,59 @@
     <string name="stats_platform_distribution">Platform distribution</string>
     <string name="stats_genre_distribution">Genre distribution</string>
     <string name="stats_status_count_percentage">%1$d (%2$.0f%%)</string>
+
+    <!-- Backlog -->
+    <string name="backlog_title">Backlog</string>
+    <string name="backlog_new_list">New list</string>
+    <string name="backlog_rename_list">Rename list</string>
+    <string name="backlog_list_name_label">List name</string>
+    <string name="backlog_delete_list_confirm_title">Delete this list?</string>
+    <string name="backlog_delete_list_confirm_message">Every item in \"%1$s\" will be deleted. This cannot be undone.</string>
+    <string name="backlog_search_placeholder">Search the backlog…</string>
+    <string name="backlog_empty_title">No lists yet</string>
+    <string name="backlog_empty_subtitle">Tap + to create your first list</string>
+    <string name="backlog_no_results_title">No results with the current filters</string>
+    <string name="backlog_list_empty">No items in this list</string>
+    <string name="backlog_add_item">Add to backlog</string>
+    <string name="backlog_item_new_title">New item</string>
+    <string name="backlog_item_edit_title">Edit item</string>
+    <string name="backlog_item_not_found">Item not found</string>
+    <string name="backlog_move_to_list">Move to another list</string>
+    <string name="backlog_review_linked">Review linked</string>
+    <string name="backlog_abandon_note_label">Reason for abandoning</string>
+    <string name="backlog_comments_title">Comments</string>
+    <string name="backlog_comment_field_label">Add a comment</string>
+    <string name="backlog_add_comment">Add comment</string>
+    <string name="backlog_no_comments">No comments yet</string>
+    <string name="backlog_history_title">History</string>
+    <string name="backlog_history_created">Added to backlog</string>
+    <string name="backlog_history_status_changed">Status changed to %1$s</string>
+    <string name="backlog_history_moved">Moved to %1$s</string>
+    <string name="backlog_history_comment_added">Comment added</string>
+    <string name="backlog_history_review_linked">Review linked</string>
+    <string name="backlog_delete_item_confirm_title">Delete this item?</string>
+    <string name="backlog_write_review_prompt_title">Write a review?</string>
+    <string name="backlog_write_review_prompt_message">Do you want to write a review for \"%1$s\"?</string>
+
+    <string name="backlog_status_to_start">To start</string>
+    <string name="backlog_status_in_progress">In progress</string>
+    <string name="backlog_status_completed">Completed</string>
+    <string name="backlog_status_abandoned">Abandoned</string>
+    <string name="backlog_status_paused">Paused</string>
+
+    <plurals name="backlog_total_items">
+        <item quantity="one">%1$d item in the backlog</item>
+        <item quantity="other">%1$d items in the backlog</item>
+    </plurals>
+    <plurals name="backlog_item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+
+    <!-- TheGamesDB online search (Tappa 2) -->
+    <string name="game_search_action">Search online</string>
+    <string name="game_search_dialog_title">Search online</string>
+    <string name="game_search_missing_api_key">Set your TheGamesDB API key in Settings to use online search</string>
+    <string name="game_search_no_results">No results found</string>
+    <string name="game_search_failed">Search failed. You can still fill in the fields by hand</string>
 </resources>

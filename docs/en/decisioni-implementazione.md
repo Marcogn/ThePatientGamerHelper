@@ -8,6 +8,121 @@ This file documents technical choices made during implementation of the
 various phases that weren't already spelled out in `docs/spec.md` or in
 `CLAUDE.md`.
 
+## Phase 6 (Trackable backlog and TheGamesDB metadata fetch)
+
+See the "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)"
+section in `CLAUDE.md` for the full architectural summary. Only the
+choices that weren't obvious from the original request are covered here.
+
+### The TheGamesDB API key: verify before assuming
+
+The original request contained an explicit assumption ("shouldn't be
+necessary for gamedb, it isn't for ES-DE") with the instruction to verify
+it before implementing a pointless placeholder. The verification (search on
+the official forum and on the changelogs of open-source scrapers like
+Skyscraper and sselph/scraper) gave the opposite result: **as of
+2026-02-17 TheGamesDB requires an `apikey` on every endpoint**, public or
+private — anonymous access no longer exists. ES-DE and Skyscraper don't ask
+the end user for a *personal* key, but they embed a shared public key
+(rate-limited per IP) in their own source code — the key is there anyway,
+the scraper's end user just doesn't see it.
+
+Having no reliable way to recover the literal value of that shared public
+key from the search results available (the main site's pages weren't
+reachable, 403), and not wanting to paste a string found online without
+certainty it's the correct/still-valid one, I **explicitly asked the user**
+how to proceed instead of guessing — consistent with the session's explicit
+instruction ("if something is ambiguous, stop and ask me"). Answer
+received: the key must be fillable **inside the app** at runtime, no
+placeholder in the build. Hence `TheGamesDbPreferences` (see below) instead
+of the `[DA_COMPLETARE]` pattern already used for Drive in Phase 4.
+
+### Why not the same pattern as `drive_config.xml`
+
+Drive's OAuth client ID (Phase 4) is a value the user swaps **in source
+code before building** (`res/values/drive_config.xml`, placeholder
+`[DA_COMPLETARE]`), because it's tied to the app's own registration in
+Google Cloud Console — an application-level configuration value, not an
+end-user one. The TheGamesDB API key is instead personal to the account the
+user registers on the site: two different users of the same APK would have
+different keys. A build-time placeholder would have required rebuilding the
+app on every key (or account) change, while a Settings field lets it change
+without touching code — the correct pattern for a per-user value, not a
+per-install one.
+
+### Retrofit/Ktor mentioned in the request, but not added
+
+The request mentioned Retrofit/Ktor as an example HTTP library ("if not
+already present"). The project had already solved the same problem in
+Phase 4 with `DriveApiClient` (`HttpURLConnection` + `kotlinx.serialization`,
+zero dependencies beyond the one already present for JSON). For internal
+consistency, and because CLAUDE.md explicitly asks not to add dependencies
+without a real need, `TheGamesDbApiClient` was written with the same
+hand-rolled pattern instead of introducing Retrofit/Ktor — four GET
+endpoints (search + three id→name lookups) aren't enough to justify a full
+HTTP client with its dependency chain (OkHttp/JSON converter, interceptors,
+etc.), which would also end up duplicating what `DriveApiClient` already
+proves works well for this project.
+
+### `releaseYear`/`developer` on the backlog only, not on the review
+
+The request listed "platform, genre, year, developer" as metadata to save
+from online search, generically for "Step 2" (which touches both the
+backlog form and the review form). Platform and genre already existed on
+both models; year and developer didn't. Extending `ReviewEntity`/`Review`
+— a schema with five phases of functionality already built on top of it
+(JSON/CSV/PDF/Markdown export, a dedicated backup DTO, statistics
+computation) — for two bibliographic fields that were never part of a
+review's core (rating/pros/cons/free text) would have had a disproportionate
+blast radius relative to the benefit: a new migration, new fields in every
+export formatter, a new field in the backup DTO, possible impact on
+statistics. Both fields were added only to
+`BacklogItemEntity`/`BacklogItem`, where they make more conceptual sense
+(cataloging data for a game not yet played) and where the blast radius is
+contained to an entity introduced in this same session. Online search in
+the review form therefore stays limited to
+title/platform/genre/cover — the same field choice already used for
+pre-filling from a backlog item (Step 1).
+
+### Additive migration instead of `fallbackToDestructiveMigration()`
+
+The app this project builds is already in real use on its developer's own
+device (see the opening of `CLAUDE.md`), not a throwaway prototype. A
+`fallbackToDestructiveMigration()` from database version 1 to 2 would have
+silently wiped every existing review on the first launch after the update
+— unacceptable. `MIGRATION_1_2` (`data/local/Migrations.kt`) was written
+with raw SQL that only creates the backlog's seven new tables/indices,
+without touching `reviews` or the existing lookup tables.
+
+### Hand-rolled drag-to-reorder, gesture kept separate from the row's click
+
+Manual reordering of items within a list was explicitly requested
+("drag-to-reorder, useful for prioritizing"). Without adding a third-party
+library, the simplest option would have been applying
+`Modifier.pointerInput`/`detectDragGestures` to the entire clickable row —
+but that same row also needs to open the item detail on tap. Overlapping a
+drag detector and a `clickable` on the same element in Compose leads to
+gesture-handling conflicts that aren't trivial to resolve reliably. The
+drag gesture was instead isolated on a small dedicated "handle" icon next
+to the row (which stays clickable to open the detail), translating the
+whole row vertically through hoisted shared state
+(`graphicsLayer { translationY = ... }`) while `pointerInput` stays only on
+the handle. The final order is written to the repository once, when the
+gesture is released (`onDragEnd`), not on every offset change during the
+drag.
+
+### Lists reordered with arrows, not drag-and-drop
+
+Neither the spec nor CLAUDE.md specify the reorder mechanism for the lists
+themselves (only for items within a list). The number of lists in a
+personal backlog is typically small (a handful: "to buy", "in progress",
+etc.), unlike items, which can be numerous and for which the spec
+explicitly asks for drag-to-reorder ("useful for prioritizing"). For lists,
+up/down buttons were chosen instead — just as functional a reorder with
+much less implementation/interaction complexity, avoiding writing the same
+drag logic twice for a case where the benefit (dragging instead of
+pressing an arrow a couple of times) is marginal.
+
 ## Phase 5 (Internationalization, theme, documentation)
 
 See the "Fase 5 — Internazionalizzazione, tema e documentazione" section in

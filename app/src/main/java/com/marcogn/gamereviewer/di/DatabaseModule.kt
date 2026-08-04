@@ -3,6 +3,8 @@ package com.marcogn.gamereviewer.di
 import android.content.Context
 import androidx.room.Room
 import com.marcogn.gamereviewer.data.local.GameReviewerDatabase
+import com.marcogn.gamereviewer.data.local.MIGRATION_1_2
+import com.marcogn.gamereviewer.data.local.dao.BacklogDao
 import com.marcogn.gamereviewer.data.local.dao.GenreDao
 import com.marcogn.gamereviewer.data.local.dao.PlatformDao
 import com.marcogn.gamereviewer.data.local.dao.ReviewDao
@@ -25,7 +27,7 @@ object DatabaseModule {
             context,
             GameReviewerDatabase::class.java,
             GameReviewerDatabase.DATABASE_NAME,
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
 
     @Provides
     fun provideReviewDao(database: GameReviewerDatabase): ReviewDao = database.reviewDao()
@@ -38,4 +40,7 @@ object DatabaseModule {
 
     @Provides
     fun provideTagDao(database: GameReviewerDatabase): TagDao = database.tagDao()
+
+    @Provides
+    fun provideBacklogDao(database: GameReviewerDatabase): BacklogDao = database.backlogDao()
 }
