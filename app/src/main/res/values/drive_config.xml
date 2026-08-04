@@ -4,7 +4,7 @@
       OAuth 2.0 "Web application" client ID creato in Google Cloud Console
       (APIs & Services > Credenziali), nello stesso progetto in cui è
       registrata la schermata di consenso OAuth e l'app Android (SHA-1 del
-      certificato di firma + applicationId com.marcogn.gamereviewer).
+      certificato di firma + applicationId com.marcogn.thepatientgamerhelper).
 
       Serve a Credential Manager (GetGoogleIdOption.serverClientId) per
       l'autenticazione "Accedi con Google": identifica il progetto verso cui

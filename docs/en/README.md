@@ -1,7 +1,7 @@
 > Translated from the Italian source (`README.md`) — may lag behind updates.
 > Italian is the source of truth for this project's documentation.
 
-# Game Reviewer
+# ThePatientGamerHelper
 
 Native Android app for keeping track of the video games I finish (or drop).
 It replaces a workflow I used to keep by hand across scattered notes and
@@ -82,7 +82,7 @@ Google Cloud Console — details are in `CLAUDE.md`.
 ## Project structure
 
 ```
-app/src/main/java/com/marcogn/gamereviewer/
+app/src/main/java/com/marcogn/thepatientgamerhelper/
 ├── data/       # Room (entity/dao), repositories, export (SAF/PDF), backup/drive
 │               # (Google Drive, WorkManager), thegamesdb (online search),
 │               # preferences (theme), debug data seeding
