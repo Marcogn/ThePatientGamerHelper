@@ -30,13 +30,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.domain.model.ReviewStatus
-import com.marcogn.gamereviewer.domain.model.label
 import com.marcogn.gamereviewer.ui.common.DatePickerField
 import com.marcogn.gamereviewer.ui.common.TagInputField
+import com.marcogn.gamereviewer.ui.common.displayName
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,15 +53,23 @@ fun ReviewFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditMode) "Modifica recensione" else "Nuova recensione") },
+                title = {
+                    Text(
+                        if (uiState.isEditMode) {
+                            stringResource(R.string.review_edit_title)
+                        } else {
+                            stringResource(R.string.review_new_title)
+                        },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Annulla")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_cancel))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.save(onSaved) }, enabled = !uiState.isSaving) {
-                        Icon(Icons.Filled.Check, contentDescription = "Salva")
+                        Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_save))
                     }
                 },
             )
@@ -92,28 +102,28 @@ fun ReviewFormScreen(
             OutlinedTextField(
                 value = uiState.draft.title,
                 onValueChange = viewModel::onTitleChange,
-                label = { Text("Titolo") },
+                label = { Text(stringResource(R.string.form_field_title)) },
                 singleLine = true,
                 isError = uiState.errorMessage != null && uiState.draft.title.isBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             TagInputField(
-                label = "Piattaforme",
+                label = stringResource(R.string.label_platforms),
                 selected = uiState.draft.platformNames,
                 suggestions = uiState.availablePlatformNames,
                 onSelectedChange = viewModel::onPlatformsChange,
             )
 
             TagInputField(
-                label = "Generi",
+                label = stringResource(R.string.label_genres),
                 selected = uiState.draft.genreNames,
                 suggestions = uiState.availableGenreNames,
                 onSelectedChange = viewModel::onGenresChange,
             )
 
             TagInputField(
-                label = "Tag",
+                label = stringResource(R.string.label_tags),
                 selected = uiState.draft.tagNames,
                 suggestions = uiState.availableTagNames,
                 onSelectedChange = viewModel::onTagsChange,
@@ -125,14 +135,14 @@ fun ReviewFormScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DatePickerField(
-                    label = "Data inizio",
+                    label = stringResource(R.string.form_date_start),
                     date = uiState.draft.startDate,
                     clearable = false,
                     modifier = Modifier.weight(1f),
                     onDateChange = { it?.let(viewModel::onStartDateChange) },
                 )
                 DatePickerField(
-                    label = "Data fine",
+                    label = stringResource(R.string.form_date_end),
                     date = uiState.draft.endDate,
                     modifier = Modifier.weight(1f),
                     onDateChange = viewModel::onEndDateChange,
@@ -144,7 +154,7 @@ fun ReviewFormScreen(
                 onValueChange = { text ->
                     viewModel.onHoursPlayedChange(text.replace(',', '.').toDoubleOrNull())
                 },
-                label = { Text("Ore di gioco") },
+                label = { Text(stringResource(R.string.label_hours_played)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
@@ -153,13 +163,13 @@ fun ReviewFormScreen(
             HorizontalDivider()
 
             DynamicStringListEditor(
-                label = "Pro",
+                label = stringResource(R.string.label_pros),
                 items = uiState.draft.pros,
                 onItemsChange = viewModel::onProsChange,
             )
 
             DynamicStringListEditor(
-                label = "Contro",
+                label = stringResource(R.string.label_cons),
                 items = uiState.draft.cons,
                 onItemsChange = viewModel::onConsChange,
             )
@@ -169,7 +179,7 @@ fun ReviewFormScreen(
             OutlinedTextField(
                 value = uiState.draft.reviewText,
                 onValueChange = viewModel::onReviewTextChange,
-                label = { Text("Recensione (markdown)") },
+                label = { Text(stringResource(R.string.form_field_review_text)) },
                 minLines = 6,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -189,7 +199,7 @@ fun ReviewFormScreen(
 private fun RatingField(rating: Double, onRatingChange: (Double) -> Unit) {
     Column {
         Text(
-            text = "Voto: ${"%.1f".format(Locale.getDefault(), rating)}",
+            text = stringResource(R.string.form_rating_label, "%.1f".format(Locale.getDefault(), rating)),
             style = MaterialTheme.typography.titleSmall,
         )
         Slider(
@@ -204,13 +214,13 @@ private fun RatingField(rating: Double, onRatingChange: (Double) -> Unit) {
 @Composable
 private fun StatusSelector(status: ReviewStatus, onStatusChange: (ReviewStatus) -> Unit) {
     Column {
-        Text(text = "Stato", style = MaterialTheme.typography.titleSmall)
+        Text(text = stringResource(R.string.label_status), style = MaterialTheme.typography.titleSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ReviewStatus.entries.forEach { candidate ->
                 FilterChip(
                     selected = status == candidate,
                     onClick = { onStatusChange(candidate) },
-                    label = { Text(candidate.label()) },
+                    label = { Text(candidate.displayName()) },
                 )
             }
         }

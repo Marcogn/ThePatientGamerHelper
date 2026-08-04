@@ -108,6 +108,10 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.play.services.auth)
 
+    // Fase 5 — Tema (DataStore) e lingua per-app (AppCompatDelegate)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.appcompat)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)

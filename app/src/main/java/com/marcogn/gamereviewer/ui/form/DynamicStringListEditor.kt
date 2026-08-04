@@ -16,6 +16,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.marcogn.gamereviewer.R
 
 /** Editable list of free-text items (used for Pro/Contro), each row removable inline. */
 @Composable
@@ -41,13 +43,13 @@ fun DynamicStringListEditor(
                     singleLine = true,
                 )
                 IconButton(onClick = { onItemsChange(items.toMutableList().apply { removeAt(index) }) }) {
-                    Icon(Icons.Filled.Close, contentDescription = "Rimuovi")
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.list_item_remove_cd))
                 }
             }
         }
         TextButton(onClick = { onItemsChange(items + "") }) {
             Icon(Icons.Filled.Add, contentDescription = null)
-            Text("Aggiungi")
+            Text(stringResource(R.string.dynamic_list_add_label))
         }
     }
 }

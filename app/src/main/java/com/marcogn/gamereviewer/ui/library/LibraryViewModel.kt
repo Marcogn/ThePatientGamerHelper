@@ -1,8 +1,10 @@
 package com.marcogn.gamereviewer.ui.library
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.data.export.ReviewExporter
 import com.marcogn.gamereviewer.domain.filter.LibraryFilters
 import com.marcogn.gamereviewer.domain.filter.SortOption
@@ -15,6 +17,7 @@ import com.marcogn.gamereviewer.domain.model.Tag
 import com.marcogn.gamereviewer.domain.repository.LookupRepository
 import com.marcogn.gamereviewer.domain.repository.ReviewRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +37,7 @@ private data class LookupOptions(
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val reviewRepository: ReviewRepository,
     private val reviewExporter: ReviewExporter,
     lookupRepository: LookupRepository,
@@ -111,9 +115,9 @@ class LibraryViewModel @Inject constructor(
             runCatching {
                 export(reviewRepository.observeAll().first())
             }.onSuccess {
-                _exportMessage.value = "Esportazione completata"
+                _exportMessage.value = appContext.getString(R.string.export_completed)
             }.onFailure {
-                _exportMessage.value = "Esportazione non riuscita: ${it.message}"
+                _exportMessage.value = appContext.getString(R.string.export_failed, it.message.orEmpty())
             }
         }
     }

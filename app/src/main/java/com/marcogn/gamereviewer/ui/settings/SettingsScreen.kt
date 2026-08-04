@@ -1,5 +1,6 @@
 package com.marcogn.gamereviewer.ui.settings
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,6 +25,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -39,9 +43,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.domain.model.BackupFile
+import com.marcogn.gamereviewer.domain.model.ThemeMode
+import com.marcogn.gamereviewer.ui.theme.ThemeViewModel
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -49,9 +57,14 @@ private val timestampFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsState()
     val consentRequest by viewModel.consentRequest.collectAsState()
+    val themeMode by themeViewModel.themeMode.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     var backupPendingRestore by remember { mutableStateOf<BackupFile?>(null) }
@@ -76,10 +89,10 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Impostazioni") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
             )
@@ -93,6 +106,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            PreferencesSection(
+                themeMode = themeMode,
+                onThemeModeSelected = themeViewModel::onThemeModeSelected,
+                context = context,
+            )
+
+            HorizontalDivider()
+
             BackupSection(
                 uiState = uiState,
                 onToggleAutoBackup = viewModel::onToggleAutoBackup,
@@ -122,16 +143,77 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 }
 
 @Composable
+private fun PreferencesSection(
+    themeMode: ThemeMode,
+    onThemeModeSelected: (ThemeMode) -> Unit,
+    context: Context,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = stringResource(R.string.settings_preferences_section_title), style = MaterialTheme.typography.titleMedium)
+
+        Text(text = stringResource(R.string.settings_theme_label), style = MaterialTheme.typography.bodyLarge)
+        Column(modifier = Modifier.selectableGroup()) {
+            ThemeMode.entries.forEach { mode ->
+                RadioOptionRow(
+                    label = stringResource(mode.labelRes()),
+                    selected = themeMode == mode,
+                    onClick = { onThemeModeSelected(mode) },
+                )
+            }
+        }
+
+        Text(text = stringResource(R.string.settings_language_label), style = MaterialTheme.typography.bodyLarge)
+        var selectedLanguage by remember { mutableStateOf(currentAppLanguage()) }
+        Column(modifier = Modifier.selectableGroup()) {
+            AppLanguage.entries.forEach { language ->
+                RadioOptionRow(
+                    label = stringResource(language.labelRes()),
+                    selected = selectedLanguage == language,
+                    onClick = {
+                        selectedLanguage = language
+                        applyAppLanguage(context, language)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RadioOptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private fun ThemeMode.labelRes(): Int = when (this) {
+    ThemeMode.SISTEMA -> R.string.theme_system
+    ThemeMode.CHIARO -> R.string.theme_light
+    ThemeMode.SCURO -> R.string.theme_dark
+}
+
+private fun AppLanguage.labelRes(): Int = when (this) {
+    AppLanguage.SISTEMA -> R.string.language_system
+    AppLanguage.ITALIANO -> R.string.language_italian
+    AppLanguage.ENGLISH -> R.string.language_english
+}
+
+@Composable
 private fun BackupSection(
     uiState: SettingsUiState,
     onToggleAutoBackup: (Boolean) -> Unit,
     onBackupNow: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(text = "Backup cloud", style = MaterialTheme.typography.titleMedium)
+        Text(text = stringResource(R.string.settings_backup_section_title), style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "Il backup viene salvato nella cartella privata dell'app su Google Drive " +
-                "(appDataFolder): non visibile né condivisibile dall'interfaccia di Drive.",
+            text = stringResource(R.string.settings_backup_description),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -142,9 +224,9 @@ private fun BackupSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Backup automatico", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.settings_auto_backup_title), style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    text = "Una volta al giorno, quando il dispositivo è connesso",
+                    text = stringResource(R.string.settings_auto_backup_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -153,18 +235,18 @@ private fun BackupSection(
         }
 
         TextButton(onClick = onBackupNow, enabled = !uiState.isBusy) {
-            Text("Esegui backup ora")
+            Text(stringResource(R.string.settings_backup_now))
         }
 
         uiState.lastBackupAt?.let {
             Text(
-                text = "Ultimo backup riuscito: ${timestampFormatter.format(it)}",
+                text = stringResource(R.string.settings_last_backup_success, timestampFormatter.format(it)),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         uiState.lastBackupError?.let {
             Text(
-                text = "Ultimo errore: $it",
+                text = stringResource(R.string.settings_last_backup_error, it),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -184,16 +266,16 @@ private fun RestoreSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = "Ripristina da backup", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(R.string.settings_restore_section_title), style = MaterialTheme.typography.titleMedium)
             IconButton(onClick = onRefresh, enabled = !uiState.isBusy) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Aggiorna elenco backup")
+                Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.cd_refresh_backups))
             }
         }
 
         when {
             uiState.isBusy && uiState.backups.isEmpty() -> CircularProgressIndicator()
             uiState.backups.isEmpty() -> Text(
-                text = "Nessun backup trovato su Drive",
+                text = stringResource(R.string.settings_no_backups),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -221,14 +303,14 @@ private fun BackupListItem(backup: BackupFile, enabled: Boolean, onRestoreClick:
                 Text(
                     text = listOfNotNull(
                         backup.createdAt?.let { timestampFormatter.format(it) },
-                        backup.sizeBytes?.let { "${it / 1024} KB" },
+                        backup.sizeBytes?.let { stringResource(R.string.settings_backup_size_kb, it / 1024) },
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             IconButton(onClick = onRestoreClick, enabled = enabled) {
-                Icon(Icons.Filled.CloudDownload, contentDescription = "Ripristina questo backup")
+                Icon(Icons.Filled.CloudDownload, contentDescription = stringResource(R.string.cd_restore_backup))
             }
         }
     }
@@ -238,14 +320,9 @@ private fun BackupListItem(backup: BackupFile, enabled: Boolean, onRestoreClick:
 private fun RestoreConfirmationDialog(backup: BackupFile, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ripristinare questo backup?") },
-        text = {
-            Text(
-                "Tutti i dati locali attuali (recensioni e copertine) verranno sostituiti dal " +
-                    "contenuto di \"${backup.name}\". L'operazione non è reversibile.",
-            )
-        },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Ripristina") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } },
+        title = { Text(stringResource(R.string.settings_restore_confirm_title)) },
+        text = { Text(stringResource(R.string.settings_restore_confirm_message, backup.name)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.settings_restore_confirm_button)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

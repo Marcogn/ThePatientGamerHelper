@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Guida per agenti Claude che lavorano su questo repository. Leggi anche
-`spec-app-recensioni-videogiochi.md` per la specifica funzionale completa.
+`docs/spec.md` per la specifica funzionale completa.
 
 ## Cos'è questo progetto
 
@@ -22,12 +22,16 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
 - **Fase 4 — Backup cloud Google Drive**: ✅ completata (backup manuale +
   automatico via WorkManager, ripristino da elenco backup). Vedi sezione
   dedicata sotto.
+- **Fase 5 — Internazionalizzazione, tema e documentazione**: ✅ completata
+  (app tradotta IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema
+  persistito con DataStore, documentazione riorganizzata sotto `docs/` con
+  traduzione inglese in `docs/en/`). Vedi sezione dedicata sotto.
 - **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
   "Export DOCX — perché non è stato implementato" sotto.
 
-Non implementare funzionalità non ancora presenti in questo file o nella
-spec a meno che l'utente non lo richieda esplicitamente in una nuova
-sessione.
+Con la Fase 5 la roadmap originaria (vedi `docs/spec.md`) è completa. Non
+implementare funzionalità non ancora presenti in questo file o nella spec a
+meno che l'utente non lo richieda esplicitamente in una nuova sessione.
 
 ## Decisioni di prodotto già prese (non richiederle di nuovo)
 
@@ -69,25 +73,34 @@ com.marcogn.gamereviewer
 │   ├── backup/            # Orchestrazione backup/restore: BackupManager, archivio zip
 │   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
 │   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
+│   ├── settings/          # ThemePreferences (Fase 5, Preferences DataStore)
 │   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
 ├── domain/
-│   ├── model/            # Modelli di dominio puri (no dipendenze Android)
+│   ├── model/            # Modelli di dominio puri (no dipendenze Android), incluso ThemeMode
 │   ├── filter/            # Logica di filtro/ordinamento libreria, pure function, unit-testata
 │   ├── export/            # Formattazione export pura: JSON (kotlinx.serialization),
 │   │                      # CSV (writer manuale), Markdown (template stringhe) —
-│   │                      # nessun import Android, unit-testabile in JVM puro
+│   │                      # nessun import Android, unit-testabile in JVM puro. Le etichette
+│   │                      # restano in italiano fisso (vedi Fase 5, non seguono la lingua app)
 │   └── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
 │                          # mapping Review<->DTO, naming file — stesso pattern di domain/export
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
-    ├── theme/             # Tema Material 3 (Compose)
+    ├── theme/             # Tema Material 3 (Compose) + ThemeViewModel (Fase 5, legge ThemePreferences)
     ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization)
     ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export)
     ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
     ├── form/              # Form crea/modifica
-    ├── settings/           # Schermata Impostazioni: backup manuale/automatico, ripristino
-    └── common/            # Composable condivisi (chip input, rating, date picker, ecc.)
+    ├── settings/           # Schermata Impostazioni: preferenze tema/lingua (Fase 5), backup
+    │                       # manuale/automatico, ripristino
+    └── common/            # Composable condivisi (chip input, rating, date picker, ReviewStatus
+                            # display Fase 5, ecc.)
 ```
+
+Risorse (`app/src/main/res/`): `values/strings.xml` è l'italiano (lingua di
+default), `values-en/strings.xml` la traduzione inglese, `xml/locales_config.xml`
+elenca le lingue supportate per l'integrazione con le impostazioni di sistema
+(API 33+). Vedi sezione "Fase 5" sotto per i dettagli.
 
 Regola guida: **Room è la single source of truth**, esposta via `Flow`. I
 ViewModel combinano il flow di dati con lo stato UI locale (query di ricerca,
@@ -261,6 +274,96 @@ bisogno dell'SDK Android o di Robolectric.
   autenticazione/autorizzazione va verificato a mano su device/emulatore con
   Play Services, dopo aver configurato il client OAuth.
 
+## Fase 5 — Internazionalizzazione, tema e documentazione
+
+### Internazionalizzazione IT/EN
+
+- Tutte le stringhe delle schermate (fasi 1-4) sono state estratte in
+  string resource: `res/values/strings.xml` è l'italiano (lingua di
+  default del progetto), `res/values-en/strings.xml` la traduzione
+  inglese. Le due liste di chiavi sono tenute allineate 1:1 — se aggiungi
+  una stringa in una, aggiungila anche nell'altra.
+- **`domain/export` non è toccato da questa fase**: le etichette usate
+  nei file esportati (Markdown/CSV/JSON/PDF) restano fisse in italiano,
+  scritte a mano nei formatter puri. La richiesta era "internazionalizza
+  le schermate", non il contenuto dei file generati, e localizzarli
+  avrebbe richiesto passare `Context`/risorse Android dentro `domain/export`,
+  rompendo la sua natura di Kotlin puro testabile in JVM (vedi Fase 2). Il
+  file che l'utente esporta e magari incolla su Reddit resta quindi in
+  italiano indipendentemente dalla lingua scelta per l'app — comportamento
+  intenzionale, non un'incoerenza dimenticata.
+- **`ReviewStatus.label()` (in `domain/model`) non è stato toccato** per lo
+  stesso motivo: lo usa anche `ReviewMarkdownFormatter`/`PdfReviewRenderer`
+  in `domain`/`data/export`. Per la UI esiste invece
+  `ReviewStatus.displayName()` in `ui/common/ReviewStatusDisplay.kt`, un
+  `@Composable` che risolve la string resource giusta — le schermate usano
+  sempre `displayName()`, mai `label()`.
+- I messaggi costruiti nei ViewModel (esiti di export/backup, errori di
+  validazione form) non possono usare `stringResource()` (non è
+  `@Composable`): i ViewModel che li generano iniettano
+  `@ApplicationContext Context` via Hilt e chiamano `context.getString(...)`
+  — pattern già adottato in `LibraryViewModel`, `DetailViewModel`,
+  `ReviewFormViewModel`, `SettingsViewModel`.
+- **Selettore lingua in-app**: `AppCompatDelegate.setApplicationLocales()`
+  (API AndroidX per-app language, backport funzionante da API 26, non solo
+  da API 33+), tre opzioni in Impostazioni — Sistema/Italiano/English
+  (`ui/settings/AppLanguage.kt`). La persistenza è automatica grazie ad
+  `autoStoreLocales` (vedi sotto), nessuno storage custom.
+- **`autoStoreLocales`**: attivato aggiungendo in `AndroidManifest.xml` il
+  `<service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService">`
+  con `<meta-data android:name="autoStoreLocales" android:value="true" />`
+  — è il meccanismo documentato da AndroidX per persistere la scelta senza
+  scrivere `SharedPreferences`/DataStore a mano. `android:localeConfig="@xml/locales_config"`
+  sull'`<application>` (con `res/xml/locales_config.xml` che elenca `it`/`en`)
+  è il complemento lato piattaforma per l'integrazione con Impostazioni >
+  Lingue dell'app di sistema su API 33+.
+- **`recreate()` esplicito dopo il cambio lingua**: `MainActivity` è una
+  `ComponentActivity` pura (Compose, non `AppCompatActivity`), quindi la
+  ricreazione automatica delle Activity che AppCompat offre nativamente per
+  `AppCompatActivity` non è garantita qui su tutte le API prima della 33.
+  `applyAppLanguage()` in `ui/settings/AppLanguage.kt` risolve l'`Activity`
+  corrente da `Context` (via `ContextWrapper`) e chiama `recreate()` subito
+  dopo `setApplicationLocales()`, così il cambio lingua è visibile
+  immediatamente senza dover riavviare l'app a mano.
+- Nuova dipendenza: `androidx.appcompat:appcompat` — necessaria solo per
+  `AppCompatDelegate`/`AppLocalesMetadataHolderService`, non introduce
+  `AppCompatActivity` né altre API della vecchia UI a View.
+
+### Tema chiaro/scuro/sistema
+
+- Preferenza a tre stati (`domain/model/ThemeMode.kt`: `SISTEMA` di default,
+  `CHIARO`, `SCURO`) persistita con **Preferences DataStore**
+  (`data/settings/ThemePreferences.kt`) — a differenza di
+  `BackupPreferences` (Fase 4, `SharedPreferences`, motivato lì da "solo tre
+  flag semplici"), qui la richiesta esplicita era DataStore.
+- `ui/theme/ThemeViewModel.kt` espone `themeMode` come `StateFlow` letto da
+  `ThemePreferences.themeMode` (`Flow`, single source of truth) via
+  `stateIn`. Due punti di consumo indipendenti, entrambi tramite
+  `hiltViewModel()`: la root `GameReviewerApp` in `MainActivity.kt` (decide
+  se applicare `darkTheme = true/false` a `GameReviewerTheme`, rispettando
+  `isSystemInDarkTheme()` quando il modo è `SISTEMA`) e `SettingsScreen`
+  (per mostrare/cambiare la selezione). Sono due istanze `ViewModel`
+  diverse ma leggono lo stesso `DataStore`, quindi restano sincronizzate
+  senza bisogno di uno scope condiviso — stesso principio "Room/DataStore
+  come single source of truth via Flow" già in uso per il resto dell'app.
+- `GameReviewerTheme` (`ui/theme/Theme.kt`) non è cambiato nella firma:
+  accetta già `darkTheme: Boolean`, è solo il chiamante in `MainActivity`
+  che ora lo calcola da `ThemeMode` invece di usare sempre il default
+  `isSystemInDarkTheme()`.
+- Nuova dipendenza: `androidx.datastore:datastore-preferences`.
+
+### Riorganizzazione documentazione
+
+- La specifica funzionale, prima `spec-app-recensioni-videogiochi.md` nella
+  root, è stata spostata in `docs/spec.md` (roadmap aggiornata per
+  riflettere il completamento della Fase 5).
+- `docs/en/` è la traduzione inglese di `docs/spec.md`,
+  `docs/decisioni-implementazione.md` e di `README.md` (come
+  `docs/en/README.md`) — l'italiano resta la fonte di verità, ogni file
+  tradotto porta una nota in cima che segnala il rischio di disallineamento
+  nel tempo. `CLAUDE.md` resta solo in italiano: è operativo per l'agente,
+  non documentazione rivolta a chi legge il repository.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
@@ -297,17 +400,19 @@ funzioni.**
 
 **Stato build: verde su CI** (`lintDebug`, `testDebugUnitTest`,
 `assembleDebug` passano tutti su GitHub Actions — vedi PR #1 per la Fase 1,
-PR #2 per la Fase 2, PR #3 per la Fase 3). La Fase 4 (questa modifica) è
-stata scritta con revisione statica riga per riga ma **non ancora
-verificata su CI al momento di scrivere questa nota** — controlla lo stato
-dei check sulla relativa PR prima di considerarla verde; se emergono errori
-di compilazione (nuove dipendenze `androidx.credentials`/`play-services-auth`/
-`androidx.work`/`androidx.hilt:hilt-work`, `@HiltWorker`, `Configuration.Provider`),
-sono il primo posto dove guardare. Il repository ha anche un secondo workflow,
-`build-apk.yml`, aggiunto manualmente fuori da queste sessioni: non
-toccarlo a meno che non serva, ma tienilo a mente quando controlli lo stato
-CI di una PR (di solito compaiono più check `build-and-test` insieme a un
-check `build`).
+PR #2 per la Fase 2, PR #3 per la Fase 3, PR #4 per la Fase 4). La Fase 5
+(questa modifica) è stata scritta con revisione statica riga per riga ma
+**non ancora verificata su CI al momento di scrivere questa nota** —
+controlla lo stato dei check sulla relativa PR prima di considerarla verde;
+se emergono errori di compilazione, le nuove dipendenze
+(`androidx.datastore:datastore-preferences`, `androidx.appcompat`) e il
+nuovo manifest (`android:localeConfig`, il service `AppLocalesMetadataHolderService`)
+sono il primo posto dove guardare — attenzione anche a `lint` sulle due
+`strings.xml`: se le chiavi IT/EN divergono, `MissingTranslation` la segnala.
+Il repository ha anche un secondo workflow, `build-apk.yml`, aggiunto
+manualmente fuori da queste sessioni: non toccarlo a meno che non serva, ma
+tienilo a mente quando controlli lo stato CI di una PR (di solito compaiono
+più check `build-and-test` insieme a un check `build`).
 
 Bug reali trovati solo grazie alla CI (nessuno di questi era visibile con
 una revisione statica):
@@ -362,9 +467,18 @@ Cosa è stato verificato:
   di Google, vedi sezione dedicata sopra) — le uniche dipendenze aggiunte in
   Fase 4 sono quelle esplicitamente richieste (Credential Manager,
   AuthorizationClient, WorkManager) più `googleid` e `androidx.hilt:hilt-work`,
-  necessarie di conseguenza e documentate lì.
+  necessarie di conseguenza e documentate lì. In Fase 5 idem: solo
+  `androidx.datastore:datastore-preferences` (tema) e `androidx.appcompat`
+  (lingua per-app), entrambe esplicitamente richieste.
 - Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
   Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
+- Nessuna stringa hardcoded nelle schermate: ogni testo visibile in `ui/`
+  passa da `stringResource()` (Compose) o `context.getString()` (ViewModel,
+  via `@ApplicationContext Context` iniettato con Hilt), con voce
+  corrispondente in `values/strings.xml` **e** `values-en/strings.xml`. Le
+  due liste di chiavi vanno tenute allineate: se aggiungi una stringa in
+  una lingua, aggiungila subito anche nell'altra invece di lasciare un
+  fallback silenzioso sull'italiano.
 
 ## Cosa NON fare finché non richiesto esplicitamente
 

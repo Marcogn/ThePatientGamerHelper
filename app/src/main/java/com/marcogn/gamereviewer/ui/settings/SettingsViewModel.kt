@@ -6,6 +6,7 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.data.backup.BackupManager
 import com.marcogn.gamereviewer.data.backup.BackupPreferences
 import com.marcogn.gamereviewer.data.backup.BackupScheduler
@@ -13,6 +14,7 @@ import com.marcogn.gamereviewer.data.drive.DriveAuthManager
 import com.marcogn.gamereviewer.data.drive.DriveAuthorization
 import com.marcogn.gamereviewer.domain.model.BackupFile
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val driveAuthManager: DriveAuthManager,
     private val backupManager: BackupManager,
     private val backupScheduler: BackupScheduler,
@@ -54,7 +57,11 @@ class SettingsViewModel @Inject constructor(
         val accessToken = obtainAccessToken(activityContext)
         backupManager.createBackup(accessToken)
         _uiState.update {
-            it.copy(lastBackupAt = preferences.lastBackupAt, lastBackupError = null, message = "Backup completato")
+            it.copy(
+                lastBackupAt = preferences.lastBackupAt,
+                lastBackupError = null,
+                message = appContext.getString(R.string.settings_backup_completed),
+            )
         }
         loadBackups(accessToken)
     }
@@ -66,7 +73,7 @@ class SettingsViewModel @Inject constructor(
     fun onRestore(activityContext: Context, backup: BackupFile) = runBusy {
         val accessToken = obtainAccessToken(activityContext)
         backupManager.restoreBackup(accessToken, backup)
-        _uiState.update { it.copy(message = "Ripristino completato") }
+        _uiState.update { it.copy(message = appContext.getString(R.string.settings_restore_completed)) }
     }
 
     fun onConsentResult(result: ActivityResult) {
@@ -91,7 +98,10 @@ class SettingsViewModel @Inject constructor(
                 block()
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(message = e.message ?: "Operazione non riuscita", lastBackupError = preferences.lastBackupError)
+                    it.copy(
+                        message = e.message ?: appContext.getString(R.string.settings_operation_failed),
+                        lastBackupError = preferences.lastBackupError,
+                    )
                 }
             } finally {
                 _uiState.update { it.copy(isBusy = false) }
@@ -108,9 +118,11 @@ class SettingsViewModel @Inject constructor(
         is DriveAuthorization.Authorized -> authorization.accessToken
         is DriveAuthorization.ConsentRequired -> {
             val result = awaitConsent(authorization.pendingIntent)
-            val data = result.data ?: error("Autorizzazione Drive annullata")
+            val data = result.data ?: error(appContext.getString(R.string.settings_drive_consent_cancelled))
             val completed = driveAuthManager.completeAuthorization(activityContext, data)
-            check(completed is DriveAuthorization.Authorized) { "Autorizzazione Drive non completata" }
+            check(completed is DriveAuthorization.Authorized) {
+                appContext.getString(R.string.settings_drive_consent_incomplete)
+            }
             completed.accessToken
         }
     }

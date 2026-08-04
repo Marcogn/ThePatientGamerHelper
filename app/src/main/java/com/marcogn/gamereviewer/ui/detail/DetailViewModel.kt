@@ -1,15 +1,18 @@
 package com.marcogn.gamereviewer.ui.detail
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.marcogn.gamereviewer.R
 import com.marcogn.gamereviewer.data.export.ReviewExporter
 import com.marcogn.gamereviewer.domain.model.Review
 import com.marcogn.gamereviewer.domain.repository.ReviewRepository
 import com.marcogn.gamereviewer.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +24,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
     private val reviewRepository: ReviewRepository,
     private val reviewExporter: ReviewExporter,
@@ -64,9 +68,9 @@ class DetailViewModel @Inject constructor(
             runCatching {
                 export(review)
             }.onSuccess {
-                _exportMessage.value = "Esportazione completata"
+                _exportMessage.value = appContext.getString(R.string.export_completed)
             }.onFailure {
-                _exportMessage.value = "Esportazione non riuscita: ${it.message}"
+                _exportMessage.value = appContext.getString(R.string.export_failed, it.message.orEmpty())
             }
         }
     }

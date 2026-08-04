@@ -91,22 +91,22 @@ fun LibraryScreen(
                     )
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {
-                            Icon(Icons.Filled.FilterList, contentDescription = "Filtri")
+                            Icon(Icons.Filled.FilterList, contentDescription = stringResource(R.string.cd_filters))
                         }
                     }
                     SortMenu(sort = uiState.sort, onSortChange = viewModel::onSortChange)
                     IconButton(onClick = onStatsClick) {
-                        Icon(Icons.Filled.BarChart, contentDescription = "Statistiche")
+                        Icon(Icons.Filled.BarChart, contentDescription = stringResource(R.string.stats_title))
                     }
                     IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Impostazioni")
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_title))
                     }
                 },
             )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddClick) {
-                Icon(Icons.Filled.Add, contentDescription = "Nuova recensione")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.review_new_title))
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -160,7 +160,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        placeholder = { Text("Cerca titolo, testo, pro/contro…") },
+        placeholder = { Text(stringResource(R.string.library_search_placeholder)) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         singleLine = true,
     )
@@ -170,9 +170,9 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 private fun EmptyLibraryMessage() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "Nessuna recensione ancora", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(R.string.library_empty_title), style = MaterialTheme.typography.titleMedium)
             Text(
-                text = "Tocca + per aggiungere la prima recensione",
+                text = stringResource(R.string.library_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -184,8 +184,8 @@ private fun EmptyLibraryMessage() {
 private fun NoResultsMessage(onClearFilters: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "Nessun risultato con i filtri attuali", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = onClearFilters) { Text("Reimposta filtri") }
+            Text(text = stringResource(R.string.library_no_results_title), style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = onClearFilters) { Text(stringResource(R.string.library_reset_filters)) }
         }
     }
 }
