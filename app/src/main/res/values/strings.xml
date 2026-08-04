@@ -66,6 +66,14 @@
     <string name="language_italian">Italiano</string>
     <string name="language_english">English</string>
 
+    <string name="settings_drive_not_configured_title">Backup su Drive non ancora configurato</string>
+    <string name="settings_drive_not_configured_description">Manca il client ID OAuth dell\'app. Va creato una sola volta in Google Cloud Console (tipo \"Web application\", stesso progetto della schermata di consenso e del client Android con lo SHA-1 del certificato di firma) e incollato in res/values/drive_config.xml, campo google_oauth_web_client_id — non è un dato utente, è l\'identificativo dell\'app stessa: Google lo richiede per ogni app che usa l\'accesso Google, non è configurabile da un tasto di login a runtime.</string>
+    <string name="settings_drive_login_description">Accedi con il tuo account Google per abilitare il backup su Drive (cartella privata dell\'app, non visibile né condivisibile dall\'interfaccia di Drive).</string>
+    <string name="settings_login_with_google">Accedi con Google</string>
+    <string name="settings_connected_to_drive">Connesso a Google Drive</string>
+    <string name="settings_logout">Esci</string>
+    <string name="settings_drive_not_signed_in">Accedi con Google prima di continuare</string>
+
     <string name="settings_backup_section_title">Backup cloud</string>
     <string name="settings_backup_description">Il backup viene salvato nella cartella privata dell\'app su Google Drive (appDataFolder): non visibile né condivisibile dall\'interfaccia di Drive.</string>
     <string name="settings_auto_backup_title">Backup automatico</string>

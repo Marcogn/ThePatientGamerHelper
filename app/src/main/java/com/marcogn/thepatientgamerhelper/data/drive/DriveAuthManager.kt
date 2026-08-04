@@ -48,6 +48,12 @@ sealed interface DriveAuthorization {
 class DriveAuthManager @Inject constructor(
     @ApplicationContext private val appContext: Context,
 ) {
+    /** Whether `google_oauth_web_client_id` has been filled in with a real value. */
+    fun isConfigured(): Boolean {
+        val id = appContext.getString(R.string.google_oauth_web_client_id)
+        return id.isNotBlank() && id != OAUTH_PLACEHOLDER
+    }
+
     private fun requireWebClientId(): String {
         val id = appContext.getString(R.string.google_oauth_web_client_id)
         if (id.isBlank() || id == OAUTH_PLACEHOLDER) throw DriveNotConfiguredException()
