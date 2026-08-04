@@ -1,6 +1,5 @@
 package com.marcogn.thepatientgamerhelper.ui.settings
 
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -110,7 +109,6 @@ fun SettingsScreen(
             PreferencesSection(
                 themeMode = themeMode,
                 onThemeModeSelected = themeViewModel::onThemeModeSelected,
-                context = context,
             )
 
             HorizontalDivider()
@@ -165,7 +163,6 @@ fun SettingsScreen(
 private fun PreferencesSection(
     themeMode: ThemeMode,
     onThemeModeSelected: (ThemeMode) -> Unit,
-    context: Context,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = stringResource(R.string.settings_preferences_section_title), style = MaterialTheme.typography.titleMedium)
@@ -190,7 +187,7 @@ private fun PreferencesSection(
                     selected = selectedLanguage == language,
                     onClick = {
                         selectedLanguage = language
-                        applyAppLanguage(context, language)
+                        applyAppLanguage(language)
                     },
                 )
             }

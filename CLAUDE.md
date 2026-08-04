@@ -379,17 +379,28 @@ bisogno dell'SDK Android o di Robolectric.
   sull'`<application>` (con `res/xml/locales_config.xml` che elenca `it`/`en`)
   è il complemento lato piattaforma per l'integrazione con Impostazioni >
   Lingue dell'app di sistema su API 33+.
-- **`recreate()` esplicito dopo il cambio lingua**: `MainActivity` è una
-  `ComponentActivity` pura (Compose, non `AppCompatActivity`), quindi la
-  ricreazione automatica delle Activity che AppCompat offre nativamente per
-  `AppCompatActivity` non è garantita qui su tutte le API prima della 33.
-  `applyAppLanguage()` in `ui/settings/AppLanguage.kt` risolve l'`Activity`
-  corrente da `Context` (via `ContextWrapper`) e chiama `recreate()` subito
-  dopo `setApplicationLocales()`, così il cambio lingua è visibile
-  immediatamente senza dover riavviare l'app a mano.
-- Nuova dipendenza: `androidx.appcompat:appcompat` — necessaria solo per
-  `AppCompatDelegate`/`AppLocalesMetadataHolderService`, non introduce
-  `AppCompatActivity` né altre API della vecchia UI a View.
+- **`MainActivity` estende `AppCompatActivity`, non `ComponentActivity`**:
+  richiesto esplicitamente dalla documentazione ufficiale per usare
+  `AppCompatDelegate.setApplicationLocales()` con Compose — *"If you're using
+  Compose with setApplicationLocales, you must extend your activity from
+  AppCompatActivity. Otherwise, setting the app locale won't work."* Con
+  `ComponentActivity` il cambio lingua non genera nessun errore, viene solo
+  ignorato silenziosamente (bug reale scoperto in verifica manuale su
+  device, vedi `docs/decisioni-implementazione.md` per il resoconto
+  completo, inclusi due tentativi di fix sbagliati prima di questo). Non
+  introduce View/XML: `setContent {}` resta l'unico entry point della UI,
+  `AppCompatActivity` serve solo da hook per il ciclo di vita di
+  `AppCompatDelegate`. Di conseguenza il tema Android sotto
+  `res/values/themes.xml` deve discendere da `Theme.AppCompat` (qui
+  `Theme.AppCompat.DayNight.NoActionBar`) — `AppCompatActivity` lancia
+  un'eccezione a runtime se il tema non è compatibile.
+- Nessuna `recreate()` manuale: con `AppCompatActivity`,
+  `setApplicationLocales()` la innesca già da sé end-to-end (sia su API 33+
+  che sotto). `ui/settings/AppLanguage.kt` si limita a chiamare
+  `setApplicationLocales()`.
+- Nuova dipendenza: `androidx.appcompat:appcompat` — necessaria per
+  `AppCompatDelegate`/`AppCompatActivity`/`AppLocalesMetadataHolderService`;
+  non introduce layout XML né altre API della vecchia UI a View.
 
 ### Tema chiaro/scuro/sistema
 
