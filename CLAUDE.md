@@ -222,8 +222,12 @@ bisogno dell'SDK Android o di Robolectric.
   `NetworkType.CONNECTED`) — nessuna UI per configurare l'intervallo, stesso
   principio "non over-engineerare" già applicato in Fase 3.
   `GameReviewerApplication` implementa `Configuration.Provider` per iniettare
-  `HiltWorkerFactory` (nessuna modifica al manifest: WorkManager rileva da
-  solo `Configuration.Provider` e salta l'inizializzazione di default).
+  `HiltWorkerFactory`; il manifest rimuove esplicitamente
+  `androidx.startup.InitializationProvider`
+  (`tools:node="remove"`) — necessario perché Android Lint
+  (`RemoveWorkManagerInitializer`) lo richiede quando `Application`
+  implementa `Configuration.Provider`, altrimenti la build fallisce (vedi
+  sezione "Bug reali trovati solo grazie alla CI" sotto).
 - **Stato persistito**: `BackupPreferences` (semplice `SharedPreferences`,
   niente DataStore per tre soli flag) tiene il toggle "backup automatico" e
   l'esito dell'ultimo backup (timestamp/errore), scritti da
@@ -320,6 +324,13 @@ una revisione statica):
 - `PdfDocument` sotto Robolectric lancia `IllegalStateException` nel suo
   ciclo di vita delle pagine (vedi sezione Fase 2 sopra) — non è un bug del
   codice applicativo, è una limitazione dello shadow Robolectric.
+- Lint (`RemoveWorkManagerInitializer`) blocca la build se
+  `Application` implementa `androidx.work.Configuration.Provider` (Fase 4)
+  senza rimuovere esplicitamente `androidx.startup.InitializationProvider`
+  dal manifest — a differenza di quanto suggerisce parte della
+  documentazione WorkManager, che la implica automatica. Serve un
+  `<provider ... tools:node="remove">` esplicito in
+  `AndroidManifest.xml` (richiede `xmlns:tools`).
 
 Cosa è stato verificato:
 - Revisione statica riga per riga di tutti i file Kotlin (import, coerenza
