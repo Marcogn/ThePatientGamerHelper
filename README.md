@@ -1,5 +1,9 @@
 # ThePatientGamerHelper
 
+[![Android CI](https://github.com/Marcogn/ThePatientGamerHelper/actions/workflows/android-ci.yml/badge.svg)](https://github.com/Marcogn/ThePatientGamerHelper/actions/workflows/android-ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![minSdk 26](https://img.shields.io/badge/minSdk-26-brightgreen.svg)](app/build.gradle.kts)
+
 App Android nativa per tenere traccia delle recensioni dei videogiochi che
 finisco (o abbandono). Nasce per sostituire un flusso che tenevo a mano tra
 note sparse e post per r/patientgamer: una scheda per gioco con voto,
@@ -108,6 +112,15 @@ app/src/main/java/com/marcogn/thepatientgamerhelper/
 Le build `debug` seedano automaticamente qualche recensione di esempio
 (`data/debug/DebugSeeder.kt`) per non partire da uno schermo vuoto durante
 lo sviluppo. Le build `release` non includono mai dati finti.
+
+## Contribuire
+
+Progetto personale, sviluppato per un uso single-user. Non c'è una roadmap
+pubblica di funzionalità aperte a proposte, ma segnalazioni di bug e piccole
+PR di fix sono benvenute — apri una issue prima di lavorare su qualcosa di
+grande per evitare lavoro sprecato. Per segnalare una vulnerabilità di
+sicurezza, vedi [`SECURITY.md`](SECURITY.md) invece di aprire una issue
+pubblica.
 
 ## Licenza
 
