@@ -52,6 +52,10 @@ data class BacklogItem(
     val abandonNote: String?,
     val releaseYear: Int?,
     val developer: String?,
+    /** Best-effort HowLongToBeat estimate (Fase 8) — only ever set via the "cerca online" flow, no manual editor. */
+    val hltbMainStoryHours: Double?,
+    val hltbMainExtraHours: Double?,
+    val hltbCompletionistHours: Double?,
     val comments: List<BacklogComment>,
     val history: List<BacklogHistoryEntry>,
 )
@@ -65,6 +69,9 @@ data class BacklogItemDraft(
     val coverImagePath: String?,
     val releaseYear: Int? = null,
     val developer: String? = null,
+    val hltbMainStoryHours: Double? = null,
+    val hltbMainExtraHours: Double? = null,
+    val hltbCompletionistHours: Double? = null,
 ) {
     companion object {
         fun empty() = BacklogItemDraft(
@@ -75,6 +82,9 @@ data class BacklogItemDraft(
             coverImagePath = null,
             releaseYear = null,
             developer = null,
+            hltbMainStoryHours = null,
+            hltbMainExtraHours = null,
+            hltbCompletionistHours = null,
         )
     }
 }
@@ -87,4 +97,7 @@ fun BacklogItem.toDraft(): BacklogItemDraft = BacklogItemDraft(
     coverImagePath = coverImagePath,
     releaseYear = releaseYear,
     developer = developer,
+    hltbMainStoryHours = hltbMainStoryHours,
+    hltbMainExtraHours = hltbMainExtraHours,
+    hltbCompletionistHours = hltbCompletionistHours,
 )

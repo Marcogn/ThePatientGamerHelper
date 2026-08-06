@@ -1,6 +1,6 @@
 # Specifica funzionale e tecnica — App recensioni videoludiche
 
-**Versione:** 1.1 (roadmap estesa oltre l'originaria, Fase 6)
+**Versione:** 1.2 (roadmap estesa oltre l'originaria, Fase 8)
 **Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato, backup cloud e backlog tracciabile. Nato come documento di progettazione iniziale, ora tenuto aggiornato come riferimento sullo stato della roadmap — il dettaglio implementativo di ogni fase vive in `CLAUDE.md`.
 
 ---
@@ -44,7 +44,7 @@ Entità aggiuntive per tracciare i giochi non ancora recensiti:
 | Entità | Campi principali | Note |
 |---|---|---|
 | **Lista backlog** | `id`, `nome`, `ordine`, `dataCreazione` | create/rinominate/eliminate/riordinate liberamente dall'utente |
-| **Item backlog** | `id`, `listId`, `titolo`, piattaforma/genere/tag (many-to-many, stesse tabelle di lookup delle recensioni), `copertina`, `stato` (`da_iniziare`/`in_corso`/`completato`/`abbandonato`/`in_pausa`), `dataAggiunta`, `dataInizio`/`dataCompletamento` (opzionali, valorizzate automaticamente al cambio stato), `recensioneId` (opzionale), `notaAbbandono`, `anno`/`sviluppatore` (opzionali, valorizzati solo dalla ricerca online) | una recensione per item al massimo |
+| **Item backlog** | `id`, `listId`, `titolo`, piattaforma/genere/tag (many-to-many, stesse tabelle di lookup delle recensioni), `copertina`, `stato` (`da_iniziare`/`in_corso`/`completato`/`abbandonato`/`in_pausa`), `dataAggiunta`, `dataInizio`/`dataCompletamento` (opzionali, valorizzate automaticamente al cambio stato), `recensioneId` (opzionale), `notaAbbandono`, `anno`/`sviluppatore` (opzionali, valorizzati solo dalla ricerca online), `hltbStoriaPrincipale`/`hltbStoriaPiuExtra`/`hltbCompletista` (opzionali, ore stimate, Fase 8 — valorizzati solo dalla ricerca online, mai a mano) | una recensione per item al massimo |
 | **Commento** | `id`, `itemId`, `testo`, `timestamp` | multipli per item, ordine cronologico |
 | **Voce di storico** | `id`, `itemId`, `tipoEvento`, `timestamp`, `dettaglio` | generata automaticamente dal sistema, non richiede input manuale |
 
@@ -105,6 +105,54 @@ caricamento manuale della copertina resta sempre disponibile come
 alternativa. Richiede una API key TheGamesDB configurabile nelle
 Impostazioni (nessuna chiave inclusa nella build). Dettaglio implementativo
 in `CLAUDE.md`, stessa sezione sopra.
+
+### 3.7 Import recensioni da Markdown (Fase 8) ✅ completata
+
+Reverse dell'export Markdown singola recensione (3.3): un pulsante nella
+top bar della libreria apre un file `.md` via SAF e crea una nuova
+recensione a partire dal suo contenuto. Riconosce solo il formato prodotto
+dall'app stessa (stesse etichette italiane fisse, stessa struttura). Errori
+di parsing (campo obbligatorio mancante o non valido) mostrano un messaggio
+puntuale invece di un fallimento generico. Dettaglio implementativo in
+`CLAUDE.md`, sezione "Fase 8".
+
+### 3.8 Export/import backlog con le sue liste (Fase 8) ✅ completata
+
+Stesso principio dell'export/import Markdown ma per l'intero backlog: un
+unico archivio ZIP (dati + copertine) scaricabile/apribile via SAF dalla
+schermata Backlog. L'import è **sempre additivo** (nuove liste, nuovi
+item), mai una sostituzione — diverso dal restore da backup Drive (3.4/6),
+che è un ripristino completo. Dettaglio implementativo in `CLAUDE.md`,
+sezione "Fase 8".
+
+### 3.9 Tempi stimati da HowLongToBeat nel backlog (Fase 8) ✅ completata
+
+Quando "Cerca online" nel form backlog porta a selezionare un risultato
+TheGamesDB, l'app tenta anche una ricerca HowLongToBeat sullo stesso titolo
+e, se trova una corrispondenza, salva le stime (storia principale, storia +
+extra, completista, in ore) sull'item — visibili nella scheda di dettaglio
+del backlog. **HowLongToBeat non espone un'API pubblica**: l'integrazione
+usa la stessa tecnica reverse-engineered di ogni libreria non ufficiale
+esistente, quindi è intrinsecamente più fragile della ricerca TheGamesDB e
+può smettere di funzionare se HowLongToBeat cambia il proprio frontend —
+fallisce sempre in silenzio (nessun campo valorizzato), mai con un errore
+bloccante. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
+
+### 3.10 Statistiche: tempo stimato backlog (Fase 8) ✅ completata
+
+La schermata Statistiche mostra, quando disponibili, le ore stimate totali
+(storia principale/storia + extra/completista) sommate su tutti gli item
+del backlog che hanno una stima HowLongToBeat, più il conteggio di quanti
+item ne hanno una. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
+
+### 3.11 Viste lista/griglia per recensioni e backlog (Fase 8) ✅ completata
+
+Un pulsante nella libreria e nella vista di dettaglio di una lista backlog
+alterna tra la vista a lista esistente e una vista a griglia con copertine
+a piena larghezza in proporzione corretta (2:3, tipica delle cover
+box-art). La scelta è persistita per schermata. La griglia del backlog non
+supporta il riordino manuale (drag-to-reorder), disponibile solo in vista a
+lista. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
 
 ---
 
@@ -180,9 +228,18 @@ Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configu
    sezione Backlog (liste, item, commenti, storico automatico) e ricerca
    online TheGamesDB per copertina/metadati, in due tappe. Vedi `CLAUDE.md`
    per il dettaglio implementativo.
+7. **Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB** ✅:
+   vedi `CLAUDE.md` per il dettaglio implementativo.
+8. **Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste
+   griglia** ✅: import recensioni da Markdown, export/import dell'intero
+   backlog (sempre additivo), tempi stimati HowLongToBeat nel backlog e
+   nelle statistiche, vista a griglia per libreria e backlog. Vedi
+   `CLAUDE.md` per il dettaglio implementativo e
+   `docs/decisioni-implementazione.md` per il ragionamento completo,
+   inclusa la fragilità nota dell'integrazione HowLongToBeat.
 
-Con la Fase 5 si era chiusa la roadmap originaria di questo documento; la
-Fase 6 la estende su richiesta esplicita in una sessione successiva. Export
+Con la Fase 5 si era chiusa la roadmap originaria di questo documento; le
+Fasi 6-8 la estendono su richiesta esplicita in sessioni successive. Export
 DOCX resta **non implementato**, decisione definitiva — vedi sezione 5.
 
 ---
@@ -209,3 +266,4 @@ Questi sono scelte di prodotto che non presumo per te:
 - discuss.kotlinlang.org / github.com (DocxKtm) — stato dei tool di generazione DOCX su Android/Kotlin
 - forums.thegamesdb.net — policy di accesso API (cambio 17/02/2026, richiesta apikey su ogni endpoint) e limiti della public key condivisa
 - github.com (muldjord/skyscraper, sselph/scraper, picandocodigo/gamesdb) — struttura reale degli endpoint TheGamesDB v1 (ricerca, include=boxart, lookup Platforms/Genres/Developers) usata per implementare `TheGamesDbApiClient` senza documentazione ufficiale raggiungibile
+- github.com (ScrappyCocco/HowLongToBeat-PythonAPI, ckatzorke/howlongtobeat, altre librerie non ufficiali) — confermato che HowLongToBeat non espone un'API pubblica e che ogni integrazione esistente ri-deriva l'endpoint di ricerca dal bundle frontend a runtime; usato per implementare `HowLongToBeatApiClient` (Fase 8) sapendo esplicitamente che è una tecnica reverse-engineered, non un contratto stabile

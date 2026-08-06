@@ -151,6 +151,12 @@ fun BacklogItemDetailScreen(
                 }
             }
 
+            HowLongToBeatSection(
+                mainStoryHours = item.hltbMainStoryHours,
+                mainExtraHours = item.hltbMainExtraHours,
+                completionistHours = item.hltbCompletionistHours,
+            )
+
             StatusSelector(status = item.status, onStatusChange = viewModel::onStatusChange)
 
             if (item.status == BacklogItemStatus.ABBANDONATO) {
@@ -208,6 +214,23 @@ fun BacklogItemDetailScreen(
             },
             dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
+    }
+}
+
+@Composable
+private fun HowLongToBeatSection(mainStoryHours: Double?, mainExtraHours: Double?, completionistHours: Double?) {
+    if (mainStoryHours == null && mainExtraHours == null && completionistHours == null) return
+
+    val parts = listOfNotNull(
+        mainStoryHours?.let { stringResource(R.string.backlog_hltb_main_story_short, it) },
+        mainExtraHours?.let { stringResource(R.string.backlog_hltb_main_extra_short, it) },
+        completionistHours?.let { stringResource(R.string.backlog_hltb_completionist_short, it) },
+    )
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(text = stringResource(R.string.backlog_hltb_title), style = MaterialTheme.typography.labelSmall)
+            Text(text = parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 

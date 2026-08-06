@@ -42,7 +42,7 @@ import com.marcogn.thepatientgamerhelper.data.local.entity.TagEntity
         BacklogItemGenreCrossRef::class,
         BacklogItemTagCrossRef::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

@@ -39,10 +39,19 @@ Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
   cassetto laterale hamburger con le 3 sezioni principali + impostazioni;
   fix del bug "ricerca TheGamesDB sempre fallita"). Vedi sezione dedicata
   sotto.
+- **Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste
+  griglia**: ✅ completata (import recensioni da Markdown, reverse
+  dell'export esistente; export/import dell'intero backlog con le sue
+  liste, sempre additivo, formato ZIP separato dal backup Drive; tempi
+  stimati HowLongToBeat nel form/dettaglio backlog e nelle statistiche,
+  integrazione intrinsecamente fragile perché HowLongToBeat non ha
+  un'API pubblica — vedi sotto; vista lista/griglia per libreria e
+  backlog). Vedi sezione dedicata sotto e
+  `docs/decisioni-implementazione.md` per il ragionamento completo.
 - **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
   "Export DOCX — perché non è stato implementato" sotto.
 
-Con la Fase 6 la roadmap è ulteriormente estesa oltre quella originaria (vedi
+Con le Fasi 6-8 la roadmap è ulteriormente estesa oltre quella originaria (vedi
 `docs/spec.md`). Non implementare funzionalità non ancora presenti in questo
 file o nella spec a meno che l'utente non lo richieda esplicitamente in una
 nuova sessione.
@@ -78,37 +87,52 @@ com.marcogn.thepatientgamerhelper
 │   │   │                # Backlog* dalla Fase 6)
 │   │   ├── dao/          # DAO Room, esposti come Flow (ReviewDao, LookupDaos, BacklogDao)
 │   │   ├── Converters.kt # TypeConverter per LocalDate/Instant/enum
-│   │   └── Migrations.kt # MIGRATION_1_2 (Fase 6: tabelle backlog, additiva, dati esistenti intatti)
+│   │   └── Migrations.kt # MIGRATION_1_2 (Fase 6: tabelle backlog), MIGRATION_2_3 (Fase 8:
+│   │                      # colonne stima HowLongToBeat su backlog_items) — entrambe additive
 │   ├── repository/       # Implementazioni dei repository (upsert transazionale)
-│   ├── export/            # I/O Android per l'export: ExportFileWriter (SAF),
-│   │                      # PdfReviewRenderer (PdfDocument), ReviewExporter (classe
-│   │                      # concreta iniettata via Hilt, come ImageStorage — non
-│   │                      # un'astrazione interfaccia/impl come i repository)
+│   ├── export/            # I/O Android per l'export/import: ExportFileWriter (SAF, scrittura),
+│   │                      # ImportFileReader (Fase 8, SAF, lettura — usato sia dall'import
+│   │                      # Markdown recensioni sia dall'import backlog), PdfReviewRenderer
+│   │                      # (PdfDocument), ReviewExporter, BacklogExporter/BacklogImporter +
+│   │                      # BacklogExportArchiveBuilder/Reader (Fase 8, zip dati+copertine) —
+│   │                      # tutte classi concrete iniettate via Hilt, come ImageStorage, non
+│   │                      # un'astrazione interfaccia/impl come i repository
 │   ├── drive/             # Client REST Drive v3 (DriveApiClient, HttpURLConnection)
 │   │                      # + auth (DriveAuthManager: Credential Manager + AuthorizationClient)
 │   ├── backup/            # Orchestrazione backup/restore: BackupManager, archivio zip
 │   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
 │   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
-│   ├── settings/          # ThemePreferences (Fase 5, Preferences DataStore)
+│   ├── settings/          # ThemePreferences (Fase 5, Preferences DataStore), ViewModePreferences
+│   │                      # (Fase 8, SharedPreferences, vista lista/griglia libreria e backlog)
 │   ├── thegamesdb/        # Fase 6, Tappa 2: TheGamesDbApiClient (HttpURLConnection, stesso
 │   │                      # pattern di DriveApiClient), TheGamesDbPreferences (SharedPreferences,
 │   │                      # API key inserita a runtime dall'utente), GameMetadataSearchCoordinator
-│   │                      # (logica condivisa "cerca online" tra form recensione e form backlog)
+│   │                      # (logica condivisa "cerca online" tra form recensione e form backlog,
+│   │                      # Fase 8: espone anche searchHowLongToBeat(), backlog-only)
+│   ├── howlongtobeat/     # Fase 8: HowLongToBeatApiClient — client HttpURLConnection per un
+│   │                      # endpoint non ufficiale/non documentato, tecnica reverse-engineered
+│   │                      # (vedi sezione dedicata sotto), non lo stesso livello di affidabilità
+│   │                      # di TheGamesDbApiClient/DriveApiClient
 │   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
 ├── domain/
 │   ├── model/            # Modelli di dominio puri (no dipendenze Android), incluso ThemeMode,
-│   │                      # Backlog* e GameMetadataSearchResult (Fase 6)
+│   │                      # Backlog* e GameMetadataSearchResult (Fase 6), HowLongToBeatEstimate/
+│   │                      # ViewMode/ImportedBacklog* (Fase 8)
 │   ├── filter/            # Logica di filtro/ordinamento libreria e backlog, pure function, unit-testata
 │   ├── stats/             # Aggregazioni pure: LibraryStatisticsCalculator (Fase 3),
-│   │                      # BacklogStatisticsCalculator (Fase 6, conteggi per stato/lista)
-│   ├── export/            # Formattazione export pura: JSON (kotlinx.serialization),
-│   │                      # CSV (writer manuale), Markdown (template stringhe) —
-│   │                      # nessun import Android, unit-testabile in JVM puro. Le etichette
-│   │                      # restano in italiano fisso (vedi Fase 5, non seguono la lingua app)
+│   │                      # BacklogStatisticsCalculator (Fase 6, conteggi per stato/lista;
+│   │                      # Fase 8: anche computeBacklogTimeEstimateStatistics)
+│   ├── export/            # Formattazione export/import pura: JSON (kotlinx.serialization),
+│   │                      # CSV (writer manuale), Markdown (template stringhe, Fase 8: anche
+│   │                      # ReviewMarkdownParser, il reverse) — nessun import Android,
+│   │                      # unit-testabile in JVM puro. Le etichette restano in italiano fisso
+│   │                      # (vedi Fase 5, non seguono la lingua app). Fase 8: anche
+│   │                      # BacklogExportDto.kt (payload zip export/import backlog, formato
+│   │                      # separato da domain/backup — vedi sezione dedicata sotto)
 │   ├── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
 │   │                      # mapping Review<->DTO, naming file — stesso pattern di domain/export
 │   └── repository/        # Interfacce repository (ReviewRepository, LookupRepository,
-│                          # BacklogRepository dalla Fase 6)
+│                          # BacklogRepository dalla Fase 6, + importLists() dalla Fase 8)
 ├── di/                    # Moduli Hilt (Database, Repository)
 └── ui/
     ├── theme/             # Tema Material 3 (Compose) + ThemeViewModel (Fase 5, legge ThemePreferences)
@@ -120,19 +144,23 @@ com.marcogn.thepatientgamerhelper
     │                      # principali (recensioni/backlog/statistiche)
     ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export).
     │                      # Fase 7: non più startDestination, top bar senza nome app/icone
-    │                      # backlog/statistiche/impostazioni (ora nel drawer)
+    │                      # backlog/statistiche/impostazioni (ora nel drawer). Fase 8: import
+    │                      # Markdown, toggle vista lista/griglia
     ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
     ├── form/              # Form crea/modifica recensione (+ "Cerca online" e pre-popolamento
     │                      # da backlog item, Fase 6)
     ├── backlog/            # Fase 6: BacklogScreen (liste + ricerca/filtro unificata + stats
     │                       # aggregate leggere), BacklogListDetailScreen (drag-to-reorder),
     │                       # BacklogItemFormScreen, BacklogItemDetailScreen (stato/commenti/
-    │                       # storico/nota abbandono)
+    │                       # storico/nota abbandono, Fase 8: anche stima HowLongToBeat).
+    │                       # Fase 8: export/import backlog in BacklogScreen, toggle vista
+    │                       # lista/griglia in BacklogListDetailScreen (griglia senza
+    │                       # drag-to-reorder)
     ├── settings/           # Schermata Impostazioni: preferenze tema/lingua (Fase 5), backup
     │                       # manuale/automatico, ripristino, API key TheGamesDB (Fase 6)
     └── common/            # Composable condivisi (chip input, rating, date picker, cover
                             # thumbnail, ReviewStatus/BacklogItemStatus display, GameSearchDialog
-                            # Fase 6, ecc.)
+                            # Fase 6, GameGridTile/ViewModeToggle Fase 8, ecc.)
 ```
 
 Risorse (`app/src/main/res/`): `values/strings.xml` è l'italiano (lingua di
@@ -697,6 +725,174 @@ prima di considerarla verde, e verifica manualmente su device/emulatore che
 il fix della ricerca TheGamesDB mostri ora un messaggio d'errore
 utile quando la ricerca fallisce.
 
+## Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste griglia
+
+Cinque richieste distinte nella stessa sessione, trattate come un'unica
+modifica coordinata: import recensioni da Markdown, export/import backlog,
+tempi stimati HowLongToBeat nel backlog, gli stessi tempi in statistica, e
+vista a griglia per libreria e backlog.
+
+### Import recensioni da Markdown
+
+- `domain/export/ReviewMarkdownParser.kt`: `parseReviewMarkdown(String):
+  Result<ReviewDraft>`, funzione pura (nessun import Android, unit-testata
+  in JVM puro come il resto di `domain/export`) che è l'esatto reverse di
+  `toRedditMarkdown()` — stesse etichette italiane fisse (`Voto`, `Stato`,
+  `Piattaforme`, `Generi`, `Tag`, `Iniziato il`, `Terminato il`, `Ore di
+  gioco`), stessa struttura a bullet list, stesse sezioni `## Pro`/
+  `## Contro` opzionali. Non è un parser Markdown generico: riconosce solo
+  il formato che l'app stessa produce.
+- Severo sui campi che l'exporter scrive sempre (titolo, voto, stato, data
+  di inizio — un file senza uno di questi non è una recensione scritta da
+  questa app), permissivo su tutto il resto (piattaforme/generi/tag/ore/
+  pro/contro/corpo), rispecchiando esattamente cosa `toRedditMarkdown`
+  omette quando vuoto. Ogni fallimento di parsing produce un `Result`
+  fallito con un messaggio puntuale (es. "Voto mancante o non valido"), mai
+  un'eccezione generica.
+- Punto di ingresso: icona upload nella top bar della libreria, apre un
+  file `.md` via SAF (`ActivityResultContracts.OpenDocument`), legge il
+  contenuto con il nuovo `data/export/ImportFileReader.kt` (controparte in
+  lettura di `ExportFileWriter`, riusato anche dall'import backlog sotto),
+  lo passa al parser e — se valido — crea sempre una **nuova** recensione
+  (`ReviewRepository.save(id = null, ...)`), mai un aggiornamento di una
+  esistente. Esito mostrato con uno snackbar (`import_completed`/
+  `import_failed`), stesso pattern di `exportMessage` in `LibraryViewModel`.
+
+### Export/import backlog con le sue liste
+
+- Formato **deliberatamente separato** da `domain/backup` (Fase 4, backup
+  Drive dell'intera libreria recensioni con restore a sovrascrittura
+  completa): questo è un file che l'utente crea/apre esplicitamente via SAF
+  per condividere o unire il proprio backlog, non un ripristino di
+  sicurezza. `domain/export/BacklogExportDto.kt` (payload puro, JSON via
+  kotlinx.serialization, etichette italiane come `ReviewExportDto`) +
+  `data/export/BacklogExportArchive.kt` (zip `data.json` + `images/`,
+  stesso schema di `data/backup/BackupArchive.kt` ma scoped solo alle
+  copertine effettivamente referenziate dal backlog, non l'intera
+  `ImageStorage`) + `data/export/BacklogExporter.kt`/`BacklogImporter.kt`
+  (orchestrazione I/O, iniettati via Hilt come `ReviewExporter`).
+- **Sempre additivo, mai una sostituzione**: `BacklogRepository.importLists()`
+  crea sempre liste nuove ed item nuovi con id nuovo — anche importando lo
+  stesso file due volte (non è idempotente, scelta accettata per restare
+  semplice: un merge per titolo/somiglianza avrebbe introdotto ambiguità —
+  due giochi con lo stesso nome su piattaforme diverse? — che la richiesta
+  non specificava). `reviewId` viene scartato in import (la recensione
+  collegata appartiene alla libreria che ha esportato il file e potrebbe
+  non esistere su questo device); commenti e storico sono reinseriti
+  verbatim con i timestamp originali, senza aggiungere una voce `CREATO`
+  sintetica (quella originale è già nello storico esportato). Le copertine
+  vengono riscritte con un nome file nuovo (UUID), mai riusando il nome
+  originale — la cartella `covers/` è condivisa con le recensioni, riusare
+  un nome rischierebbe una collisione con un file già presente sul device.
+- Punto di ingresso: icone upload/download nella top bar di
+  `BacklogScreen`. Export sempre sull'intero backlog (stessa regola
+  "sempre tutto, mai filtrato" di JSON/CSV in Fase 2).
+
+### Tempi stimati HowLongToBeat nel backlog
+
+- **Nessuna API pubblica esiste**: verificato online prima di implementare
+  (stessa regola già applicata in Fase 6 per la policy apikey di
+  TheGamesDB) — a differenza di TheGamesDB, che almeno richiede una apikey
+  ma resta un endpoint documentato, HowLongToBeat non ha mai avuto un'API
+  pubblica. Ogni integrazione non ufficiale esistente (howlongtobeatpy,
+  ckatzorke/howlongtobeat, ecc.) funziona ri-derivando l'endpoint di
+  ricerca corrente dal bundle JavaScript del frontend di HowLongToBeat a
+  runtime, perché il path cambia ad ogni loro deploy — non esiste un
+  contratto stabile da implementare contro.
+- `data/howlongtobeat/HowLongToBeatApiClient.kt` usa la stessa tecnica
+  reverse-engineered: fetch della homepage, estrazione del bundle
+  `_app-*.js`, regex sull'endpoint POST, con fallback al path storicamente
+  stabile `/api/s/` se l'estrazione fallisce. **Questo è intrinsecamente
+  più fragile di `TheGamesDbApiClient`/`DriveApiClient`**: quelli sono
+  reverse-engineered da endpoint REST documentati o comunque stabili
+  (Fase 4/6), questo è reverse-engineered da un frontend che può cambiare
+  ad ogni deploy senza preavviso. Non è stato possibile eseguirlo contro
+  `howlongtobeat.com` reale da questo sandbox (nessun accesso di rete,
+  stessa limitazione già nota per `dl.google.com`/`api.thegamesdb.net`) —
+  **va considerato non verificato finché non testato su un device reale**.
+- **Fallimento sempre silenzioso**: ogni errore (bundle cambiato, endpoint
+  bloccato, nessuna corrispondenza, schema di risposta diverso) diventa
+  `null` in `GameMetadataSearchCoordinator.searchHowLongToBeat()` — mai
+  un'eccezione propagata, mai un messaggio mostrato all'utente (a
+  differenza di `search()`/TheGamesDB, che mostra un messaggio su
+  fallimento: qui è un arricchimento silenzioso sopra una ricerca
+  TheGamesDB già riuscita, non un'azione a sé). Il flusso "cerca online"
+  esistente non cambia in nessun modo se HowLongToBeat non risponde.
+- `hltbMainStoryHours`/`hltbMainExtraHours`/`hltbCompletionistHours`
+  vivono **solo su `BacklogItemEntity`/`BacklogItem`**, stesso precedente
+  già motivato per `releaseYear`/`developer` in Fase 6: sono metadati di
+  catalogazione, non parte del cuore di una recensione. La ricerca online
+  nel form recensione resta invariata; solo `BacklogItemFormViewModel`
+  chiama `searchHowLongToBeat()`, dopo che l'utente ha scelto un risultato
+  TheGamesDB (usa il titolo esatto del risultato scelto, non il testo
+  digitato, per la massima precisione di corrispondenza).
+- `MIGRATION_2_3` (`data/local/Migrations.kt`) aggiunge le tre colonne
+  `REAL` nullable a `backlog_items`, additiva come `MIGRATION_1_2`.
+  `@Database` passa da `version = 2` a `version = 3`.
+- Visibili nella scheda di dettaglio backlog (`BacklogItemDetailScreen`,
+  card dedicata sotto i metadati, mostrata solo se almeno un campo è
+  valorizzato) — non editabili a mano, stesso principio di
+  anno/sviluppatore.
+
+### Statistiche: tempo stimato backlog
+
+- `domain/stats/BacklogStatisticsCalculator.kt`:
+  `computeBacklogTimeEstimateStatistics()` somma le ore stimate
+  (storia principale/storia+extra/completista) su tutti gli item del
+  backlog che hanno **almeno un campo HowLongToBeat valorizzato**,
+  indipendentemente dallo stato — si legge come "quanto tempo richiedono in
+  totale questi giochi", non solo quelli non ancora iniziati. Espone anche
+  `itemsWithEstimate` per mostrare "X elementi con una stima" nella UI.
+  Integrato in `BacklogStatistics` (usato dall'header leggero di
+  `BacklogScreen`) e in un nuovo `StatsUiState.backlogTimeEstimate`
+  (`StatsViewModel` ora combina `ReviewRepository.observeAll()` con
+  `BacklogRepository.observeAllItems()`).
+- Nuova sezione in `StatsScreen` ("Tempo stimato backlog (HowLongToBeat)"),
+  mostrata solo se almeno un item ha una stima — indipendente dal numero di
+  recensioni, quindi visibile anche con libreria vuota se il backlog ha
+  dati HowLongToBeat.
+
+### Viste lista/griglia per recensioni e backlog
+
+- `domain/model/ViewMode.kt` (`LIST`/`GRID`) + `data/settings/
+  ViewModePreferences.kt` — due soli flag persistiti (vista libreria, vista
+  backlog), `SharedPreferences` semplice come `BackupPreferences`/
+  `TheGamesDbPreferences`, non `DataStore` (quello resta per `ThemeMode`,
+  dove la richiesta esplicita in Fase 5 era DataStore).
+- `ui/common/GameGridTile.kt` (cover a piena larghezza, proporzione 2:3
+  corretta via `Modifier.aspectRatio` + `ContentScale.Crop`, non la
+  thumbnail quadrata fissa di `CoverThumbnail` usata in vista a lista) e
+  `ui/common/ViewModeToggle.kt` (icona che alterna, condivisi tra
+  `LibraryScreen` e `BacklogListDetailScreen` per non duplicare la stessa
+  UI due volte).
+- **La griglia del backlog non supporta il drag-to-reorder manuale**
+  (Fase 6, Tappa 1, disponibile solo in `BacklogListDetailScreen` vista a
+  lista): estendere il gesto di trascinamento verticale esistente a una
+  griglia 2D avrebbe richiesto una logica di posizionamento sostanzialmente
+  diversa per un beneficio puramente cosmetico. L'utente torna alla vista a
+  lista per riordinare.
+- `BacklogScreen` (la vista "elenco liste"/ricerca cross-lista) **non** ha
+  ricevuto il toggle: la griglia si applica dove si sfogliano i *giochi*
+  (libreria, dettaglio di una lista backlog), non dove si sfogliano le
+  *liste* stesse.
+
+**Stato build**: come per le fasi precedenti, questa modifica è stata
+scritta e rivista staticamente riga per riga (bilanciamento parentesi,
+import, corrispondenza dei nomi di campo tra entità/DTO/mapper/draft,
+parità 1:1 delle chiavi `strings.xml` IT/EN) ma **non verificata su CI al
+momento di scrivere questa nota**. In questa sessione ho anche verificato
+di persona se l'ambiente avesse un accesso di rete più ampio del solito
+sandbox isolato: alcuni host Google rispondono (`maven.google.com`
+restituisce 200), ma lo scaricamento reale degli artefatti dell'Android
+Gradle Plugin resta bloccato dal proxy in uscita (redirect verso un host
+non in allowlist, tunnel CONNECT rifiutato con 403) — stessa limitazione
+già nota, confermata con un test diretto invece che solo assunta. Vedi
+`docs/decisioni-implementazione.md` per il ragionamento completo dietro
+ogni scelta di questa fase. Controlla lo stato dei check sulla PR prima di
+considerarla verde, e verifica manualmente su device/emulatore sia
+l'import Markdown sia — soprattutto — l'integrazione HowLongToBeat, che
+resta la parte a rischio di fragilità più alto di questa modifica.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
@@ -746,6 +942,12 @@ Il repository ha anche un secondo workflow, `build-apk.yml`, aggiunto
 manualmente fuori da queste sessioni: non toccarlo a meno che non serva, ma
 tienilo a mente quando controlli lo stato CI di una PR (di solito compaiono
 più check `build-and-test` insieme a un check `build`).
+
+(Nota: questo paragrafo racconta lo stato al momento della Fase 5; Fasi 6-8
+sono state scritte con lo stesso approccio — revisione statica, nessuna
+build locale possibile — ognuna con la propria nota "Stato build" nella
+rispettiva sezione qui sotto. Controlla sempre i check della PR più
+recente, non fidarti solo di questo paragrafo per lo stato attuale.)
 
 Bug reali trovati solo grazie alla CI (nessuno di questi era visibile con
 una revisione statica):
@@ -806,7 +1008,11 @@ Cosa è stato verificato:
   dipendenza aggiunta**: client TheGamesDB scritto a mano come Drive (niente
   Retrofit/Ktor nonostante fossero citati come esempio nella richiesta),
   drag-to-reorder del backlog implementato con Compose Foundation puro
-  (niente libreria di reorder).
+  (niente libreria di reorder). In Fase 8 idem: **nessuna dipendenza
+  aggiunta** — client HowLongToBeat scritto a mano come TheGamesDB/Drive,
+  vista a griglia con `LazyVerticalGrid`/`GridCells` (già parte di Compose
+  Foundation, stesso artefatto di `LazyColumn`) e icone da
+  `material-icons-extended` (già dipendenza esistente dalla Fase 1).
 - Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
   Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
 - Nessuna stringa hardcoded nelle schermate: ogni testo visibile in `ui/`

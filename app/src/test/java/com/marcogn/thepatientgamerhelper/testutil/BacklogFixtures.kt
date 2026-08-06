@@ -17,6 +17,9 @@ fun sampleBacklogItem(
     status: BacklogItemStatus = BacklogItemStatus.DA_INIZIARE,
     position: Int = 0,
     addedAt: Instant = Instant.parse("2026-01-01T10:00:00Z"),
+    hltbMainStoryHours: Double? = null,
+    hltbMainExtraHours: Double? = null,
+    hltbCompletionistHours: Double? = null,
 ): BacklogItem = BacklogItem(
     id = id,
     listId = listId,
@@ -34,6 +37,9 @@ fun sampleBacklogItem(
     abandonNote = null,
     releaseYear = null,
     developer = null,
+    hltbMainStoryHours = hltbMainStoryHours,
+    hltbMainExtraHours = hltbMainExtraHours,
+    hltbCompletionistHours = hltbCompletionistHours,
     comments = emptyList(),
     history = emptyList(),
 )

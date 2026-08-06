@@ -32,10 +32,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogTimeEstimateStatistics
 import com.marcogn.thepatientgamerhelper.domain.model.DistributionEntry
 import com.marcogn.thepatientgamerhelper.domain.model.LibraryStatistics
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
@@ -60,10 +62,15 @@ fun StatsScreen(onMenuClick: () -> Unit, viewModel: StatsViewModel = hiltViewMod
             )
         },
     ) { padding ->
+        val isEmpty = uiState.statistics.totalReviews == 0 && uiState.backlogTimeEstimate.itemsWithEstimate == 0
         when {
             uiState.isLoading -> Unit
-            uiState.statistics.totalReviews == 0 -> EmptyStatsMessage(modifier = Modifier.padding(padding))
-            else -> StatsContent(statistics = uiState.statistics, modifier = Modifier.padding(padding))
+            isEmpty -> EmptyStatsMessage(modifier = Modifier.padding(padding))
+            else -> StatsContent(
+                statistics = uiState.statistics,
+                backlogTimeEstimate = uiState.backlogTimeEstimate,
+                modifier = Modifier.padding(padding),
+            )
         }
     }
 }
@@ -80,7 +87,11 @@ private fun EmptyStatsMessage(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StatsContent(statistics: LibraryStatistics, modifier: Modifier = Modifier) {
+private fun StatsContent(
+    statistics: LibraryStatistics,
+    backlogTimeEstimate: BacklogTimeEstimateStatistics,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -88,40 +99,78 @@ private fun StatsContent(statistics: LibraryStatistics, modifier: Modifier = Mod
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        if (statistics.totalReviews > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard(
+                    label = stringResource(R.string.stats_reviews_label),
+                    value = statistics.totalReviews.toString(),
+                    modifier = Modifier.weight(1f),
+                )
+                StatCard(
+                    label = stringResource(R.string.stats_avg_rating_label),
+                    value = statistics.averageRating?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                    modifier = Modifier.weight(1f),
+                )
+                StatCard(
+                    label = stringResource(R.string.stats_total_hours_label),
+                    value = stringResource(R.string.stats_hours_value, statistics.totalHoursPlayed),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            HorizontalDivider()
+            StatsSection(title = stringResource(R.string.label_status)) { StatusBreakdownChart(shares = statistics.statusBreakdown) }
+
+            if (statistics.platformDistribution.isNotEmpty()) {
+                HorizontalDivider()
+                StatsSection(title = stringResource(R.string.stats_platform_distribution)) {
+                    DistributionBarChart(entries = statistics.platformDistribution)
+                }
+            }
+
+            if (statistics.genreDistribution.isNotEmpty()) {
+                HorizontalDivider()
+                StatsSection(title = stringResource(R.string.stats_genre_distribution)) {
+                    DistributionBarChart(entries = statistics.genreDistribution)
+                }
+            }
+        }
+
+        if (backlogTimeEstimate.itemsWithEstimate > 0) {
+            if (statistics.totalReviews > 0) HorizontalDivider()
+            StatsSection(title = stringResource(R.string.stats_backlog_hltb_title)) {
+                BacklogTimeEstimateSection(backlogTimeEstimate)
+            }
+        }
+    }
+}
+
+/** HowLongToBeat estimates summed across the backlog (Fase 8) — see `computeBacklogTimeEstimateStatistics`. */
+@Composable
+private fun BacklogTimeEstimateSection(estimate: BacklogTimeEstimateStatistics) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
-                label = stringResource(R.string.stats_reviews_label),
-                value = statistics.totalReviews.toString(),
+                label = stringResource(R.string.stats_backlog_hltb_main_story),
+                value = stringResource(R.string.stats_hours_value, estimate.totalMainStoryHours),
                 modifier = Modifier.weight(1f),
             )
             StatCard(
-                label = stringResource(R.string.stats_avg_rating_label),
-                value = statistics.averageRating?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                label = stringResource(R.string.stats_backlog_hltb_main_extra),
+                value = stringResource(R.string.stats_hours_value, estimate.totalMainExtraHours),
                 modifier = Modifier.weight(1f),
             )
             StatCard(
-                label = stringResource(R.string.stats_total_hours_label),
-                value = stringResource(R.string.stats_hours_value, statistics.totalHoursPlayed),
+                label = stringResource(R.string.stats_backlog_hltb_completionist),
+                value = stringResource(R.string.stats_hours_value, estimate.totalCompletionistHours),
                 modifier = Modifier.weight(1f),
             )
         }
-
-        HorizontalDivider()
-        StatsSection(title = stringResource(R.string.label_status)) { StatusBreakdownChart(shares = statistics.statusBreakdown) }
-
-        if (statistics.platformDistribution.isNotEmpty()) {
-            HorizontalDivider()
-            StatsSection(title = stringResource(R.string.stats_platform_distribution)) {
-                DistributionBarChart(entries = statistics.platformDistribution)
-            }
-        }
-
-        if (statistics.genreDistribution.isNotEmpty()) {
-            HorizontalDivider()
-            StatsSection(title = stringResource(R.string.stats_genre_distribution)) {
-                DistributionBarChart(entries = statistics.genreDistribution)
-            }
-        }
+        Text(
+            text = pluralStringResource(R.plurals.stats_backlog_hltb_items_count, estimate.itemsWithEstimate, estimate.itemsWithEstimate),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

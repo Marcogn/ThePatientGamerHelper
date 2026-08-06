@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +50,9 @@ import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.export.ExportFormat
 import com.marcogn.thepatientgamerhelper.domain.export.suggestedLibraryFileName
 import com.marcogn.thepatientgamerhelper.domain.model.Review
+import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
+import com.marcogn.thepatientgamerhelper.ui.common.GameGridTile
+import com.marcogn.thepatientgamerhelper.ui.common.ViewModeToggle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +76,9 @@ fun LibraryScreen(
     val pdfExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType),
     ) { uri -> uri?.let(viewModel::exportPdf) }
+    val markdownImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importMarkdown) }
 
     LaunchedEffect(exportMessage) {
         exportMessage?.let {
@@ -87,6 +97,9 @@ fun LibraryScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { markdownImportLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*")) }) {
+                        Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_review_markdown))
+                    }
                     LibraryExportMenu(
                         onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON)) },
                         onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV)) },
@@ -98,6 +111,7 @@ fun LibraryScreen(
                         }
                     }
                     SortMenu(sort = uiState.sort, onSortChange = viewModel::onSortChange)
+                    ViewModeToggle(viewMode = uiState.viewMode, onViewModeChange = viewModel::onViewModeChange)
                 },
             )
         },
@@ -118,6 +132,7 @@ fun LibraryScreen(
                 uiState.isLoading -> Unit
                 uiState.reviews.isEmpty() && uiState.allReviewsEmpty -> EmptyLibraryMessage()
                 uiState.reviews.isEmpty() -> NoResultsMessage(onClearFilters = viewModel::onClearFilters)
+                uiState.viewMode == ViewMode.GRID -> ReviewGrid(reviews = uiState.reviews, onReviewClick = onReviewClick)
                 else -> ReviewList(reviews = uiState.reviews, onReviewClick = onReviewClick)
             }
         }
@@ -145,6 +160,26 @@ private fun ReviewList(reviews: List<Review>, onReviewClick: (String) -> Unit) {
     ) {
         items(reviews, key = { it.id }) { review ->
             ReviewListItem(review = review, onClick = { onReviewClick(review.id) })
+        }
+    }
+}
+
+@Composable
+private fun ReviewGrid(reviews: List<Review>, onReviewClick: (String) -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 120.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(reviews, key = { it.id }) { review ->
+            GameGridTile(
+                title = review.title,
+                subtitle = review.platforms.takeIf { it.isNotEmpty() }?.joinToString { it.name },
+                coverImagePath = review.coverImagePath,
+                onClick = { onReviewClick(review.id) },
+            )
         }
     }
 }

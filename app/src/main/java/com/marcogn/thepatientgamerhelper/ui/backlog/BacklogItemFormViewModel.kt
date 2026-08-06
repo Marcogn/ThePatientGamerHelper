@@ -154,6 +154,7 @@ class BacklogItemFormViewModel @Inject constructor(
     fun onSearchResultSelected(result: GameMetadataSearchResult) {
         viewModelScope.launch {
             val coverPath = searchCoordinator.downloadCoverLocally(result)
+            val hltbEstimate = searchCoordinator.searchHowLongToBeat(result.title)
             val previousPath = draft.value.coverImagePath
             val newDraft = draft.value.copy(
                 title = result.title,
@@ -162,6 +163,9 @@ class BacklogItemFormViewModel @Inject constructor(
                 coverImagePath = coverPath ?: draft.value.coverImagePath,
                 releaseYear = result.releaseYear,
                 developer = result.developerName,
+                hltbMainStoryHours = hltbEstimate?.mainStoryHours,
+                hltbMainExtraHours = hltbEstimate?.mainExtraHours,
+                hltbCompletionistHours = hltbEstimate?.completionistHours,
             )
             onDraftReplaced(newDraft)
             if (coverPath != null && previousPath != null) imageStorage.delete(previousPath)

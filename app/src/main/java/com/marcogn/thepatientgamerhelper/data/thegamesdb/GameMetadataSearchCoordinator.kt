@@ -3,8 +3,10 @@ package com.marcogn.thepatientgamerhelper.data.thegamesdb
 import android.content.Context
 import android.util.Log
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.data.howlongtobeat.HowLongToBeatApiClient
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import com.marcogn.thepatientgamerhelper.domain.model.GameMetadataSearchResult
+import com.marcogn.thepatientgamerhelper.domain.model.HowLongToBeatEstimate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
@@ -26,6 +28,7 @@ class GameMetadataSearchCoordinator @Inject constructor(
     private val apiClient: TheGamesDbApiClient,
     private val preferences: TheGamesDbPreferences,
     private val imageStorage: ImageStorage,
+    private val howLongToBeatApiClient: HowLongToBeatApiClient,
 ) {
     sealed interface Outcome {
         data class Results(val results: List<GameMetadataSearchResult>) : Outcome
@@ -61,4 +64,20 @@ class GameMetadataSearchCoordinator @Inject constructor(
             imageStorage.writeBytes("${UUID.randomUUID()}.jpg", apiClient.downloadCoverBytes(url))
         }.getOrNull()
     }
+
+    /**
+     * Best-effort HowLongToBeat lookup (Fase 8), backlog-only (see `BacklogItemFormViewModel`) —
+     * unlike [search], this never surfaces a message on failure: it's a silent enrichment on top
+     * of an already-successful TheGamesDB pick, not a user-initiated action of its own. Every
+     * failure mode (network, unofficial-endpoint drift, no match) just yields null; see
+     * [HowLongToBeatApiClient] for why this is inherently more fragile than the TheGamesDB search.
+     */
+    suspend fun searchHowLongToBeat(title: String): HowLongToBeatEstimate? =
+        runCatching { howLongToBeatApiClient.search(title) }.fold(
+            onSuccess = { it },
+            onFailure = { throwable ->
+                Log.w(LOG_TAG, "HowLongToBeat search failed for \"$title\"", throwable)
+                null
+            },
+        )
 }

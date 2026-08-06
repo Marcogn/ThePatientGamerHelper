@@ -6,6 +6,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.Genre
 import com.marcogn.thepatientgamerhelper.domain.model.Platform
 import com.marcogn.thepatientgamerhelper.domain.model.Review
 import com.marcogn.thepatientgamerhelper.domain.model.Tag
+import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
 
 data class LibraryUiState(
     val isLoading: Boolean = true,
@@ -16,4 +17,5 @@ data class LibraryUiState(
     val availablePlatforms: List<Platform> = emptyList(),
     val availableGenres: List<Genre> = emptyList(),
     val availableTags: List<Tag> = emptyList(),
+    val viewMode: ViewMode = ViewMode.LIST,
 )

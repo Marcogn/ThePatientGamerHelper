@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,6 +43,9 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
+import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
+import com.marcogn.thepatientgamerhelper.ui.common.GameGridTile
+import com.marcogn.thepatientgamerhelper.ui.common.ViewModeToggle
 import kotlin.math.roundToInt
 
 private val REORDER_ROW_HEIGHT = 88.dp
@@ -63,6 +69,9 @@ fun BacklogListDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
+                actions = {
+                    ViewModeToggle(viewMode = uiState.viewMode, onViewModeChange = viewModel::onViewModeChange)
+                },
             )
         },
         floatingActionButton = {
@@ -80,6 +89,8 @@ fun BacklogListDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            } else if (!uiState.isLoading && uiState.viewMode == ViewMode.GRID) {
+                BacklogItemGrid(items = uiState.items, onItemClick = onItemClick)
             } else if (!uiState.isLoading) {
                 BacklogItemReorderList(
                     items = uiState.items,
@@ -87,6 +98,31 @@ fun BacklogListDetailScreen(
                     onItemClick = onItemClick,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Grid presentation (Fase 8) of the same list — deliberately read-only order: the drag-to-reorder
+ * handle only exists in [BacklogItemReorderList] (list mode), extending the drag gesture math to a
+ * 2D grid wasn't worth it for a cosmetic browsing view. Switch back to list mode to reorder.
+ */
+@Composable
+private fun BacklogItemGrid(items: List<BacklogItem>, onItemClick: (String) -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 120.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(items, key = { it.id }) { item ->
+            GameGridTile(
+                title = item.title,
+                subtitle = item.platforms.takeIf { it.isNotEmpty() }?.joinToString { it.name },
+                coverImagePath = item.coverImagePath,
+                onClick = { onItemClick(item.id) },
+            )
         }
     }
 }

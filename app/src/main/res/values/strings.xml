@@ -14,6 +14,10 @@
     <string name="cd_move_down">Sposta giù</string>
     <string name="cd_drag_handle">Trascina per riordinare</string>
     <string name="cd_menu">Menu</string>
+    <string name="cd_view_mode_grid">Vista a griglia</string>
+    <string name="cd_view_mode_list">Vista a lista</string>
+    <string name="import_completed">Importazione completata</string>
+    <string name="import_failed">Importazione non riuscita: %1$s</string>
 
     <!-- Home -->
     <string name="home_subtitle">Cosa vuoi fare?</string>
@@ -111,6 +115,7 @@
     <!-- Libreria -->
     <string name="cd_filters">Filtri</string>
     <string name="cd_export_library">Esporta libreria</string>
+    <string name="cd_import_review_markdown">Importa recensione da Markdown</string>
     <string name="library_search_placeholder">Cerca titolo, testo, pro/contro…</string>
     <string name="library_empty_title">Nessuna recensione ancora</string>
     <string name="library_empty_subtitle">Tocca + per aggiungere la prima recensione</string>
@@ -174,6 +179,14 @@
     <string name="stats_platform_distribution">Distribuzione per piattaforma</string>
     <string name="stats_genre_distribution">Distribuzione per genere</string>
     <string name="stats_status_count_percentage">%1$d (%2$.0f%%)</string>
+    <string name="stats_backlog_hltb_title">Tempo stimato backlog (HowLongToBeat)</string>
+    <string name="stats_backlog_hltb_main_story">Storia principale</string>
+    <string name="stats_backlog_hltb_main_extra">Storia + extra</string>
+    <string name="stats_backlog_hltb_completionist">Completista</string>
+    <plurals name="stats_backlog_hltb_items_count">
+        <item quantity="one">%1$d elemento del backlog con una stima HowLongToBeat</item>
+        <item quantity="other">%1$d elementi del backlog con una stima HowLongToBeat</item>
+    </plurals>
 
     <!-- Backlog -->
     <string name="backlog_title">Backlog</string>
@@ -207,6 +220,15 @@
     <string name="backlog_delete_item_confirm_title">Eliminare questo elemento?</string>
     <string name="backlog_write_review_prompt_title">Scrivere una recensione?</string>
     <string name="backlog_write_review_prompt_message">Vuoi scrivere una recensione per \"%1$s\"?</string>
+
+    <string name="cd_export_backlog">Esporta backlog</string>
+    <string name="cd_import_backlog">Importa backlog</string>
+    <string name="backlog_import_completed">Importate %1$d liste, %2$d elementi</string>
+
+    <string name="backlog_hltb_title">Tempo stimato (HowLongToBeat)</string>
+    <string name="backlog_hltb_main_story_short">Storia: %1$.1f h</string>
+    <string name="backlog_hltb_main_extra_short">Storia+extra: %1$.1f h</string>
+    <string name="backlog_hltb_completionist_short">Completista: %1$.1f h</string>
 
     <string name="backlog_status_to_start">Da iniziare</string>
     <string name="backlog_status_in_progress">In corso</string>

@@ -5,7 +5,10 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.data.export.ImportFileReader
 import com.marcogn.thepatientgamerhelper.data.export.ReviewExporter
+import com.marcogn.thepatientgamerhelper.data.settings.ViewModePreferences
+import com.marcogn.thepatientgamerhelper.domain.export.parseReviewMarkdown
 import com.marcogn.thepatientgamerhelper.domain.filter.LibraryFilters
 import com.marcogn.thepatientgamerhelper.domain.filter.SortOption
 import com.marcogn.thepatientgamerhelper.domain.filter.applyLibraryFilters
@@ -14,6 +17,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.Genre
 import com.marcogn.thepatientgamerhelper.domain.model.Platform
 import com.marcogn.thepatientgamerhelper.domain.model.Review
 import com.marcogn.thepatientgamerhelper.domain.model.Tag
+import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
 import com.marcogn.thepatientgamerhelper.domain.repository.LookupRepository
 import com.marcogn.thepatientgamerhelper.domain.repository.ReviewRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,11 +44,14 @@ class LibraryViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val reviewRepository: ReviewRepository,
     private val reviewExporter: ReviewExporter,
+    private val importFileReader: ImportFileReader,
+    private val viewModePreferences: ViewModePreferences,
     lookupRepository: LookupRepository,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(LibraryFilters())
     private val sort = MutableStateFlow(SortOption.DEFAULT)
+    private val viewMode = MutableStateFlow(viewModePreferences.libraryViewMode)
 
     private val _exportMessage = MutableStateFlow<String?>(null)
     val exportMessage: StateFlow<String?> = _exportMessage.asStateFlow()
@@ -60,7 +67,8 @@ class LibraryViewModel @Inject constructor(
         filters,
         sort,
         lookupOptions,
-    ) { reviews, filters, sort, lookup ->
+        viewMode,
+    ) { reviews, filters, sort, lookup, viewMode ->
         val filtered = applyLibraryFilters(reviews, filters)
         val sorted = sortReviews(filtered, sort)
         LibraryUiState(
@@ -72,6 +80,7 @@ class LibraryViewModel @Inject constructor(
             availablePlatforms = lookup.platforms,
             availableGenres = lookup.genres,
             availableTags = lookup.tags,
+            viewMode = viewMode,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -97,6 +106,26 @@ class LibraryViewModel @Inject constructor(
 
     fun onDeleteReview(id: String) {
         viewModelScope.launch { reviewRepository.delete(id) }
+    }
+
+    fun onViewModeChange(mode: ViewMode) {
+        viewMode.value = mode
+        viewModePreferences.libraryViewMode = mode
+    }
+
+    /** Imports a single review from a Reddit-flavored Markdown file (Fase 8) — reverse of the single-review Markdown export. Always creates a new review, never overwrites an existing one. */
+    fun importMarkdown(source: Uri) {
+        viewModelScope.launch {
+            val outcome = runCatching {
+                val content = importFileReader.readText(source)
+                val draft = parseReviewMarkdown(content).getOrThrow()
+                reviewRepository.save(id = null, draft = draft)
+            }
+            _exportMessage.value = outcome.fold(
+                onSuccess = { appContext.getString(R.string.import_completed) },
+                onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },
+            )
+        }
     }
 
     /** Exports every review, ignoring active filters — a backup should be complete. */
