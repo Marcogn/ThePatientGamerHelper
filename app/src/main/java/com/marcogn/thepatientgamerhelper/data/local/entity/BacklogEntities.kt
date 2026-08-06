@@ -50,6 +50,9 @@ data class BacklogItemEntity(
     val abandonNote: String?,
     val releaseYear: Int?,
     val developer: String?,
+    val hltbMainStoryHours: Double?,
+    val hltbMainExtraHours: Double?,
+    val hltbCompletionistHours: Double?,
     @ColumnInfo(name = "updatedAt") val updatedAt: Instant,
 )
 

@@ -33,6 +33,9 @@ fun BacklogItemWithDetails.toDomain(): BacklogItem = BacklogItem(
     abandonNote = item.abandonNote,
     releaseYear = item.releaseYear,
     developer = item.developer,
+    hltbMainStoryHours = item.hltbMainStoryHours,
+    hltbMainExtraHours = item.hltbMainExtraHours,
+    hltbCompletionistHours = item.hltbCompletionistHours,
     comments = comments.sortedBy { it.timestamp }.map { it.toDomain() },
     history = history.sortedBy { it.timestamp }.map { it.toDomain() },
 )

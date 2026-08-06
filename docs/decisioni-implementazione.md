@@ -4,6 +4,121 @@ Questo file documenta le scelte tecniche prese durante l'implementazione
 delle varie fasi che non erano già esplicitate in `docs/spec.md` o in
 `CLAUDE.md`.
 
+## Fase 8 (Import Markdown, export/import backlog, HowLongToBeat, viste griglia)
+
+Vedi la sezione "Fase 8 — Import Markdown, export/import backlog,
+HowLongToBeat, viste griglia" in `CLAUDE.md` per il riepilogo
+architetturale completo. Qui solo le scelte che non erano ovvie dalla
+richiesta originale.
+
+### Import Markdown come reverse esatto dell'export, non un formato nuovo
+
+La richiesta era "importazione delle recensioni in formato markdown".
+Invece di inventare un formato di import proprio, `parseReviewMarkdown()`
+(`domain/export/ReviewMarkdownParser.kt`) è l'esatto reverse di
+`toRedditMarkdown()` — stesse etichette italiane fisse, stessa struttura a
+bullet list, stesse sezioni `## Pro`/`## Contro` opzionali. Motivo: è
+l'unico formato Markdown che l'app stessa produce, quindi è l'unico per cui
+un roundtrip export→import è garantito senza ambiguità. Un parser Markdown
+"generico" (compatibile con qualunque markdown scritto a mano) avrebbe
+richiesto euristiche molto più permissive e casi limite non specificati
+dalla richiesta. Il parser è severo sui campi che l'exporter scrive sempre
+(titolo/voto/stato/data inizio — un file senza questi non è una recensione
+scritta da questa app) e permissivo su tutto il resto (piattaforme/generi/
+tag/ore/pro/contro/corpo), esattamente rispecchiando cosa `toRedditMarkdown`
+omette quando vuoto. Errori di parsing restituiscono un messaggio puntuale
+("Voto mancante o non valido", ecc.) mostrato nello snackbar della
+libreria, non un errore generico.
+
+### Export/import backlog: formato separato da `domain/backup`, sempre additivo
+
+`domain/backup` (Fase 4) è il formato di roundtrip per il backup Drive
+dell'intera libreria recensioni, con restore a sovrascrittura completa
+(single-user, "un backup è un backup dell'intero stato"). L'export/import
+backlog è concettualmente diverso: è un file che l'utente crea/apre
+esplicitamente via SAF per condividere o unire il proprio backlog (es. tra
+due device, o per mandarlo a qualcuno), non un ripristino di sicurezza — ha
+quindi senso che sia **sempre additivo**: ogni lista importata diventa una
+lista nuova, ogni item un item nuovo con id nuovo, mai una sovrascrittura.
+Importare lo stesso file due volte duplica i dati (non è idempotente) — è
+un compromesso accettato per restare semplice, coerente con l'approccio
+"single-user, non over-engineerare" già seguito altrove: implementare un
+merge per titolo/somiglianza avrebbe introdotto ambiguità (due giochi con
+lo stesso nome su piattaforme diverse?) senza che la richiesta lo chiedesse
+esplicitamente. `reviewId` viene scartato in import: la recensione collegata
+appartiene alla libreria che ha esportato il file e potrebbe non esistere
+su questo device. Il formato è comunque uno zip (dati + copertine), stesso
+schema di `data/backup/BackupArchive.kt`, ma con le proprie DTO
+(`domain/export/BacklogExportDto.kt`) e senza toccare `domain/backup` —
+due formati, due evoluzioni indipendenti, come già `domain/export`
+(Fase 2) e `domain/backup` (Fase 4) sono tenuti separati.
+
+### HowLongToBeat: nessuna API pubblica, tecnica reverse-engineered verificata solo da ricerca
+
+Come richiesto esplicitamente da CLAUDE.md ("verifica prima di assumere",
+già applicato in Fase 6 per TheGamesDB), ho controllato online prima di
+implementare: **HowLongToBeat non ha mai avuto un'API pubblica**, a
+differenza di TheGamesDB (che almeno richiede una apikey ma resta un
+endpoint documentato). Ogni libreria non ufficiale esistente (howlongtobeatpy,
+ckatzorke/howlongtobeat, ecc.) funziona ri-derivando l'endpoint di ricerca
+corrente dal bundle JavaScript del frontend di HowLongToBeat ad ogni
+sessione, perché il path cambia ad ogni loro deploy — non esiste un
+contratto stabile da implementare contro. `HowLongToBeatApiClient`
+(`data/howlongtobeat/`) usa la stessa tecnica documentata (fetch della
+homepage, estrazione del bundle `_app-*.js`, regex sull'endpoint POST, con
+fallback al path storicamente stabile `/api/s/` se l'estrazione fallisce).
+**Questo sandbox non ha accesso di rete a `howlongtobeat.com`** (stessa
+limitazione nota già documentata per `dl.google.com`/`api.thegamesdb.net`,
+confermata di nuovo in questa sessione — vedi sotto), quindi il client non
+è stato eseguito contro il sito reale: è scritto e rivisto staticamente,
+ma **va considerato non verificato finché non testato su un device reale**.
+Ogni fallimento (bundle cambiato, endpoint bloccato, schema di risposta
+diverso) è intercettato e trasformato in `null` da
+`GameMetadataSearchCoordinator.searchHowLongToBeat()` — mai un'eccezione
+propagata, mai un blocco del flusso "cerca online" esistente, coerente con
+`downloadCoverLocally()` che già fa lo stesso per la copertina.
+
+### Campi HowLongToBeat solo su `BacklogItem`, stesso precedente di `releaseYear`/`developer`
+
+Stessa scelta già motivata in Fase 6 per anno/sviluppatore: sono metadati
+di catalogazione, non parte del cuore di una recensione (voto/pro/contro/
+testo), e aggiungerli a `Review` avrebbe richiesto toccare export
+JSON/CSV/PDF/Markdown e i DTO di backup per campi che la richiesta lega
+esplicitamente al backlog ("quando inserisco un gioco nel backlog"). La
+ricerca online nel form recensione resta quindi invariata: non chiama
+`searchHowLongToBeat()`, solo `BacklogItemFormViewModel` lo fa dopo che
+l'utente ha scelto un risultato TheGamesDB (la query usa il titolo esatto
+del risultato scelto, non il testo digitato, per la massima precisione).
+
+### Viste lista/griglia: `SharedPreferences`, non `DataStore`; niente drag-to-reorder in griglia
+
+Due soli flag persistiti (vista libreria, vista backlog) — stesso
+principio minimale già applicato a `BackupPreferences`/
+`TheGamesDbPreferences` in Fase 4/6, non il pattern `DataStore` usato per
+`ThemeMode` (lì la richiesta esplicita era DataStore). La vista a griglia
+in `BacklogListDetailScreen` **non supporta il drag-to-reorder manuale**
+(Fase 6, Tappa 1): estendere il gesto di trascinamento verticale a una
+griglia 2D avrebbe richiesto una logica di posizionamento sostanzialmente
+diversa per un beneficio cosmetico — l'utente può tornare alla vista a
+lista per riordinare. Il toggle è condiviso tra libreria e backlog
+(`ui/common/ViewModeToggle.kt`, `ui/common/GameGridTile.kt`) per evitare di
+duplicare la stessa UI due volte.
+
+**Stato build**: come per le fasi precedenti, questa modifica è stata
+scritta e rivista staticamente riga per riga (bilanciamento parentesi,
+import, coerenza dei nomi di campo tra entità/DTO/mapper, parità 1:1 delle
+chiavi `strings.xml` IT/EN) ma **non verificata su CI al momento di
+scrivere questa nota**. In questa sessione ho anche verificato di persona
+se il sandbox avesse accesso di rete più ampio del solito (alcuni host
+Google rispondevano): `maven.google.com` risponde, ma il download reale
+degli artefatti dell'Android Gradle Plugin viene comunque bloccato dal
+proxy in uscita (redirect verso un host non in allowlist) — stessa
+limitazione già documentata in CLAUDE.md, solo confermata con un test
+diretto invece che assunta. Controlla lo stato dei check sulla PR prima di
+considerarla verde, e verifica manualmente su device/emulatore sia il fix
+di importazione Markdown sia — soprattutto — l'integrazione HowLongToBeat,
+che è la parte con il rischio di fragilità più alto di questa modifica.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

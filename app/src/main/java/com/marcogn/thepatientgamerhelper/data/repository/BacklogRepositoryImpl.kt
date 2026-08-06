@@ -19,6 +19,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemDraft
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
+import com.marcogn.thepatientgamerhelper.domain.model.ImportedBacklogList
 import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import java.time.Instant
 import java.time.LocalDate
@@ -88,6 +89,9 @@ class BacklogRepositoryImpl @Inject constructor(
                 abandonNote = existing?.abandonNote,
                 releaseYear = draft.releaseYear,
                 developer = draft.developer,
+                hltbMainStoryHours = draft.hltbMainStoryHours,
+                hltbMainExtraHours = draft.hltbMainExtraHours,
+                hltbCompletionistHours = draft.hltbCompletionistHours,
                 updatedAt = now,
             ),
         )
@@ -191,6 +195,55 @@ class BacklogRepositoryImpl @Inject constructor(
         backlogDao.insertHistoryEntry(
             BacklogHistoryEntryEntity(itemId = itemId, eventType = BacklogHistoryEventType.COMMENTO, timestamp = now, detail = null),
         )
+    }
+
+    /**
+     * Imports whole lists from a backlog export (Fase 8): always additive, never a replace — every
+     * imported list becomes a brand new list and every item gets a fresh id/position, comments and
+     * history are re-inserted verbatim (no synthetic CREATO entry, the original one from the export
+     * is already in [ImportedBacklogList.items]'s history). `reviewId` is dropped: the linked review
+     * (if any) belongs to whichever library exported the file and may not exist on this device.
+     */
+    override suspend fun importLists(lists: List<ImportedBacklogList>) = database.withTransaction {
+        lists.forEach { importedList ->
+            val listPosition = backlogDao.maxListPosition() + 1
+            val listId = backlogDao.insertList(
+                BacklogListEntity(name = importedList.name.trim(), position = listPosition, createdAt = Instant.now()),
+            )
+            importedList.items.forEachIndexed { index, importedItem ->
+                val itemId = UUID.randomUUID().toString()
+                backlogDao.upsertItem(
+                    BacklogItemEntity(
+                        id = itemId,
+                        listId = listId,
+                        title = importedItem.title.trim(),
+                        coverImagePath = importedItem.coverImagePath,
+                        status = importedItem.status,
+                        position = index,
+                        addedAt = importedItem.addedAt,
+                        startDate = importedItem.startDate,
+                        completedDate = importedItem.completedDate,
+                        reviewId = null,
+                        abandonNote = importedItem.abandonNote,
+                        releaseYear = importedItem.releaseYear,
+                        developer = importedItem.developer,
+                        hltbMainStoryHours = importedItem.hltbMainStoryHours,
+                        hltbMainExtraHours = importedItem.hltbMainExtraHours,
+                        hltbCompletionistHours = importedItem.hltbCompletionistHours,
+                        updatedAt = importedItem.addedAt,
+                    ),
+                )
+                writeRelations(itemId, importedItem.platformNames, importedItem.genreNames, importedItem.tagNames)
+                importedItem.comments.forEach { comment ->
+                    backlogDao.insertComment(BacklogCommentEntity(itemId = itemId, text = comment.text, timestamp = comment.timestamp))
+                }
+                importedItem.history.forEach { entry ->
+                    backlogDao.insertHistoryEntry(
+                        BacklogHistoryEntryEntity(itemId = itemId, eventType = entry.type, timestamp = entry.timestamp, detail = entry.detail),
+                    )
+                }
+            }
+        }
     }
 
     /** Resolves lookup names to ids and writes cross-refs for an item that already exists. */

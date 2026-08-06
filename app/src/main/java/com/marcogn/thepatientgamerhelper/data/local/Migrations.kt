@@ -121,3 +121,17 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         )
     }
 }
+
+/**
+ * Adds the three HowLongToBeat estimate columns to `backlog_items` (Fase 8) — additive, same
+ * non-destructive rationale as MIGRATION_1_2. All three are nullable REAL with no default, so
+ * every row that predates this migration simply reads back as "no estimate", exactly like a row
+ * created after this migration for a game HowLongToBeat has no data for.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `backlog_items` ADD COLUMN `hltbMainStoryHours` REAL")
+        db.execSQL("ALTER TABLE `backlog_items` ADD COLUMN `hltbMainExtraHours` REAL")
+        db.execSQL("ALTER TABLE `backlog_items` ADD COLUMN `hltbCompletionistHours` REAL")
+    }
+}

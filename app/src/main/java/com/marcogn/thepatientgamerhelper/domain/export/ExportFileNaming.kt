@@ -15,3 +15,6 @@ fun suggestedReviewFileName(title: String, format: ExportFormat): String =
 
 fun suggestedLibraryFileName(format: ExportFormat, today: LocalDate = LocalDate.now()): String =
     "recensioni-videogiochi-$today.${format.fileExtension}"
+
+/** Backlog export (Fase 8) is always a zip archive (data + covers) — see `BacklogExportArchive`. */
+fun suggestedBacklogExportFileName(today: LocalDate = LocalDate.now()): String = "backlog-$today.zip"

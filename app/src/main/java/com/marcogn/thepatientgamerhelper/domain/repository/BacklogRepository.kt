@@ -4,6 +4,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemDraft
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
+import com.marcogn.thepatientgamerhelper.domain.model.ImportedBacklogList
 import kotlinx.coroutines.flow.Flow
 
 interface BacklogRepository {
@@ -39,4 +40,7 @@ interface BacklogRepository {
     suspend fun linkReview(itemId: String, reviewId: String)
 
     suspend fun addComment(itemId: String, text: String)
+
+    /** Additive import from a backlog export (Fase 8) — see `BacklogRepositoryImpl` for the exact semantics. */
+    suspend fun importLists(lists: List<ImportedBacklogList>)
 }

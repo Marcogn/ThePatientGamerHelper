@@ -1,7 +1,12 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.data.export.BacklogExporter
+import com.marcogn.thepatientgamerhelper.data.export.BacklogImporter
 import com.marcogn.thepatientgamerhelper.domain.filter.BacklogFilters
 import com.marcogn.thepatientgamerhelper.domain.filter.applyBacklogFilters
 import com.marcogn.thepatientgamerhelper.domain.filter.sortBacklogItemsByRecency
@@ -11,10 +16,12 @@ import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import com.marcogn.thepatientgamerhelper.domain.repository.LookupRepository
 import com.marcogn.thepatientgamerhelper.domain.stats.computeBacklogStatistics
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -24,11 +31,16 @@ private data class LookupOptions(val platforms: List<Platform>, val genres: List
 
 @HiltViewModel
 class BacklogViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val backlogRepository: BacklogRepository,
+    private val backlogExporter: BacklogExporter,
+    private val backlogImporter: BacklogImporter,
     lookupRepository: LookupRepository,
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(BacklogFilters())
+    private val _importExportMessage = MutableStateFlow<String?>(null)
+    val importExportMessage: StateFlow<String?> = _importExportMessage.asStateFlow()
 
     private val lookupOptions = combine(
         lookupRepository.observePlatforms(),
@@ -104,5 +116,29 @@ class BacklogViewModel @Inject constructor(
             this[swapIndex] = tmp
         }
         viewModelScope.launch { backlogRepository.reorderLists(reordered) }
+    }
+
+    /** Exports every list and item, ignoring active filters — same "always the whole thing" rule as the library export. */
+    fun exportBacklog(destination: Uri) {
+        viewModelScope.launch {
+            _importExportMessage.value = runCatching { backlogExporter.export(destination) }.fold(
+                onSuccess = { appContext.getString(R.string.export_completed) },
+                onFailure = { appContext.getString(R.string.export_failed, it.message.orEmpty()) },
+            )
+        }
+    }
+
+    /** Additive import (Fase 8): adds the file's lists/items alongside whatever is already here, never replaces anything. */
+    fun importBacklog(source: Uri) {
+        viewModelScope.launch {
+            _importExportMessage.value = runCatching { backlogImporter.import(source) }.fold(
+                onSuccess = { result -> appContext.getString(R.string.backlog_import_completed, result.listsImported, result.itemsImported) },
+                onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },
+            )
+        }
+    }
+
+    fun consumeImportExportMessage() {
+        _importExportMessage.value = null
     }
 }

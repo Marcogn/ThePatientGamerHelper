@@ -1,5 +1,7 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +18,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -32,10 +36,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.domain.export.suggestedBacklogExportFileName
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
@@ -64,10 +72,26 @@ fun BacklogScreen(
     viewModel: BacklogViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val importExportMessage by viewModel.importExportMessage.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
     var showCreateListDialog by remember { mutableStateOf(false) }
     var listPendingRename by remember { mutableStateOf<BacklogList?>(null) }
     var listPendingDelete by remember { mutableStateOf<BacklogList?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri -> uri?.let(viewModel::exportBacklog) }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importBacklog) }
+
+    LaunchedEffect(importExportMessage) {
+        importExportMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeImportExportMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -79,6 +103,12 @@ fun BacklogScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { importLauncher.launch(arrayOf("application/zip", "*/*")) }) {
+                        Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_backlog))
+                    }
+                    IconButton(onClick = { exportLauncher.launch(suggestedBacklogExportFileName()) }) {
+                        Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.cd_export_backlog))
+                    }
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {
                             Icon(Icons.Filled.FilterList, contentDescription = stringResource(R.string.cd_filters))
@@ -92,6 +122,7 @@ fun BacklogScreen(
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.backlog_new_list))
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
             OutlinedTextField(
