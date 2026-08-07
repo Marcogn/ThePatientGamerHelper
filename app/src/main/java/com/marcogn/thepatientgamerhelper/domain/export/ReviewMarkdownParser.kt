@@ -36,6 +36,7 @@ fun parseReviewMarkdown(content: String): Result<ReviewDraft> = runCatching {
     val title = lines[index].removePrefix("# ").trim()
     check(title.isNotEmpty()) { "Il titolo non può essere vuoto" }
     index++
+    skipBlank()
 
     val metadata = LinkedHashMap<String, String>()
     while (index < lines.size) {
