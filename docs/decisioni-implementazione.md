@@ -154,6 +154,17 @@ usa `LazyVerticalStaggeredGrid` invece di `LazyVerticalGrid`, e le
 copertine non hanno più un `aspectRatio` forzato: proporzioni reali,
 niente spazio sprecato tra cover quadrate e verticali.
 
+### Terza verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+La diagnostica del giro precedente ha funzionato: l'utente ha riportato
+l'errore esatto, "HTTP 308", identico per ogni titolo. Causa reale:
+`HttpURLConnection` non segue in modo affidabile i redirect sulle richieste
+POST, e ha lacune note sul codice 308 in particolare. Fix:
+`HowLongToBeatApiClient` ora segue i redirect manualmente (fino a 5 hop),
+rilanciando la stessa richiesta (metodo, header, body) verso l'URL
+risolto — comportamento richiesto da 307/308, sicuro anche per gli altri
+codici 3xx in questo contesto.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
