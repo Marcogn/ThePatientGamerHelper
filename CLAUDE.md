@@ -1016,6 +1016,32 @@ la stessa: se HowLongToBeat continua a non restituire nulla, il messaggio
 ora visibile nel form (`hltb_status_error` con il dettaglio tecnico) è il
 primo posto da controllare — riportalo così com'è, invece di ipotizzare.
 
+### Terza verifica su device: la diagnostica ha dato frutti, fix del redirect HTTP 308
+
+La diagnostica aggiunta nel giro precedente ha funzionato esattamente come
+previsto: invece di restare un buco nero, l'utente ha potuto riportare il
+messaggio esatto mostrato nel form — **"ricerca non riuscita — HTTP 308"**,
+identico per qualunque titolo cercato. Causa reale, non più ipotesi:
+`HttpURLConnection` con `followRedirects` di default **non segue in modo
+affidabile i redirect su richieste POST**, e ha lacune note specificamente
+sul codice 308 (Permanent Redirect, che a differenza di 301/302 impone di
+preservare metodo e body — introdotto da RFC 7538, più recente del resto
+della gestione redirect storica della classe). La POST di ricerca (o una
+delle GET del flusso homepage→bundle→init) veniva quindi rediretta dal
+server e la libreria restituiva il 308 nudo invece di seguirlo.
+
+Fix: `HowLongToBeatApiClient.request()` disabilita `instanceFollowRedirects`
+e segue i redirect **manualmente** (fino a `MAX_REDIRECTS = 5`), rilanciando
+la richiesta con lo stesso metodo, header e body verso l'URL risolto da
+`Location` — comportamento corretto per 307/308 (che lo richiedono) e la
+scelta più sicura anche per 301/302/303 in questo contesto (ci si aspetta
+comunque una risposta JSON). Tutte e quattro le chiamate del client (le tre
+GET del flusso di autenticazione più la POST di ricerca) passano ora da
+questo unico punto invece di un `openConnection()` che si affidava al
+comportamento di default. Ogni redirect seguito viene loggato (tag
+`HowLongToBeatClient`) per restare diagnosticabile se il nuovo comportamento
+rivelasse un ulteriore problema a valle.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

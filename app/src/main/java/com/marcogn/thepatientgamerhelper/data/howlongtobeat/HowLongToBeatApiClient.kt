@@ -28,6 +28,8 @@ private const val USER_AGENT =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 private const val CONNECT_TIMEOUT_MS = 8_000
 private const val READ_TIMEOUT_MS = 12_000
+private const val MAX_REDIRECTS = 5
+private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
 private val hltbJson = Json { ignoreUnknownKeys = true }
 
@@ -71,17 +73,16 @@ class HowLongToBeatApiClient @Inject constructor() {
     suspend fun search(title: String): HowLongToBeatEstimate? = withContext(Dispatchers.IO) {
         val auth = resolveAuth()
         val body = buildSearchBody(title)
+        val headers = buildMap {
+            put("Content-Type", "application/json")
+            put("Referer", "$BASE_URL/")
+            put("Origin", BASE_URL)
+            auth.token?.let { put("x-auth-token", it) }
+            auth.hpKey?.let { put("x-hp-key", it) }
+            auth.hpVal?.let { put("x-hp-val", it) }
+        }
 
-        val connection = openConnection("$BASE_URL${auth.searchPath}", method = "POST")
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("Referer", "$BASE_URL/")
-        connection.setRequestProperty("Origin", BASE_URL)
-        auth.token?.let { connection.setRequestProperty("x-auth-token", it) }
-        auth.hpKey?.let { connection.setRequestProperty("x-hp-key", it) }
-        auth.hpVal?.let { connection.setRequestProperty("x-hp-val", it) }
-        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-
+        val connection = request("$BASE_URL${auth.searchPath}", method = "POST", body = body, headers = headers)
         val responseText = connection.readTextBody()
         connection.ensureSuccessful(responseText)
         parseBestMatch(responseText, title)
@@ -99,19 +100,19 @@ class HowLongToBeatApiClient @Inject constructor() {
     }
 
     private fun fetchAuth(): HltbAuth {
-        val homepage = openConnection(BASE_URL, method = "GET").readTextBody()
+        val homepage = request(BASE_URL, method = "GET").readTextBody()
         val scriptSrc = Regex("""/_next/static/[^"'\s]*?_app-[a-zA-Z0-9]+\.js""").find(homepage)?.value
         if (scriptSrc == null) {
             Log.w(LOG_TAG, "Could not find the _app-*.js bundle reference in the homepage HTML")
             return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null)
         }
 
-        val script = openConnection("$BASE_URL$scriptSrc", method = "GET").readTextBody()
+        val script = request("$BASE_URL$scriptSrc", method = "GET").readTextBody()
         val rawPath = Regex("""fetch\([^)]*?["'](/api/[a-zA-Z0-9_/]+)["']""").find(script)?.groupValues?.get(1)
         val searchPath = (rawPath ?: FALLBACK_SEARCH_PATH).let { if (it.endsWith("/")) it else "$it/" }
         if (rawPath == null) Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
 
-        val initBody = runCatching { openConnection("$BASE_URL${searchPath}init", method = "GET").readTextBody() }
+        val initBody = runCatching { request("$BASE_URL${searchPath}init", method = "GET").readTextBody() }
             .onFailure { Log.w(LOG_TAG, "GET ${searchPath}init failed", it) }
             .getOrNull()
         val auth = initBody?.let(::extractAuthFields) ?: AuthFields(null, null, null)
@@ -163,15 +164,47 @@ class HowLongToBeatApiClient @Inject constructor() {
         return estimate.takeUnless { it.isEmpty }
     }
 
-    private fun openConnection(url: String, method: String): HttpURLConnection =
-        (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            setRequestProperty("Accept", "application/json, text/html;q=0.8, */*;q=0.5")
-            setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-            setRequestProperty("User-Agent", USER_AGENT)
+    /**
+     * Opens a connection, manually following 3xx redirects (up to [MAX_REDIRECTS]) instead of
+     * relying on `HttpURLConnection`'s built-in `followRedirects` — that default only reliably
+     * follows GET redirects; it does **not** consistently follow redirects on POST requests, and
+     * historically has gaps with 308 (Permanent Redirect) specifically. Confirmed as the actual
+     * failure mode on a real device (every search failing with a bare "HTTP 308", no body) after
+     * the previous fix still left HowLongToBeat silent — see CLAUDE.md, Fase 8. [body]/[headers]
+     * (and the request method) are replayed unchanged against the redirect target, which is the
+     * correct behavior for 307/308 and the safest choice for 301/302/303 too, since this client
+     * always expects a JSON response either way.
+     */
+    private fun request(
+        url: String,
+        method: String,
+        body: String? = null,
+        headers: Map<String, String> = emptyMap(),
+    ): HttpURLConnection {
+        var currentUrl = url
+        repeat(MAX_REDIRECTS + 1) {
+            val connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = method
+                connectTimeout = CONNECT_TIMEOUT_MS
+                readTimeout = READ_TIMEOUT_MS
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/json, text/html;q=0.8, */*;q=0.5")
+                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                setRequestProperty("User-Agent", USER_AGENT)
+                headers.forEach { (key, value) -> setRequestProperty(key, value) }
+                if (body != null) doOutput = true
+            }
+            if (body != null) {
+                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
+
+            val location = if (connection.responseCode in REDIRECT_CODES) connection.getHeaderField("Location") else null
+            if (location == null) return connection
+            Log.w(LOG_TAG, "$method $currentUrl redirected (HTTP ${connection.responseCode}) to $location")
+            currentUrl = URL(URL(currentUrl), location).toString()
         }
+        error("Troppi redirect (>$MAX_REDIRECTS) per $url")
+    }
 }
 
 private data class HltbAuth(val searchPath: String, val token: String?, val hpKey: String?, val hpVal: String?)
