@@ -181,13 +181,22 @@ fallito, per una diagnosi mirata al prossimo report.
 Un item completato ora "sparisce" automaticamente (con avviso prima dello
 spostamento) in una di due liste gestite dall'app — "Completati con
 recensione" se si scrive la recensione, "Completati in attesa di
-recensione" se si risponde "No" al prompt. I nomi di queste due liste sono
-costanti Kotlin fisse, non string resource: sono dato persistito (serve
-fare match esatto per non duplicare la lista ad ogni trigger), non testo
-di UI — localizzarli avrebbe frammentato la lista in due al cambio lingua
-dell'app. Approfittato anche per disabilitare l'icona "sposta in lista"
-quando non c'è nessun'altra lista tra cui scegliere (prima il tap apriva
-silenziosamente un menu vuoto, sembrava non fare nulla).
+recensione" se si risponde "No" al prompt. Approfittato anche per
+disabilitare l'icona "sposta in lista" quando non c'è nessun'altra lista
+tra cui scegliere (prima il tap apriva silenziosamente un menu vuoto,
+sembrava non fare nulla).
+
+Due revisioni dopo il feedback dell'utente: (1) rispondere "No" non
+lasciava più nessun modo di scrivere la recensione in seguito — aggiunto
+un link persistente "Scrivi una recensione" ogni volta che l'item è
+Completato senza recensione collegata, da qualunque lista si trovi; (2) i
+nomi delle due liste erano inizialmente costanti Kotlin fisse in italiano
+per evitare duplicati al cambio lingua — sostituito con
+`BacklogListEntity.systemKind` (colonna nuova, nullable, migration
+additiva) come identificatore stabile per il match, mentre il nome
+mostrato viene risolto dalla lingua corrente dell'app al momento della
+creazione, senza frammentare la lista né mostrare sempre e solo
+l'italiano.
 
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 

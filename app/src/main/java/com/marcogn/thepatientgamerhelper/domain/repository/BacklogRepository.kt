@@ -4,6 +4,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemDraft
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
 import com.marcogn.thepatientgamerhelper.domain.model.ImportedBacklogList
 import kotlinx.coroutines.flow.Flow
 
@@ -19,8 +20,12 @@ interface BacklogRepository {
     suspend fun deleteList(listId: Long)
     suspend fun reorderLists(orderedIds: List<Long>)
 
-    /** Finds a list by exact (case-insensitive) name, creating it at the end if none matches yet. */
-    suspend fun getOrCreateListByName(name: String): Long
+    /**
+     * Finds the app-managed list identified by [kind], creating it at the end (with [displayName]
+     * as its initial name) if it doesn't exist yet. [kind] — not the name — is what identifies the
+     * list across calls, so it stays the same list even if the app's language changes in between.
+     */
+    suspend fun getOrCreateSystemList(kind: BacklogListKind, displayName: String): Long
 
     /** Creates a new item when [id] is null, otherwise updates title/platforms/genres/tags/cover only. */
     suspend fun saveItem(id: String?, listId: Long, draft: BacklogItemDraft): String

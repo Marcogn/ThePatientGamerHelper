@@ -19,6 +19,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemDraft
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
 import com.marcogn.thepatientgamerhelper.domain.model.ImportedBacklogList
 import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import java.time.Instant
@@ -69,11 +70,12 @@ class BacklogRepositoryImpl @Inject constructor(
         backlogDao.reorderLists(orderedIds)
     }
 
-    override suspend fun getOrCreateListByName(name: String): Long = database.withTransaction {
-        val trimmed = name.trim()
-        backlogDao.getListByName(trimmed)?.let { return@withTransaction it.id }
+    override suspend fun getOrCreateSystemList(kind: BacklogListKind, displayName: String): Long = database.withTransaction {
+        backlogDao.getListBySystemKind(kind.name)?.let { return@withTransaction it.id }
         val position = backlogDao.maxListPosition() + 1
-        backlogDao.insertList(BacklogListEntity(name = trimmed, position = position, createdAt = Instant.now()))
+        backlogDao.insertList(
+            BacklogListEntity(name = displayName.trim(), position = position, createdAt = Instant.now(), systemKind = kind.name),
+        )
     }
 
     override suspend fun saveItem(id: String?, listId: Long, draft: BacklogItemDraft): String = database.withTransaction {

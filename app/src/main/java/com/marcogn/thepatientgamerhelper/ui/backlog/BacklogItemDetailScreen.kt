@@ -151,13 +151,25 @@ fun BacklogItemDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    item.reviewId?.let { reviewId ->
+                    val reviewId = item.reviewId
+                    if (reviewId != null) {
                         Text(
                             stringResource(R.string.backlog_review_linked),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             textDecoration = TextDecoration.Underline,
                             modifier = Modifier.clickable { onOpenReview(reviewId) },
+                        )
+                    } else if (item.status == BacklogItemStatus.COMPLETATO) {
+                        // Persistent entry point, not just the one-shot prompt right after completing:
+                        // an item that was completed without a review (e.g. answered "No" and moved to
+                        // "Completati in attesa di recensione") must still be reachable later.
+                        Text(
+                            stringResource(R.string.backlog_write_review_action),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            modifier = Modifier.clickable { onWriteReview(item.id) },
                         )
                     }
                 }

@@ -1,15 +1,18 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
-import com.marcogn.thepatientgamerhelper.domain.model.BacklogSystemLists
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
 import com.marcogn.thepatientgamerhelper.domain.model.PendingListMove
 import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import com.marcogn.thepatientgamerhelper.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +26,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class BacklogItemDetailViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
     private val backlogRepository: BacklogRepository,
 ) : ViewModel() {
@@ -49,7 +53,7 @@ class BacklogItemDetailViewModel @Inject constructor(
 
     /**
      * Confirmation offered right after answering "No" to the review prompt: the item is completed
-     * but won't get a review, so it's offered a move into [BacklogSystemLists.COMPLETED_AWAITING_REVIEW]
+     * but won't get a review, so it's offered a move into [BacklogListKind.COMPLETED_AWAITING_REVIEW]
      * instead of staying mixed in with everything else — same "always warn before moving" contract
      * as the "Sì" path's own move offer in `ReviewFormViewModel` (see CLAUDE.md, Fase 8).
      */
@@ -106,14 +110,15 @@ class BacklogItemDetailViewModel @Inject constructor(
         _showReviewPrompt.value = false
         viewModelScope.launch {
             val item = backlogRepository.observeItem(itemId).first() ?: return@launch
-            _pendingMove.value = PendingListMove(item.title, BacklogSystemLists.COMPLETED_AWAITING_REVIEW)
+            val name = appContext.getString(R.string.backlog_list_completed_awaiting_review)
+            _pendingMove.value = PendingListMove(item.title, BacklogListKind.COMPLETED_AWAITING_REVIEW, name)
         }
     }
 
     fun onConfirmMove() {
         val target = _pendingMove.value ?: return
         viewModelScope.launch {
-            val listId = backlogRepository.getOrCreateListByName(target.targetListName)
+            val listId = backlogRepository.getOrCreateSystemList(target.targetListKind, target.targetListName)
             backlogRepository.moveItem(itemId, listId)
             _pendingMove.value = null
         }

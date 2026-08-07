@@ -206,6 +206,7 @@
     <string name="backlog_item_not_found">Item not found</string>
     <string name="backlog_move_to_list">Move to another list</string>
     <string name="backlog_review_linked">Review linked</string>
+    <string name="backlog_write_review_action">Write a review</string>
     <string name="backlog_abandon_note_label">Reason for abandoning</string>
     <string name="backlog_comments_title">Comments</string>
     <string name="backlog_comment_field_label">Add a comment</string>
@@ -222,6 +223,8 @@
     <string name="backlog_write_review_prompt_message">Do you want to write a review for \"%1$s\"?</string>
     <string name="backlog_move_confirm_title">Move to list?</string>
     <string name="backlog_move_confirm_message">\"%1$s\" will be moved to the \"%2$s\" list.</string>
+    <string name="backlog_list_completed_with_review">Completed with review</string>
+    <string name="backlog_list_completed_awaiting_review">Completed awaiting review</string>
     <string name="action_move">Move</string>
     <string name="action_dont_move">Don\'t move</string>
 

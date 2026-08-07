@@ -9,7 +9,7 @@ import androidx.navigation.toRoute
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator
-import com.marcogn.thepatientgamerhelper.domain.model.BacklogSystemLists
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
 import com.marcogn.thepatientgamerhelper.domain.model.GameMetadataSearchResult
 import com.marcogn.thepatientgamerhelper.domain.model.Genre
 import com.marcogn.thepatientgamerhelper.domain.model.Platform
@@ -232,7 +232,7 @@ class ReviewFormViewModel @Inject constructor(
      * Every other case (editing an existing review, or a brand new review started from the
      * library) is an ordinary cancel — nothing is saved. Like [save], the very first successful
      * save of a backlog-originated review also offers to move the backlog item into
-     * [BacklogSystemLists.COMPLETED_WITH_REVIEW] (see [offerMoveToCompletedWithReview]) — [onDone]
+     * [BacklogListKind.COMPLETED_WITH_REVIEW] (see [offerMoveToCompletedWithReview]) — [onDone]
      * only fires once that offer has been answered.
      */
     fun onBackPressed(onDone: (savedReviewId: String?) -> Unit) {
@@ -272,7 +272,7 @@ class ReviewFormViewModel @Inject constructor(
         }
     }
 
-    /** Offers to move [backlogItemId] into [BacklogSystemLists.COMPLETED_WITH_REVIEW]; [onDone] fires either way, after the user answers. */
+    /** Offers to move [backlogItemId] into [BacklogListKind.COMPLETED_WITH_REVIEW]; [onDone] fires either way, after the user answers. */
     private suspend fun offerMoveToCompletedWithReview(backlogItemId: String, onDone: () -> Unit) {
         val item = backlogRepository.observeItem(backlogItemId).first()
         if (item == null) {
@@ -280,14 +280,15 @@ class ReviewFormViewModel @Inject constructor(
             return
         }
         pendingMoveContinuation = onDone
-        _pendingMove.value = PendingListMove(item.title, BacklogSystemLists.COMPLETED_WITH_REVIEW)
+        val name = appContext.getString(R.string.backlog_list_completed_with_review)
+        _pendingMove.value = PendingListMove(item.title, BacklogListKind.COMPLETED_WITH_REVIEW, name)
     }
 
     fun onConfirmMove() {
         val backlogItemId = prefillBacklogItemId ?: return
         val target = _pendingMove.value ?: return
         viewModelScope.launch {
-            val listId = backlogRepository.getOrCreateListByName(target.targetListName)
+            val listId = backlogRepository.getOrCreateSystemList(target.targetListKind, target.targetListName)
             backlogRepository.moveItem(backlogItemId, listId)
             _pendingMove.value = null
             pendingMoveContinuation?.invoke()

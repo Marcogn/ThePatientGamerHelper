@@ -1115,26 +1115,20 @@ Richiesta esplicita: una volta completato un item del backlog, dovrebbe
 l'utente abbia scritto la recensione o meno, con un avviso prima dello
 spostamento (non uno spostamento silenzioso).
 
-- **Due liste gestite dall'app, nome fisso non localizzato**:
-  `BacklogSystemLists` (`domain/model/BacklogSystemLists.kt`) definisce
-  `"Completati con recensione"` e `"Completati in attesa di recensione"`
-  come costanti Kotlin, non come string resource. Scelta deliberata,
-  stesso precedente già motivato in Fase 5 per `ReviewStatus.label()` /
-  `domain/export`: il nome di queste liste è **dato persistito** (usato per
-  fare match ed evitare di creare duplicati ad ogni trigger), non testo di
-  UI — se seguisse `stringResource()` e la lingua dell'app venisse
-  cambiata, il prossimo trigger creerebbe una lista "Completed with
-  review" separata invece di riusare quella italiana già esistente,
-  frammentando silenziosamente la categorizzazione. Il testo del dialog di
-  conferma resta invece pienamente localizzato (IT/EN) — solo il *nome
-  della lista* è fisso.
-- **`BacklogRepository.getOrCreateListByName(name)`** (nuovo, in
-  `BacklogRepositoryImpl`) risolve per nome esatto case-insensitive
-  (`backlog_lists WHERE name = :name COLLATE NOCASE`, nessuna nuova colonna
-  né migration: a differenza di Platform/Genre/Tag non serve un indice
-  `UNIQUE` dedicato, il volume di liste è minimo) o crea la lista in coda
-  se non esiste — poi riusa `moveItem()` già esistente (stessa history
-  `CAMBIO_LISTA` del riordino manuale).
+- **Due liste gestite dall'app, identificate da un tag stabile, non dal
+  nome**: `BacklogListEntity.systemKind` (colonna nullable, `MIGRATION_3_4`
+  additiva) porta `domain/model/BacklogListKind` (`COMPLETED_WITH_REVIEW`/
+  `COMPLETED_AWAITING_REVIEW`) — vedi la sottosezione dedicata più sotto
+  ("Nomi delle due liste...") per il ragionamento completo, incluso perché
+  la primissima versione usava invece un nome fisso non localizzato e
+  perché è stata rivista dopo il feedback dell'utente.
+- **`BacklogRepository.getOrCreateSystemList(kind, displayName)`** (nuovo,
+  in `BacklogRepositoryImpl`) risolve per `systemKind` esatto
+  (`backlog_lists WHERE systemKind = :kind`) o crea la lista in coda con
+  quel tag e `displayName` come nome iniziale se non esiste — poi riusa
+  `moveItem()` già esistente (stessa history `CAMBIO_LISTA` del riordino
+  manuale). Il chiamante (ViewModel) risolve `displayName` da
+  `context.getString()` nella lingua corrente dell'app.
 - **Trigger "No" (non scrivere recensione)**: `BacklogItemDetailViewModel`
   — il pulsante "No" del prompt "vuoi scrivere una recensione?" ora chiama
   `onReviewDeclined()` invece di limitarsi a chiudere il dialog, che espone
@@ -1169,6 +1163,42 @@ spostamento (non uno spostamento silenzioso).
   spenta invece di un tap silenzioso. Con l'auto-creazione delle due liste
   sopra, dopo il primo completamento l'icona torna comunque utile (c'è
   sempre almeno un'altra lista tra cui scegliere).
+- **Nessun modo di scrivere una recensione più tardi, da "Completati in
+  attesa di recensione"**: l'unico innesco del flusso "vuoi scrivere una
+  recensione?" era il momento esatto del cambio di stato a Completato —
+  rispondere "No" (e quindi finire nella lista "in attesa") non lasciava
+  nessun altro punto d'ingresso, a parte il trucco di cambiare stato e
+  rimetterlo su Completato per far riscattare il guard `reviewId == null`
+  in `onSaveStatus()`. Fix: nello stesso punto dove compare "Recensione
+  collegata" (quando l'item ha già una recensione), ora compare un link
+  cliccabile "Scrivi una recensione" ogni volta che l'item è Completato
+  *senza* una recensione collegata — persistente, funziona da qualunque
+  lista si trovi l'item, e riusa `onWriteReview(item.id)` esistente.
+- **Nomi delle due liste: da costanti fisse a un tag di identità stabile
+  con etichetta localizzata**: la prima versione usava due stringhe fisse
+  in italiano (`BacklogSystemLists`, non `stringResource`) per evitare che
+  un cambio di lingua dell'app facesse ricreare una seconda lista parallela
+  al prossimo trigger (il lookup era per nome esatto). L'utente ha fatto
+  notare, correttamente, che così un utente che usa l'app in inglese
+  vedrebbe comunque nomi di lista in italiano — un compromesso peggiore del
+  necessario. Soluzione adottata: `BacklogListEntity.systemKind` (colonna
+  nuova, nullable, `MIGRATION_3_4` additiva — `NULL` per ogni lista
+  esistente/normale) porta un identificatore stabile e non localizzato
+  (`domain/model/BacklogListKind`, enum `COMPLETED_WITH_REVIEW`/
+  `COMPLETED_AWAITING_REVIEW`), usato per il lookup in
+  `BacklogRepository.getOrCreateSystemList(kind, displayName)` **al posto**
+  del nome. Il nome vero e proprio (`displayName`, risolto dal chiamante
+  via `context.getString(R.string.backlog_list_completed_...)`, quindi
+  nella lingua corrente dell'app) viene scritto solo al momento della
+  *creazione* della lista — esattamente come un nome di lista digitato a
+  mano da un utente, non segue retroattivamente un cambio lingua successivo
+  (stesso comportamento di qualunque altro dato testuale salvato
+  nell'app). Il vantaggio pratico: la lista non si duplica mai più al
+  cambio lingua (il match è sempre per `systemKind`), e chi la crea per la
+  prima volta la vede nella propria lingua — senza dover toccare ogni punto
+  della UI che mostra un nome di lista (sarebbe stato necessario solo con
+  un'alternativa "nome sempre risolto al volo dal kind ad ogni render", non
+  scelta per non introdurre quella complessità aggiuntiva).
 
 ## Export DOCX — perché non è stato implementato
 
