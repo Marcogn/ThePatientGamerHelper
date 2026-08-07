@@ -1,5 +1,6 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,6 +68,7 @@ fun BacklogItemDetailScreen(
     onEdit: (String, Long) -> Unit,
     onDeleted: () -> Unit,
     onWriteReview: (String) -> Unit,
+    onOpenReview: (String) -> Unit,
     viewModel: BacklogItemDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -146,11 +150,13 @@ fun BacklogItemDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (item.reviewId != null) {
+                    item.reviewId?.let { reviewId ->
                         Text(
                             stringResource(R.string.backlog_review_linked),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            modifier = Modifier.clickable { onOpenReview(reviewId) },
                         )
                     }
                 }
@@ -259,7 +265,7 @@ private fun StatusEditor(item: BacklogItem, onSave: (BacklogItemStatus, String?)
                 modifier = Modifier.weight(1f),
             )
             if (hasChanges) {
-                TextButton(onClick = {
+                Button(onClick = {
                     onSave(pendingStatus, if (pendingStatus == BacklogItemStatus.ABBANDONATO) abandonNoteDraft else null)
                 }) {
                     Text(stringResource(R.string.action_save))

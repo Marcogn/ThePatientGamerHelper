@@ -165,6 +165,17 @@ rilanciando la stessa richiesta (metodo, header, body) verso l'URL
 risolto — comportamento richiesto da 307/308, sicuro anche per gli altri
 codici 3xx in questo contesto.
 
+### Quarta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Due segnalazioni: le recensioni create dal flusso backlog si duplicavano ad
+ogni nuovo tentativo (perché non c'era modo di riaprire una recensione già
+collegata a un item, solo di crearne un'altra vuota — fix: "Recensione
+collegata" ora è un link cliccabile che apre la recensione esistente), e
+HowLongToBeat continua a dare "HTTP 308" nonostante il fix del redirect
+manuale del giro precedente — non risolto, non è stato tentato un secondo
+fix "alla cieca": invece i messaggi di errore ora includono l'URL che ha
+fallito, per una diagnosi mirata al prossimo report.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

@@ -1042,6 +1042,72 @@ comportamento di default. Ogni redirect seguito viene loggato (tag
 `HowLongToBeatClient`) per restare diagnosticabile se il nuovo comportamento
 rivelasse un ulteriore problema a valle.
 
+### Quarta verifica su device: recensioni duplicate dal flusso backlog, HowLongToBeat ancora 308
+
+Due ulteriori segnalazioni dopo il fix del redirect HTTP 308: le recensioni
+create dal flusso "completa item → scrivi recensione" si duplicavano ad ogni
+nuovo tentativo, e HowLongToBeat continuava a restituire lo stesso errore
+"HTTP 308" nonostante il fix del redirect manuale.
+
+- **Recensioni duplicate — causa reale**: una volta collegata una recensione
+  a un backlog item (`BacklogItem.reviewId` valorizzato), l'unico modo per
+  "rientrarci" era di nuovo `onWriteReview` →
+  `Destination.Form(backlogItemId = itemId)`, che crea **sempre** una
+  recensione vuota nuova (`reviewId = null` nella route), ignorando che una
+  recensione era già collegata. L'unica traccia visibile del collegamento
+  era una scritta inerte ("Recensione collegata"), non cliccabile — nessun
+  modo di riaprire *quella* recensione, quindi ogni volta che l'utente
+  ripassava dal flusso (es. per verificare/continuare la recensione) finiva
+  per generarne un'altra bozza. Il guard `current.reviewId == null` in
+  `BacklogItemDetailViewModel.onSaveStatus()` impedisce già correttamente un
+  secondo prompt "vuoi scrivere una recensione?" per lo stesso item — il
+  problema non era lì, ma nell'assenza totale di un percorso per
+  raggiungere di nuovo una recensione già esistente.
+- **Fix**: "Recensione collegata" (`BacklogItemDetailScreen.kt`) è ora un
+  testo cliccabile (sottolineato, stesso colore primario di prima) che apre
+  direttamente `Destination.Detail(reviewId)` — la normale schermata di
+  dettaglio recensione, con i suoi percorsi di modifica/cancellazione già
+  esistenti e sicuri (nessun rischio di duplicazione: modificare una
+  recensione esistente passa sempre da `editingId != null`, mai dal ramo di
+  precompilazione da backlog). Aggiunto anche `onOpenReview: (String) -> Unit`
+  come nuovo parametro di `BacklogItemDetailScreen`, cablato in
+  `ThePatientGamerHelperNavGraph.kt`. Come protezione difensiva aggiuntiva
+  contro un doppio tap sul pulsante "Sì" del dialog (che potrebbe accodare
+  due navigazioni identiche prima che il dialog si chiuda), la navigazione
+  di `onWriteReview` ora passa anche `launchSingleTop = true`.
+- **Pulsante "Salva" dello stato poco visibile**: `StatusEditor` usava un
+  semplice `TextButton` — poco distinguibile dal resto del testo quando
+  compare. Cambiato in `Button` (pieno, colore primario) per renderlo
+  immediatamente riconoscibile come azione da compiere.
+- **Recensioni bozza già duplicate sul device dell'utente**: questo fix
+  previene nuove duplicazioni, ma **non tocca i dati già presenti** — le
+  bozze doppie/triple create prima del fix restano nel database locale e
+  vanno cancellate a mano dall'utente (icona cestino nel dettaglio di ogni
+  recensione di troppo). Non è stato scritto un passo di migrazione
+  automatica per deduplicare: non c'è un modo affidabile di distinguere
+  "recensione duplicata da questo bug" da "due recensioni identiche per
+  titolo ma volute dall'utente" senza rischiare di cancellare dati reali.
+- **HowLongToBeat ancora "HTTP 308" dopo il fix del redirect manuale**: il
+  fix della sessione precedente (seguire i redirect a mano, vedi sopra) era
+  una correzione motivata da un errore reale riportato dall'utente, ma il
+  nuovo test riporta lo stesso identico errore, non uno diverso — quindi
+  **non è stato risolto**, o almeno non è ancora possibile dirlo con
+  certezza. Senza accesso di rete a `howlongtobeat.com` da questo sandbox
+  (stessa limitazione nota, invariata), non è possibile riprodurre e
+  verificare oltre quello che l'utente può riportare da un device reale.
+  Invece di tentare un altro fix "alla cieca" sullo stesso codice già
+  corretto una volta senza successo, `ensureSuccessful()` e il messaggio di
+  troppi-redirect in `HowLongToBeatApiClient.request()` ora includono anche
+  l'URL che ha effettivamente fallito (`HTTP $responseCode @ $url`, e per i
+  troppi-redirect sia l'URL di partenza che l'ultimo raggiunto) — prima il
+  messaggio era solo "HTTP 308" senza dire *quale* chiamata delle quattro
+  del flusso (homepage, bundle JS, init, ricerca) lo avesse prodotto, né se
+  fosse il path derivato dal bundle o il fallback `/api/s/`. Un prossimo
+  report con l'URL incluso permetterà una diagnosi mirata invece di un
+  ulteriore tentativo speculativo. **Resta la parte meno affidabile di
+  questa fase**, come già segnalato — non dare per risolto finché l'utente
+  non conferma che le stime compaiono davvero.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
