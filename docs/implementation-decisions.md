@@ -1,768 +1,756 @@
-# Decisioni di implementazione
-
-Questo file documenta le scelte tecniche prese durante l'implementazione
-delle varie fasi che non erano già esplicitate in `docs/spec.md` o in
-`CLAUDE.md`.
-
-## Fase 8 (Import Markdown, export/import backlog, HowLongToBeat, viste griglia)
-
-Vedi la sezione "Fase 8 — Import Markdown, export/import backlog,
-HowLongToBeat, viste griglia" in `CLAUDE.md` per il riepilogo
-architetturale completo. Qui solo le scelte che non erano ovvie dalla
-richiesta originale.
-
-### Import Markdown come reverse esatto dell'export, non un formato nuovo
-
-La richiesta era "importazione delle recensioni in formato markdown".
-Invece di inventare un formato di import proprio, `parseReviewMarkdown()`
-(`domain/export/ReviewMarkdownParser.kt`) è l'esatto reverse di
-`toRedditMarkdown()` — stesse etichette italiane fisse, stessa struttura a
-bullet list, stesse sezioni `## Pro`/`## Contro` opzionali. Motivo: è
-l'unico formato Markdown che l'app stessa produce, quindi è l'unico per cui
-un roundtrip export→import è garantito senza ambiguità. Un parser Markdown
-"generico" (compatibile con qualunque markdown scritto a mano) avrebbe
-richiesto euristiche molto più permissive e casi limite non specificati
-dalla richiesta. Il parser è severo sui campi che l'exporter scrive sempre
-(titolo/voto/stato/data inizio — un file senza questi non è una recensione
-scritta da questa app) e permissivo su tutto il resto (piattaforme/generi/
-tag/ore/pro/contro/corpo), esattamente rispecchiando cosa `toRedditMarkdown`
-omette quando vuoto. Errori di parsing restituiscono un messaggio puntuale
-("Voto mancante o non valido", ecc.) mostrato nello snackbar della
-libreria, non un errore generico.
-
-### Export/import backlog: formato separato da `domain/backup`, sempre additivo
-
-`domain/backup` (Fase 4) è il formato di roundtrip per il backup Drive
-dell'intera libreria recensioni, con restore a sovrascrittura completa
-(single-user, "un backup è un backup dell'intero stato"). L'export/import
-backlog è concettualmente diverso: è un file che l'utente crea/apre
-esplicitamente via SAF per condividere o unire il proprio backlog (es. tra
-due device, o per mandarlo a qualcuno), non un ripristino di sicurezza — ha
-quindi senso che sia **sempre additivo**: ogni lista importata diventa una
-lista nuova, ogni item un item nuovo con id nuovo, mai una sovrascrittura.
-Importare lo stesso file due volte duplica i dati (non è idempotente) — è
-un compromesso accettato per restare semplice, coerente con l'approccio
-"single-user, non over-engineerare" già seguito altrove: implementare un
-merge per titolo/somiglianza avrebbe introdotto ambiguità (due giochi con
-lo stesso nome su piattaforme diverse?) senza che la richiesta lo chiedesse
-esplicitamente. `reviewId` viene scartato in import: la recensione collegata
-appartiene alla libreria che ha esportato il file e potrebbe non esistere
-su questo device. Il formato è comunque uno zip (dati + copertine), stesso
-schema di `data/backup/BackupArchive.kt`, ma con le proprie DTO
-(`domain/export/BacklogExportDto.kt`) e senza toccare `domain/backup` —
-due formati, due evoluzioni indipendenti, come già `domain/export`
-(Fase 2) e `domain/backup` (Fase 4) sono tenuti separati.
-
-### HowLongToBeat: nessuna API pubblica, tecnica reverse-engineered verificata solo da ricerca
-
-Come richiesto esplicitamente da CLAUDE.md ("verifica prima di assumere",
-già applicato in Fase 6 per TheGamesDB), ho controllato online prima di
-implementare: **HowLongToBeat non ha mai avuto un'API pubblica**, a
-differenza di TheGamesDB (che almeno richiede una apikey ma resta un
-endpoint documentato). Ogni libreria non ufficiale esistente (howlongtobeatpy,
-ckatzorke/howlongtobeat, ecc.) funziona ri-derivando l'endpoint di ricerca
-corrente dal bundle JavaScript del frontend di HowLongToBeat ad ogni
-sessione, perché il path cambia ad ogni loro deploy — non esiste un
-contratto stabile da implementare contro. `HowLongToBeatApiClient`
-(`data/howlongtobeat/`) usa la stessa tecnica documentata (fetch della
-homepage, estrazione del bundle `_app-*.js`, regex sull'endpoint POST, con
-fallback al path storicamente stabile `/api/s/` se l'estrazione fallisce).
-**Questo sandbox non ha accesso di rete a `howlongtobeat.com`** (stessa
-limitazione nota già documentata per `dl.google.com`/`api.thegamesdb.net`,
-confermata di nuovo in questa sessione — vedi sotto), quindi il client non
-è stato eseguito contro il sito reale: è scritto e rivisto staticamente,
-ma **va considerato non verificato finché non testato su un device reale**.
-Ogni fallimento (bundle cambiato, endpoint bloccato, schema di risposta
-diverso) è intercettato e trasformato in `null` da
-`GameMetadataSearchCoordinator.searchHowLongToBeat()` — mai un'eccezione
-propagata, mai un blocco del flusso "cerca online" esistente, coerente con
-`downloadCoverLocally()` che già fa lo stesso per la copertina.
-
-### Campi HowLongToBeat solo su `BacklogItem`, stesso precedente di `releaseYear`/`developer`
-
-Stessa scelta già motivata in Fase 6 per anno/sviluppatore: sono metadati
-di catalogazione, non parte del cuore di una recensione (voto/pro/contro/
-testo), e aggiungerli a `Review` avrebbe richiesto toccare export
-JSON/CSV/PDF/Markdown e i DTO di backup per campi che la richiesta lega
-esplicitamente al backlog ("quando inserisco un gioco nel backlog"). La
-ricerca online nel form recensione resta quindi invariata: non chiama
-`searchHowLongToBeat()`, solo `BacklogItemFormViewModel` lo fa dopo che
-l'utente ha scelto un risultato TheGamesDB (la query usa il titolo esatto
-del risultato scelto, non il testo digitato, per la massima precisione).
-
-### Viste lista/griglia: `SharedPreferences`, non `DataStore`; niente drag-to-reorder in griglia
-
-Due soli flag persistiti (vista libreria, vista backlog) — stesso
-principio minimale già applicato a `BackupPreferences`/
-`TheGamesDbPreferences` in Fase 4/6, non il pattern `DataStore` usato per
-`ThemeMode` (lì la richiesta esplicita era DataStore). La vista a griglia
-in `BacklogListDetailScreen` **non supporta il drag-to-reorder manuale**
-(Fase 6, Tappa 1): estendere il gesto di trascinamento verticale a una
-griglia 2D avrebbe richiesto una logica di posizionamento sostanzialmente
-diversa per un beneficio cosmetico — l'utente può tornare alla vista a
-lista per riordinare. Il toggle è condiviso tra libreria e backlog
-(`ui/common/ViewModeToggle.kt`, `ui/common/GameGridTile.kt`) per evitare di
-duplicare la stessa UI due volte.
-
-**Stato build**: come per le fasi precedenti, questa modifica è stata
-scritta e rivista staticamente riga per riga (bilanciamento parentesi,
-import, coerenza dei nomi di campo tra entità/DTO/mapper, parità 1:1 delle
-chiavi `strings.xml` IT/EN) ma **non verificata su CI al momento di
-scrivere questa nota**. In questa sessione ho anche verificato di persona
-se il sandbox avesse accesso di rete più ampio del solito (alcuni host
-Google rispondevano): `maven.google.com` risponde, ma il download reale
-degli artefatti dell'Android Gradle Plugin viene comunque bloccato dal
-proxy in uscita (redirect verso un host non in allowlist) — stessa
-limitazione già documentata in CLAUDE.md, solo confermata con un test
-diretto invece che assunta. Controlla lo stato dei check sulla PR prima di
-considerarla verde, e verifica manualmente su device/emulatore sia il fix
-di importazione Markdown sia — soprattutto — l'integrazione HowLongToBeat,
-che è la parte con il rischio di fragilità più alto di questa modifica.
-
-### Fix dopo verifica su device reale (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-Quattro problemi reali trovati testando l'app su device dopo il merge:
-`FilterChip` "Abbandonato" spezzato carattere per carattere (fix: `FlowRow`
-invece di `Row`), titoli delle top bar spezzati su due righe (fix:
-`maxLines = 1` + ellissi ovunque, non solo dove segnalato), ricerca
-TheGamesDB che falliva sempre con un errore JSON illeggibile quando un
-gioco aveva `developers`/`genres` esplicitamente `null` nella risposta
-(fix: campi resi nullable nel DTO + `coerceInputValues = true`), e
-HowLongToBeat completamente assente perché il client implementava solo la
-POST di ricerca senza gli header di autenticazione (`x-auth-token`/
-`x-hp-key`/`x-hp-val`) che le librerie non ufficiali attualmente
-mantenute richiedono — riscritto per implementare l'intero flusso
-homepage→bundle→endpoint→init→ricerca, con logging diagnostico ad ogni
-passo (prima falliva in silenzio assoluto, senza alcun modo di capire
-perché). Resta il rischio, esplicitamente non escluso, che il sito sia
-dietro protezioni anti-bot che nessun client `HttpURLConnection` può
-superare — vedi CLAUDE.md per il dettaglio.
-
-### Seconda verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-HowLongToBeat era ancora assente dopo il primo fix, senza un modo per
-l'utente di leggerne la causa: `searchHowLongToBeat()` ora restituisce un
-esito tipizzato (trovato/nessuna corrispondenza/errore con messaggio)
-mostrato direttamente nel form invece di solo loggato — diagnosticabile
-senza `adb`. Il flusso "completa item → scrivi recensione" applicava stato
-e prompt ad ogni singolo tap sul chip; ora lo stato è una selezione locale
-non committata con un pulsante "Salva" esplicito, e il form di recensione
-precompilato si apre già a "Completato" invece del default "In corso". Il
-tasto indietro da quel form salva la bozza (se ha almeno un titolo) e
-naviga verso Recensioni invece che tornare nel backlog. La vista a griglia
-usa `LazyVerticalStaggeredGrid` invece di `LazyVerticalGrid`, e le
-copertine non hanno più un `aspectRatio` forzato: proporzioni reali,
-niente spazio sprecato tra cover quadrate e verticali.
-
-### Terza verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-La diagnostica del giro precedente ha funzionato: l'utente ha riportato
-l'errore esatto, "HTTP 308", identico per ogni titolo. Causa reale:
-`HttpURLConnection` non segue in modo affidabile i redirect sulle richieste
-POST, e ha lacune note sul codice 308 in particolare. Fix:
-`HowLongToBeatApiClient` ora segue i redirect manualmente (fino a 5 hop),
-rilanciando la stessa richiesta (metodo, header, body) verso l'URL
-risolto — comportamento richiesto da 307/308, sicuro anche per gli altri
-codici 3xx in questo contesto.
-
-### Quarta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-Due segnalazioni: le recensioni create dal flusso backlog si duplicavano ad
-ogni nuovo tentativo (perché non c'era modo di riaprire una recensione già
-collegata a un item, solo di crearne un'altra vuota — fix: "Recensione
-collegata" ora è un link cliccabile che apre la recensione esistente), e
-HowLongToBeat continua a dare "HTTP 308" nonostante il fix del redirect
-manuale del giro precedente — non risolto, non è stato tentato un secondo
-fix "alla cieca": invece i messaggi di errore ora includono l'URL che ha
-fallito, per una diagnosi mirata al prossimo report.
-
-### Spostamento automatico in liste "Completati con/senza recensione" (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-Un item completato ora "sparisce" automaticamente (con avviso prima dello
-spostamento) in una di due liste gestite dall'app — "Completati con
-recensione" se si scrive la recensione, "Completati in attesa di
-recensione" se si risponde "No" al prompt. Approfittato anche per
-disabilitare l'icona "sposta in lista" quando non c'è nessun'altra lista
-tra cui scegliere (prima il tap apriva silenziosamente un menu vuoto,
-sembrava non fare nulla).
-
-Due revisioni dopo il feedback dell'utente: (1) rispondere "No" non
-lasciava più nessun modo di scrivere la recensione in seguito — aggiunto
-un link persistente "Scrivi una recensione" ogni volta che l'item è
-Completato senza recensione collegata, da qualunque lista si trovi; (2) i
-nomi delle due liste erano inizialmente costanti Kotlin fisse in italiano
-per evitare duplicati al cambio lingua — sostituito con
-`BacklogListEntity.systemKind` (colonna nuova, nullable, migration
-additiva) come identificatore stabile per il match, mentre il nome
-mostrato viene risolto dalla lingua corrente dell'app al momento della
-creazione, senza frammentare la lista né mostrare sempre e solo
-l'italiano.
-
-### Quinta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-La duplicazione di recensioni persisteva sempre per lo stesso gioco: causa
-reale, il gesto di back di sistema (swipe/tasto hardware) bypassava
-completamente `onBackPressed()` — solo la freccia in alto a sinistra la
-richiamava. Fix: `BackHandler` in `ReviewFormScreen`. HowLongToBeat ora
-restituisce un HTTP 404 reale da howlongtobeat.com (prova che il fix del
-redirect 308 ha funzionato) invece di un errore di rete — il percorso di
-ricerca usato è però sbagliato/obsoleto. Aggiunta diagnostica (`source` su
-`HltbAuth`) per distinguere se il percorso viene dal bundle JS o dal
-fallback statico, invece di un ulteriore tentativo alla cieca.
-
-### Fix regex bundle HowLongToBeat: porting da libreria esterna mantenuta (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-Su suggerimento dell'utente, recuperato via `WebFetch` il sorgente reale
-di `ScrappyCocco/HowLongToBeat-PythonAPI` (attivamente mantenuta, versione
-recente) e `ckatzorke/howlongtobeat` (TypeScript). La regex Python che
-estrae il percorso di ricerca dal bundle richiede esplicitamente
-`method: "POST"` nello stesso blocco `fetch(...)` — la mia non lo
-richiedeva, quindi poteva agganciarsi al `fetch()` sbagliato nel bundle,
-spiegando il 404 del giro precedente. Portata 1:1 in Kotlin, non una
-riscrittura a naso.
-
-### TheGamesDB: 403 "Invalid API key" nonostante chiave rigenerata (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
-
-Segnalazione indipendente da HowLongToBeat. Confermato via `git log` che
-non è una regressione di questa sessione (nessun tocco recente a
-`data/thegamesdb/`), e confermato via `WebFetch` sul sorgente di
-`muldjord/skyscraper` che il formato della richiesta (base URL, endpoint,
-parametro `apikey`) è identico a quello di uno scraper attivamente
-mantenuto — non è un bug lato client. Aggiunta la stessa diagnostica URL
-già usata per HowLongToBeat. Sospetto principale: problema lato server
-TheGamesDB, da confermare con un test diretto da browser.
-
-Confermato dall'utente: la stessa URL con la stessa chiave funziona da
-browser, isolando la causa negli header della richiesta. Fix: `USER_AGENT`
-era una stringa che identifica esplicitamente l'app invece di un
-User-Agent da browser — stesso fix già applicato a `HowLongToBeatApiClient`
-per lo stesso motivo (TheGamesDB ha inasprito l'anti-bot nello stesso
-cambio di policy che ha reso obbligatoria la apikey).
-
-## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
-
-Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
-TheGamesDB" in `CLAUDE.md` per il riepilogo architetturale completo. Qui
-solo le scelte che non erano ovvie dalla richiesta originale.
-
-### Rinominare anche `applicationId`/package, non solo il nome visualizzato
-
-La richiesta era "cambia il nome dell'app ovunque", che di per sé avrebbe
-potuto voler dire solo la stringa `app_name` mostrata in UI. Ho chiesto
-esplicitamente all'utente se il cambio dovesse estendersi anche a
-`applicationId`/package Kotlin (`com.marcogn.gamereviewer` →
-`com.marcogn.thepatientgamerhelper`), spiegando le due conseguenze concrete
-prima di procedere:
-- Chi ha già installato l'app la perde come "app diversa": Android
-  considera l'`applicationId` l'identità dell'app, un `applicationId`
-  diverso non è un aggiornamento ma una nuova installazione — nessuna
-  migrazione automatica dei dati locali (database Room, immagini
-  copertina).
-- Il client OAuth Drive configurato in Google Cloud Console (Fase 4) è
-  registrato per la coppia `applicationId`+SHA1 del certificato di firma:
-  un nuovo `applicationId` richiede una nuova registrazione, quella
-  esistente (ancora al placeholder `[DA_COMPLETARE]` al momento di questa
-  modifica) non è comunque interessata da questo cambio a runtime, ma un
-  domani che venga configurata andrà rifatta per il nuovo `applicationId`.
-
-Risposta ricevuta: rinominare anche `applicationId`/package. Eseguito come
-spostamento meccanico di directory (`git mv`) + sostituzione testuale
-(`sed`) di `com.marcogn.gamereviewer`→`com.marcogn.thepatientgamerhelper` e
-`GameReviewer`→`ThePatientGamerHelper` su tutti i file `.kt`/`.xml`/build
-script/documentazione, seguito da verifiche statiche multiple (bilanciamento
-parentesi, corrispondenza package/percorso directory, validità XML, parità
-chiavi stringhe IT/EN) — lo stesso sandbox di questa sessione non ha accesso
-a `dl.google.com` quindi non è stato possibile compilare per verificare.
-
-### Cosa è rimasto deliberatamente non rinominato
-
-- **Il nome del repository GitHub** (`Marcogn/GameReviewer`): non richiesto
-  esplicitamente, e rinominare un repository ha un raggio d'azione che va
-  oltre il codice (link esistenti, integrazioni CI, fork) — fuori scope per
-  una richiesta che parlava di "nome dell'app", non del repository che la
-  ospita.
-- **Il prefisso `recensioni-videogiochi-` in `domain/export/ExportFileNaming.kt`**
-  (nome dei file esportati da JSON/CSV/PDF): descrive il *contenuto* del
-  file esportato ("recensioni videogiochi"), non deriva dal nome
-  dell'applicazione — resta coerente con la scelta di Fase 5 di lasciare le
-  etichette di `domain/export` fisse in italiano indipendentemente
-  dall'app.
-- **Il nome utente HTTP nello `User-Agent` di `TheGamesDbApiClient`**: la
-  sostituzione testuale in blocco (`GameReviewer`→`ThePatientGamerHelper`)
-  avrebbe corrotto anche l'URL del repository GitHub incluso lì
-  (`github.com/Marcogn/GameReviewer`, non rinominato — vedi punto sopra),
-  trasformandolo in un URL che non esiste. Individuato prima di eseguire il
-  `sed` e ripristinato manualmente al valore corretto dopo.
-
-### Nome del database Room non rinominabile via `sed`
-
-`DATABASE_NAME` in `ThePatientGamerHelperDatabase.kt` era `"game_reviewer.db"`
-(snake_case), non intercettato dai pattern `sed` usati per
-`com.marcogn.gamereviewer`/`GameReviewer` (case diverso). Rinominato a mano
-in `"the_patient_gamer_helper.db"`. **Nota**: questo, combinato col cambio
-di `applicationId`, significa che un'installazione esistente (con
-`applicationId` vecchio) non viene comunque toccata da questo rename — è
-letteralmente un'app diversa agli occhi di Android, quindi non esiste un
-percorso di migrazione file system da gestire qui.
-
-### Navigazione: cassetto laterale (hamburger) invece di icone in top bar
-
-La richiesta descriveva esplicitamente il meccanismo voluto ("menù laterale
-sx richiamabile da hamburger in alto a sx"), quindi non è stata una scelta
-tra alternative ma un'implementazione diretta:
-`ModalNavigationDrawer` (Material 3 Compose) attorno a tutto il `NavHost`,
-con lo stato del drawer (`rememberDrawerState`) sollevato al livello del
-grafo di navigazione — ogni schermata riceve solo una lambda `onMenuClick`
-che apre il drawer, non lo stato del drawer stesso. Le voci del drawer
-(Recensioni/Backlog/Statistiche + separatore + Impostazioni) navigano con
-`popUpTo(Destination.Home) { saveState = true }` +
-`launchSingleTop = true` + `restoreState = true`, il pattern standard
-raccomandato da Google per navigazione stile drawer/bottom-bar (evita di
-accumulare un backstack profondo quando si passa ripetutamente tra le
-stesse 3-4 destinazioni principali).
-
-`Destination.Settings` è rimasta raggiungibile solo dal drawer, con una
-freccia "indietro" (non l'hamburger) nella sua stessa top bar — è una
-destinazione "in fondo", non una delle tre sezioni principali tra cui si
-salta liberamente, coerente con come l'utente l'ha descritta ("con in fondo
-le impostazioni").
-
-### Nuova schermata Home come selettore, non redirect automatico
-
-La richiesta chiedeva una schermata "cosa vuoi fare?" con 3 scelte, distinta
-dalla libreria che prima era la schermata iniziale. Ho aggiunto
-`Destination.Home` come nuova `startDestination` del grafo di navigazione
-(la libreria/`Destination.Library` non è più la prima schermata mostrata
-all'apertura dell'app) invece di, per esempio, ricordare l'ultima sezione
-visitata e riaprirla direttamente: l'utente ha chiesto esplicitamente un
-punto di ingresso "cosa vuoi fare?", che perderebbe senso se l'app saltasse
-automaticamente altrove. Nessuno stato persistito per "ultima sezione
-usata" — coerente con "non introdurre funzionalità/stato non richiesti"
-già seguito nelle fasi precedenti.
-
-### Fix ricerca TheGamesDB: la causa visibile era un messaggio generico, non necessariamente l'unico bug
-
-Il sintomo riportato ("la ricerca è sempre 'non riuscita', non si capisce
-perché") ha una causa certa e diagnosticabile staticamente:
-`GameMetadataSearchCoordinator.search()` catturava qualunque eccezione
-(errore di rete, HTTP non-2xx, parsing JSON) e la sostituiva sempre con lo
-stesso testo generico (`R.string.game_search_failed`), scartando il
-messaggio reale dell'eccezione. Corretto loggando l'eccezione completa
-(`Log.w`, visibile in Logcat) e **accodando** il messaggio dell'eccezione
-(quando presente) al testo generico mostrato nel dialog, invece di
-sostituirlo — così un futuro fallimento mostra sia il messaggio
-rassicurante generico sia il dettaglio tecnico utile per diagnosticare
-(es. "HTTP 401: ..." per una chiave non valida).
-
-Questo sandbox non ha accesso di rete a `api.thegamesdb.net` (bloccato
-esplicitamente dalla policy del proxy in uscita, verificato con
-`/__agentproxy/status` prima di escludere un problema temporaneo), quindi
-non è stato possibile riprodurre il fallimento originale né verificare in
-modo definitivo quale fosse la causa sottostante specifica. Ho comunque
-applicato correzioni difensive plausibili basate su ricerca (non su
-riproduzione diretta) mentre sistemavo lo swallow dell'eccezione:
-- Header `Accept: application/json` e timeout espliciti
-  (connect/read) mancanti sulla connessione — assenti prima, alcuni
-  endpoint REST rispondono con un content-type inatteso o restano appesi
-  indefinitamente senza un timeout esplicito.
-- Il campo `"platform"` nella lista `fields` richiesti a `Games/ByGameName`
-  non risulta un campo valido per quell'endpoint secondo la documentazione
-  TheGamesDB consultata — rimosso dalla lista.
-- Il filtro per piattaforma nella query (`filter[platform]`) usa la sintassi
-  di array indicizzato tipica di API PHP/Laravel (`filter[platform][0]=`),
-  non la forma senza indice usata in precedenza — TheGamesDB è
-  implementata in Laravel.
-
-**Il fix che risolve con certezza il sintomo riportato** è il primo (lo
-swallow del messaggio): anche se le correzioni difensive sopra si
-rivelassero non centrare la causa reale, il prossimo fallimento mostrerà
-ora un messaggio diagnosticabile invece dello stesso testo opaco, rendendo
-possibile una diagnosi ulteriore senza bisogno di accesso diretto all'API
-da parte di chi scrive il codice.
-
-## Fase 6 (Backlog tracciabile e fetch metadati TheGamesDB)
-
-Vedi la sezione "Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)"
-in `CLAUDE.md` per il riepilogo architetturale completo. Qui solo le
-scelte che non erano ovvie dalla richiesta originale.
-
-### La API key TheGamesDB: verificare prima di assumere
-
-La richiesta di partenza conteneva un'assunzione esplicita ("non dovrebbe
-essere necessaria per gamedb, per esde non lo è") con l'istruzione di
-verificarla prima di implementare un placeholder inutile. La verifica
-(ricerca sul forum ufficiale e sui changelog di scraper open source come
-Skyscraper e sselph/scraper) ha dato un risultato opposto: **dal 17/02/2026
-TheGamesDB richiede una `apikey` su ogni endpoint**, pubblico o privato che
-sia — l'accesso anonimo non esiste più. ES-DE e Skyscraper non chiedono una
-chiave *personale* all'utente finale, ma incorporano nel proprio codice
-sorgente una chiave pubblica condivisa (rate-limited per IP) — la chiave
-c'è comunque, solo che non la vede l'utente finale dello scraper.
-
-Non avendo un modo affidabile per recuperare il valore letterale di quella
-chiave pubblica condivisa dai risultati di ricerca disponibili (pagine del
-sito principale non raggiungibili, 403), e non volendo incollare una
-stringa trovata online senza certezza che sia quella corretta/valida
-tuttora, ho **chiesto esplicitamente all'utente** come procedere invece di
-indovinare — coerente con l'istruzione esplicita della sessione ("se
-qualcosa è ambiguo, fermati e chiedimi"). Risposta ricevuta: la chiave deve
-essere compilabile **dentro l'app** a runtime, nessun placeholder nella
-build. Da qui `TheGamesDbPreferences` (vedi sotto) invece del pattern
-`[DA_COMPLETARE]` già usato per Drive in Fase 4.
-
-### Perché non lo stesso pattern di `drive_config.xml`
-
-Il client ID OAuth di Drive (Fase 4) è un valore che l'utente sostituisce
-**nel codice sorgente prima della build** (`res/values/drive_config.xml`,
-placeholder `[DA_COMPLETARE]`), perché è legato alla registrazione
-dell'app su Google Cloud Console — un valore di configurazione
-dell'applicazione, non dell'utente finale. La API key TheGamesDB è invece
-personale all'account che l'utente registra sul sito: due utenti diversi
-dello stesso APK avrebbero chiavi diverse. Un placeholder di build avrebbe
-quindi richiesto di ricompilare l'app ad ogni cambio di chiave (o di
-account), mentre un campo in Impostazioni permette di cambiarla senza
-toccare il codice — pattern più corretto per un valore per-utente, non
-per-installazione.
-
-### Retrofit/Ktor citati nella richiesta, ma non aggiunti
-
-La richiesta menzionava Retrofit/Ktor come esempio di libreria HTTP "se non
-già presente". Il progetto aveva già risolto lo stesso problema in Fase 4
-con `DriveApiClient` (`HttpURLConnection` + `kotlinx.serialization`, zero
-dipendenze aggiuntive oltre a quella già presente per JSON). Per coerenza
-interna e perché CLAUDE.md chiede esplicitamente di non aggiungere
-dipendenze senza necessità reale, ho scritto `TheGamesDbApiClient` con lo
-stesso pattern hand-rolled invece di introdurre Retrofit/Ktor — quattro
-endpoint GET (ricerca + tre lookup id→nome) non sono abbastanza per
-giustificare un intero client HTTP con la sua catena di dipendenze
-(OkHttp/converter JSON, interceptor, ecc.), che peraltro finirebbe per
-duplicare quello che `DriveApiClient` già dimostra funzionare bene per
-questo progetto.
-
-### `releaseYear`/`developer` solo sul backlog, non sulla recensione
-
-La richiesta elencava "piattaforma, genere, anno, sviluppatore" come
-metadati da salvare dalla ricerca online, genericamente per "Tappa 2" (che
-tocca sia il form backlog sia il form recensione). Piattaforma e genere
-esistevano già su entrambi i modelli; anno e sviluppatore no. Estendere
-`ReviewEntity`/`Review` — uno schema con cinque fasi di funzionalità già
-costruite sopra (export JSON/CSV/PDF/Markdown, DTO di backup dedicato,
-calcolo statistiche) — per due campi bibliografici mai stati parte del
-nucleo di una recensione (voto/pro/contro/testo libero) avrebbe avuto un
-raggio d'azione sproporzionato rispetto al beneficio: nuova migration,
-nuovi campi in ogni formatter di export, nuovo campo nel DTO di backup,
-possibile impatto sul calcolo statistiche. Ho aggiunto i due campi solo a
-`BacklogItemEntity`/`BacklogItem`, dove hanno più senso concettualmente
-(dati di catalogazione per un gioco non ancora giocato) e dove il raggio
-d'azione è contenuto a un'entità introdotta in questa stessa sessione. La
-ricerca online nel form recensione resta quindi limitata a
-titolo/piattaforma/genere/copertina — la stessa scelta di campi già usata
-per la pre-popolazione da backlog item (Tappa 1).
-
-### Migration additiva invece di `fallbackToDestructiveMigration()`
-
-L'app introdotta da questo progetto è già in uso reale sul dispositivo di
-chi lo sta sviluppando (vedi l'apertura di `CLAUDE.md`), non un prototipo
-usa-e-getta. Un `fallbackToDestructiveMigration()` da versione 1 a 2 del
-database Room avrebbe cancellato silenziosamente tutte le recensioni
-esistenti al primo avvio dopo l'aggiornamento — inaccettabile. Ho scritto
-`MIGRATION_1_2` (`data/local/Migrations.kt`) con SQL raw che crea solo le
-sette nuove tabelle/indici del backlog, senza toccare `reviews` o le
-tabelle di lookup esistenti.
-
-### Drag-to-reorder scritto a mano, gesto separato dal click della riga
-
-Il riordino manuale degli item dentro una lista era esplicitamente
-richiesto ("drag-to-reorder, utile per prioritizzare"). Senza aggiungere
-una libreria di terze parti, l'opzione più semplice sarebbe stata applicare
-`Modifier.pointerInput`/`detectDragGestures` all'intera riga cliccabile —
-ma la stessa riga deve anche aprire il dettaglio item al tap. Sovrapporre
-un rilevatore di drag e un `clickable` sullo stesso elemento in Compose
-porta a conflitti di gestione del gesto non banali da risolvere in modo
-affidabile. Ho invece isolato il gesto di drag su una piccola icona
-"maniglia" dedicata a fianco della riga (che resta cliccabile per aprire il
-dettaglio), traducendo verticalmente l'intera riga tramite stato sollevato
-condiviso (`graphicsLayer { translationY = ... }`) mentre il
-`pointerInput` resta solo sulla maniglia. L'ordine finale viene scritto sul
-repository una sola volta al rilascio del gesto (`onDragEnd`), non ad ogni
-variazione di offset durante il trascinamento.
-
-### Liste riordinate con frecce, non drag-and-drop
-
-Spec e CLAUDE.md non specificano il meccanismo di riordino per le liste
-stesse (solo per gli item dentro una lista). Il numero di liste in un
-backlog personale è tipicamente piccolo (una manciata: "da comprare", "in
-corso", ecc.), a differenza degli item che possono essere numerosi e per
-cui la spec chiede esplicitamente drag-to-reorder ("utile per
-prioritizzare"). Per le liste ho scelto pulsanti su/giù — riordino
-altrettanto funzionale con una complessità di implementazione/interazione
-molto minore, evitando di scrivere due volte la stessa logica di drag per
-un caso d'uso dove il beneficio (poter trascinare invece di premere una
-freccia un paio di volte) è marginale.
-
-## Fase 5 (Internazionalizzazione, tema, documentazione)
-
-Vedi la sezione "Fase 5 — Internazionalizzazione, tema e documentazione" in
-`CLAUDE.md` per il riepilogo architetturale completo. Qui solo le scelte
-che non erano ovvie dalla richiesta originale.
-
-### `ReviewStatus.label()` non toccato, nuova `displayName()` per la UI
-
-La richiesta chiedeva di estrarre le stringhe "delle schermate", non del
-contenuto dei file esportati. `ReviewStatus.label()` in `domain/model` però
-serve entrambi gli scopi: viene chiamato sia dalle schermate (per mostrare
-"In corso"/"Completato"/"Abbandonato") sia da `ReviewMarkdownFormatter` e
-`PdfReviewRenderer` in fase di export, dove le etichette restano fisse in
-italiano per non rompere il pattern "domain/export puro, senza dipendenze
-Android" già stabilito in Fase 2.
-
-Ho lasciato `label()` invariato (continua a essere usato solo dall'export)
-e aggiunto `ReviewStatus.displayName()`, un `@Composable` in
-`ui/common/ReviewStatusDisplay.kt` che risolve la string resource
-localizzata. Le schermate (`FilterSheet`, `ReviewListItem`, `DetailScreen`,
-`ReviewFormScreen`, `StatsScreen`) usano tutte `displayName()`. L'alternativa
-sarebbe stata rendere `label()` stesso consapevole della lingua, ma avrebbe
-richiesto passargli un `Context`/risorse Android, propagando la dipendenza
-Android dentro `domain/export` e vanificando la sua testabilità JVM pura.
-
-### Messaggi dei ViewModel: `@ApplicationContext Context` invece di spostare la costruzione in UI
-
-Diversi ViewModel (`LibraryViewModel`, `DetailViewModel`, `ReviewFormViewModel`,
-`SettingsViewModel`) costruiscono messaggi testuali (esiti di export/backup,
-errori di validazione) che finiscono in uno Snackbar o in un campo di errore
-sullo schermo. `stringResource()` non è utilizzabile fuori da un
-`@Composable`, quindi le alternative erano: (a) iniettare
-`@ApplicationContext Context` nel ViewModel e chiamare `context.getString(...)`,
-o (b) far risalire alla UI un id di risorsa/enum di esito e risolvere il
-testo lì. Ho scelto (a): è il pattern più diretto, richiede la modifica
-minima ai ViewModel esistenti (un parametro in più nel costruttore Hilt) e
-non introduce un nuovo tipo "risultato" solo per veicolare una stringa
-localizzata — coerente con "niente astrazioni oltre quello che serve" già
-seguito nel resto del progetto.
-
-### Cambio lingua rotto in due modi diversi prima del fix vero: serve `AppCompatActivity`
-
-Il cambio lingua è stato verificato manualmente su device reale dopo il
-merge della Fase 5, e ha richiesto due iterazioni sbagliate prima di
-arrivare alla causa reale — vale la pena documentarle entrambe, non solo la
-soluzione finale.
-
-**Tentativo 1**: `MainActivity` era una `ComponentActivity` pura (Compose,
-niente View system). Poiché la ricreazione automatica delle Activity che
-AppCompat offre in modo affidabile è legata al ciclo di vita di
-`AppCompatActivity`, `applyAppLanguage()` chiamava sempre una `recreate()`
-esplicita sull'Activity corrente subito dopo `setApplicationLocales()`
-(risolta da `Context` tramite `ContextWrapper`). Risultato su device reale
-(API 33+): selezionando una lingua compariva l'errore "Drive non
-configurato" (vedi nota sotto) e, tornando indietro e riaprendo l'app, la UI
-restava bloccata su schermo a tinta unita, non più reattiva al tocco.
-
-**Tentativo 2**: ipotesi (sbagliata) che il blocco fosse dovuto a due
-`recreate()` in corsa — quella del sistema operativo (che da Android 13 in
-su gestisce il cambio lingua come un vero cambio di configurazione e ricrea
-da sé le activity in primo piano) più quella manuale. Fix applicato:
-condizionare la `recreate()` esplicita a `Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU`.
-Risultato su device reale: il blocco spariva, ma il cambio lingua smetteva
-di funzionare del tutto — nessun errore, nessuna reazione, la UI restava
-sempre in italiano. Il sintomo per esclusione ha smentito l'ipotesi della
-doppia `recreate()`.
-
-**Causa reale**: la documentazione ufficiale Android è esplicita — *"If
+# Implementation decisions
+
+This file documents the technical choices made during the implementation
+of the various phases that were not already spelled out in `docs/spec.md`
+or in `CLAUDE.md`.
+
+## Phase 8 (Markdown import, backlog export/import, HowLongToBeat, grid views)
+
+See the "Phase 8 — Markdown import, backlog export/import, HowLongToBeat,
+grid views" section in `CLAUDE.md` for the full architectural summary.
+Only the choices that weren't obvious from the original request are
+covered here.
+
+### Markdown import as the exact reverse of export, not a new format
+
+The request was "import reviews in markdown format". Instead of inventing
+a proprietary import format, `parseReviewMarkdown()`
+(`domain/export/ReviewMarkdownParser.kt`) is the exact reverse of
+`toRedditMarkdown()` — same fixed Italian labels, same bullet-list
+structure, same optional `## Pro`/`## Contro` sections. Reason: it's the
+only Markdown format the app itself produces, so it's the only one for
+which an export→import roundtrip is guaranteed without ambiguity. A
+"generic" Markdown parser (compatible with any hand-written markdown)
+would have required much more permissive heuristics and edge cases not
+specified by the request. The parser is strict on the fields the exporter
+always writes (title/rating/status/start date — a file without these is
+not a review written by this app) and permissive on everything else
+(platforms/genres/tags/hours/pros/cons/body), exactly mirroring what
+`toRedditMarkdown` omits when empty. Parsing errors return a specific
+message ("Rating missing or invalid", etc.) shown in the library's
+snackbar, not a generic error.
+
+### Backlog export/import: format separate from `domain/backup`, always additive
+
+`domain/backup` (Phase 4) is the roundtrip format for the Drive backup of
+the entire review library, with restore as a full overwrite (single-user,
+"a backup is a backup of the entire state"). Backlog export/import is
+conceptually different: it's a file the user explicitly creates/opens via
+SAF to share or merge their backlog (e.g. between two devices, or to send
+to someone), not a safety restore — so it makes sense for it to be
+**always additive**: every imported list becomes a new list, every item a
+new item with a new id, never an overwrite. Importing the same file twice
+duplicates the data (it's not idempotent) — an accepted trade-off to stay
+simple, consistent with the "single-user, don't over-engineer" approach
+already followed elsewhere: implementing a merge by title/similarity would
+have introduced ambiguity (two games with the same name on different
+platforms?) without the request explicitly asking for it. `reviewId` is
+discarded on import: the linked review belongs to the library that
+exported the file and might not exist on this device. The format is still
+a zip (data + covers), same schema as `data/backup/BackupArchive.kt`, but
+with its own DTOs (`domain/export/BacklogExportDto.kt`) and without
+touching `domain/backup` — two formats, two independent evolutions, just
+like `domain/export` (Phase 2) and `domain/backup` (Phase 4) are already
+kept separate.
+
+### HowLongToBeat: no public API, reverse-engineered technique verified only through research
+
+As explicitly required by CLAUDE.md ("verify before assuming", already
+applied in Phase 6 for TheGamesDB), I checked online before implementing:
+**HowLongToBeat has never had a public API**, unlike TheGamesDB (which at
+least requires an apikey but remains a documented endpoint). Every
+existing unofficial library (howlongtobeatpy, ckatzorke/howlongtobeat,
+etc.) works by re-deriving the current search endpoint from
+HowLongToBeat's frontend JavaScript bundle on every session, because the
+path changes on every one of their deploys — there's no stable contract to
+implement against. `HowLongToBeatApiClient` (`data/howlongtobeat/`) uses
+the same documented technique (fetch the homepage, extract the `_app-*.js`
+bundle, regex on the POST endpoint, with a fallback to the historically
+stable path `/api/s/` if extraction fails). **This sandbox has no network
+access to `howlongtobeat.com`** (same known limitation already documented
+for `dl.google.com`/`api.thegamesdb.net`, confirmed again in this session
+— see below), so the client was not run against the real site: it's
+written and reviewed statically, but **must be considered unverified until
+tested on a real device**. Every failure (bundle changed, endpoint
+blocked, different response schema) is caught and turned into `null` by
+`GameMetadataSearchCoordinator.searchHowLongToBeat()` — never a propagated
+exception, never a block on the existing "search online" flow, consistent
+with `downloadCoverLocally()`, which already does the same for the cover
+image.
+
+### HowLongToBeat fields only on `BacklogItem`, same precedent as `releaseYear`/`developer`
+
+Same choice already justified in Phase 6 for year/developer: they are
+cataloguing metadata, not part of the core of a review (rating/pros/cons/
+text), and adding them to `Review` would have required touching JSON/CSV/
+PDF/Markdown export and the backup DTOs for fields the request explicitly
+ties to the backlog ("when I add a game to the backlog"). Online search in
+the review form is therefore left unchanged: it doesn't call
+`searchHowLongToBeat()`, only `BacklogItemFormViewModel` does, after the
+user has chosen a TheGamesDB result (the query uses the exact title of the
+chosen result, not the typed text, for maximum precision).
+
+### List/grid views: `SharedPreferences`, not `DataStore`; no drag-to-reorder in grid
+
+Just two persisted flags (library view, backlog view) — same minimal
+principle already applied to `BackupPreferences`/`TheGamesDbPreferences` in
+Phase 4/6, not the `DataStore` pattern used for `ThemeMode` (there the
+explicit request was DataStore). The grid view in
+`BacklogListDetailScreen` **does not support manual drag-to-reorder**
+(Phase 6, Stage 1): extending the vertical drag gesture to a 2D grid would
+have required substantially different positioning logic for a purely
+cosmetic benefit — the user can switch back to the list view to reorder.
+The toggle is shared between library and backlog
+(`ui/common/ViewModeToggle.kt`, `ui/common/GameGridTile.kt`) to avoid
+duplicating the same UI twice.
+
+**Build status**: as with previous phases, this change was written and
+reviewed statically line by line (parenthesis balancing, imports, field
+name consistency between entities/DTOs/mappers, 1:1 parity of `strings.xml`
+IT/EN keys) but **not yet verified on CI at the time of writing this
+note**. In this session I also personally checked whether the sandbox had
+broader network access than usual (some Google hosts responded):
+`maven.google.com` responds, but actually downloading Android Gradle
+Plugin artifacts is still blocked by the outbound proxy (redirect to a
+host not in the allowlist) — same limitation already documented in
+CLAUDE.md, just confirmed with a direct test instead of assumed. Check the
+status of the PR checks before considering it green, and manually verify
+on device/emulator both the Markdown import fix and — above all — the
+HowLongToBeat integration, which is the part with the highest fragility
+risk in this change.
+
+### Fixes after real-device verification (see CLAUDE.md, same section, for the full detail)
+
+Four real issues found testing the app on a device after the merge: the
+"Abandoned" `FilterChip` broken character by character (fix: `FlowRow`
+instead of `Row`), top bar titles wrapping to two lines (fix:
+`maxLines = 1` + ellipsis everywhere, not just where reported), TheGamesDB
+search that always failed with an unreadable JSON error when a game had
+explicitly `null` `developers`/`genres` in the response (fix: fields made
+nullable in the DTO + `coerceInputValues = true`), and HowLongToBeat being
+completely absent because the client only implemented the bare search POST
+without the authentication headers (`x-auth-token`/`x-hp-key`/`x-hp-val`)
+that currently maintained unofficial libraries require — rewritten to
+implement the entire homepage→bundle→endpoint→init→search flow, with
+diagnostic logging at every step (previously it failed in complete
+silence, with no way to understand why). The risk remains, explicitly not
+ruled out, that the site is behind anti-bot protections that no
+`HttpURLConnection` client can overcome — see CLAUDE.md for detail.
+
+### Second device verification (see CLAUDE.md, same section, for the full detail)
+
+HowLongToBeat was still absent after the first fix, with no way for the
+user to read the cause: `searchHowLongToBeat()` now returns a typed
+outcome (found/no match/error with message) shown directly in the form
+instead of only logged — diagnosable without `adb`. The "complete item →
+write a review" flow applied status and prompt on every single tap on the
+chip; now the status is an uncommitted local selection with an explicit
+"Save" button, and the pre-filled review form now opens already set to
+"Completed" instead of the default "In progress". The back button from
+that form saves the draft (if it has at least a title) and navigates to
+Reviews instead of returning to the backlog. The grid view uses
+`LazyVerticalStaggeredGrid` instead of `LazyVerticalGrid`, and covers no
+longer have a forced `aspectRatio`: real proportions, no wasted space
+between square and vertical covers.
+
+### Third device verification (see CLAUDE.md, same section, for the full detail)
+
+The diagnostics from the previous round worked: the user reported the
+exact error, "HTTP 308", identical for every title. Real cause:
+`HttpURLConnection` does not reliably follow redirects on POST requests,
+and has known gaps specifically around code 308. Fix:
+`HowLongToBeatApiClient` now follows redirects manually (up to 5 hops),
+re-issuing the same request (method, headers, body) toward the resolved
+URL — behavior required by 307/308, and the safest choice for the other
+3xx codes in this context too.
+
+### Fourth device verification (see CLAUDE.md, same section, for the full detail)
+
+Two reports: reviews created from the backlog flow were duplicating on
+every new attempt (because there was no way to reopen a review already
+linked to an item, only to create another empty one — fix: "Review
+linked" is now a clickable link that opens the existing review), and
+HowLongToBeat still returns "HTTP 308" despite the previous round's manual
+redirect fix — not resolved, no second "blind" fix was attempted: instead,
+the error messages now include the URL that failed, for a targeted
+diagnosis on the next report.
+
+### Automatic move into "Completed with/without review" lists (see CLAUDE.md, same section, for the full detail)
+
+A completed item now automatically "disappears" (with a notice before the
+move) into one of two app-managed lists — "Completed with review" if the
+review is written, "Completed awaiting review" if the user answers "No" to
+the prompt. Also used the opportunity to disable the "move to list" icon
+when there's no other list to choose from (previously the tap silently
+opened an empty menu, which looked like nothing was happening).
+
+Two revisions after user feedback: (1) answering "No" left no way to write
+the review afterward — added a persistent "Write a review" link whenever
+the item is Completed without a linked review, from whichever list it's
+in; (2) the names of the two lists were initially fixed Kotlin constants
+in Italian to avoid duplicates on a language change — replaced with
+`BacklogListEntity.systemKind` (a new nullable column, additive
+migration) as a stable identifier for the match, while the displayed name
+is resolved from the app's current language at creation time, without
+fragmenting the list or always showing only Italian.
+
+### Fifth device verification (see CLAUDE.md, same section, for the full detail)
+
+Review duplication kept happening for the same game: real cause, the
+system back gesture (swipe/hardware button) completely bypassed
+`onBackPressed()` — only the top-left back arrow invoked it. Fix:
+`BackHandler` in `ReviewFormScreen`. HowLongToBeat now returns a real HTTP
+404 from howlongtobeat.com (proof the 308 redirect fix worked) instead of
+a network error — the search path used is, however, wrong/stale. Added
+diagnostics (`source` on `HltbAuth`) to distinguish whether the path comes
+from the JS bundle or the static fallback, instead of another blind
+attempt.
+
+### HowLongToBeat bundle-regex fix: ported from an actively maintained external library (see CLAUDE.md, same section, for the full detail)
+
+On the user's suggestion, I fetched via `WebFetch` the real source of
+`ScrappyCocco/HowLongToBeat-PythonAPI` (actively maintained, recent
+version) and `ckatzorke/howlongtobeat` (TypeScript). The Python regex that
+extracts the search path from the bundle explicitly requires
+`method: "POST"` in the same `fetch(...)` block — mine didn't require it,
+so it could latch onto the wrong `fetch()` in the bundle, explaining the
+404 from the previous round. Ported 1:1 into Kotlin, not a from-scratch
+rewrite.
+
+### TheGamesDB: 403 "Invalid API key" despite a regenerated key (see CLAUDE.md, same section, for the full detail)
+
+Report independent of HowLongToBeat. Confirmed via `git log` that it's not
+a regression from this session (no recent touch to `data/thegamesdb/`),
+and confirmed via `WebFetch` on the source of `muldjord/skyscraper` that
+the request format (base URL, endpoint, `apikey` parameter) is identical
+to that of an actively maintained scraper — not a client-side bug. Added
+the same URL diagnostics already used for HowLongToBeat. Main suspicion:
+a server-side TheGamesDB issue, to be confirmed with a direct browser
+test.
+
+Confirmed by the user: the same URL with the same key works from a
+browser, isolating the cause to the request headers. Fix: `USER_AGENT`
+was a string that explicitly identifies the app instead of a
+browser-style User-Agent — same fix already applied to
+`HowLongToBeatApiClient` for the same reason (TheGamesDB tightened
+anti-bot measures in the same policy change that made the apikey
+mandatory).
+
+## Phase 7 (ThePatientGamerHelper rebranding, drawer navigation, TheGamesDB search fix)
+
+See the "Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix"
+section in `CLAUDE.md` for the full architectural summary. Only the
+choices that weren't obvious from the original request are covered here.
+
+### Also renaming `applicationId`/package, not just the display name
+
+The request was "change the app name everywhere", which on its own could
+have meant just the `app_name` string shown in the UI. I explicitly asked
+the user whether the change should also extend to
+`applicationId`/Kotlin package (`com.marcogn.gamereviewer` →
+`com.marcogn.thepatientgamerhelper`), explaining the two concrete
+consequences before proceeding:
+- Anyone who already installed the app loses it as a "different app":
+  Android treats `applicationId` as the app's identity, a different
+  `applicationId` is not an update but a new install — no automatic
+  migration of local data (Room database, cover images).
+- The Drive OAuth client configured in Google Cloud Console (Phase 4) is
+  registered for the `applicationId`+signing-certificate-SHA1 pair: a new
+  `applicationId` requires a new registration; the existing one (still at
+  the `[TO_COMPLETE]` placeholder at the time of this change) isn't
+  affected by this change at runtime either way, but if it's configured
+  down the line it will need to be redone for the new `applicationId`.
+
+Answer received: also rename `applicationId`/package. Carried out as a
+mechanical directory move (`git mv`) + text substitution (`sed`) of
+`com.marcogn.gamereviewer`→`com.marcogn.thepatientgamerhelper` and
+`GameReviewer`→`ThePatientGamerHelper` across all `.kt`/`.xml`/build
+script/documentation files, followed by multiple static checks
+(parenthesis balancing, package/directory path match, XML validity,
+IT/EN string key parity) — this same session's sandbox has no access to
+`dl.google.com`, so it was not possible to build to verify.
+
+### What was deliberately left un-renamed
+
+- **The GitHub repository name** (`Marcogn/GameReviewer`): not explicitly
+  requested, and renaming a repository has a blast radius beyond the code
+  (existing links, CI integrations, forks) — out of scope for a request
+  that talked about the "app name", not the repository hosting it.
+- **The `recensioni-videogiochi-` prefix in
+  `domain/export/ExportFileNaming.kt`** (name of files exported from
+  JSON/CSV/PDF): it describes the *content* of the exported file ("video
+  game reviews"), it doesn't derive from the application name — stays
+  consistent with the Phase 5 choice to leave `domain/export` labels fixed
+  in Italian regardless of the app.
+- **The HTTP user name in `TheGamesDbApiClient`'s `User-Agent`**: the
+  bulk text substitution (`GameReviewer`→`ThePatientGamerHelper`) would
+  have also corrupted the GitHub repository URL included there
+  (`github.com/Marcogn/GameReviewer`, not renamed — see point above),
+  turning it into a URL that doesn't exist. Spotted before running the
+  `sed` and manually restored to the correct value afterward.
+
+### Room database name not renameable via `sed`
+
+`DATABASE_NAME` in `ThePatientGamerHelperDatabase.kt` was
+`"game_reviewer.db"` (snake_case), not caught by the `sed` patterns used
+for `com.marcogn.gamereviewer`/`GameReviewer` (different casing). Renamed
+by hand to `"the_patient_gamer_helper.db"`. **Note**: this, combined with
+the `applicationId` change, means an existing install (with the old
+`applicationId`) is not touched by this rename either way — it's
+literally a different app in Android's eyes, so there's no filesystem
+migration path to handle here.
+
+### Navigation: side drawer (hamburger) instead of top-bar icons
+
+The request explicitly described the desired mechanism ("side menu on the
+left, opened from a hamburger icon top-left"), so this wasn't a choice
+among alternatives but a direct implementation: `ModalNavigationDrawer`
+(Material 3 Compose) wrapping the entire `NavHost`, with the drawer state
+(`rememberDrawerState`) lifted to the navigation graph level — each screen
+only receives an `onMenuClick` lambda that opens the drawer, not the
+drawer state itself. The drawer entries (Reviews/Backlog/Statistics +
+separator + Settings) navigate with
+`popUpTo(Destination.Home) { saveState = true }` + `launchSingleTop = true`
++ `restoreState = true`, the standard pattern Google recommends for
+drawer/bottom-bar style navigation (avoids accumulating a deep backstack
+when repeatedly switching between the same 3-4 main destinations).
+
+`Destination.Settings` remains reachable only from the drawer, with a
+"back" arrow (not the hamburger) in its own top bar — it's a "bottom of
+the list" destination, not one of the three main sections you freely
+jump between, consistent with how the user described it ("with settings
+at the bottom").
+
+### New Home screen as a chooser, not an automatic redirect
+
+The request asked for a "what do you want to do?" screen with 3 choices,
+distinct from the library that previously was the initial screen. I added
+`Destination.Home` as the navigation graph's new `startDestination` (the
+library/`Destination.Library` is no longer the first screen shown when
+opening the app) instead of, for instance, remembering the last visited
+section and reopening it directly: the user explicitly asked for a "what
+do you want to do?" entry point, which would lose its meaning if the app
+automatically jumped elsewhere. No persisted state for "last section
+used" — consistent with "don't introduce unrequested features/state"
+already followed in previous phases.
+
+### TheGamesDB search fix: the visible cause was a generic message, not necessarily the only bug
+
+The reported symptom ("search always 'failed', no way to tell why") has a
+certain, statically diagnosable cause:
+`GameMetadataSearchCoordinator.search()` caught any exception (network
+error, non-2xx HTTP, JSON parsing) and always replaced it with the same
+generic text (`R.string.game_search_failed`), discarding the exception's
+real message. Fixed by logging the full exception (`Log.w`, visible in
+Logcat) and **appending** the exception's message (when present) to the
+generic text shown in the dialog, instead of replacing it — so a future
+failure shows both the reassuring generic message and the technical
+detail useful for diagnosis (e.g. "HTTP 401: ..." for an invalid key).
+
+This sandbox has no network access to `api.thegamesdb.net` (explicitly
+blocked by the outbound proxy policy, verified with
+`/__agentproxy/status` before ruling out a temporary issue), so it was not
+possible to reproduce the original failure nor definitively verify the
+specific underlying cause. I still applied plausible defensive fixes based
+on research (not on direct reproduction) while fixing the swallowed
+exception:
+- Missing `Accept: application/json` header and explicit timeouts
+  (connect/read) on the connection — previously absent, some REST
+  endpoints respond with an unexpected content-type or hang indefinitely
+  without an explicit timeout.
+- The `"platform"` field in the `fields` list requested to
+  `Games/ByGameName` doesn't appear to be a valid field for that endpoint
+  according to the TheGamesDB documentation consulted — removed from the
+  list.
+- The platform filter in the query (`filter[platform]`) uses the indexed
+  array syntax typical of PHP/Laravel APIs (`filter[platform][0]=`), not
+  the index-less form used previously — TheGamesDB is implemented in
+  Laravel.
+
+**The fix that certainly resolves the reported symptom** is the first one
+(the swallowed message): even if the defensive fixes above turn out not
+to hit the real cause, the next failure will now show a diagnosable
+message instead of the same opaque text, making further diagnosis
+possible without needing direct API access on the part of whoever is
+writing the code.
+
+## Phase 6 (Trackable backlog and TheGamesDB metadata fetch)
+
+See the "Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)"
+section in `CLAUDE.md` for the full architectural summary. Only the
+choices that weren't obvious from the original request are covered here.
+
+### The TheGamesDB API key: verify before assuming
+
+The initial request contained an explicit assumption ("shouldn't be
+necessary for gamedb, it isn't for esde") with the instruction to verify
+it before implementing a useless placeholder. Verification (research on
+the official forum and on open-source scraper changelogs like Skyscraper
+and sselph/scraper) gave the opposite result: **as of 02/17/2026 TheGamesDB
+requires an `apikey` on every endpoint**, public or private — anonymous
+access no longer exists. ES-DE and Skyscraper don't ask the end user for a
+*personal* key, but embed a shared public key (rate-limited per IP) in
+their own source code — the key still exists, the scraper's end user just
+doesn't see it.
+
+Having no reliable way to retrieve the literal value of that shared public
+key from the available search results (main site pages unreachable, 403),
+and not wanting to paste a string found online without certainty it's the
+correct/still-valid one, I **explicitly asked the user** how to proceed
+instead of guessing — consistent with the session's explicit instruction
+("if something is ambiguous, stop and ask me"). Answer received: the key
+must be fillable **inside the app** at runtime, no placeholder in the
+build. Hence `TheGamesDbPreferences` (see below) instead of the
+`[TO_COMPLETE]` pattern already used for Drive in Phase 4.
+
+### Why not the same pattern as `drive_config.xml`
+
+The Drive OAuth client id (Phase 4) is a value the user replaces **in
+source code before the build** (`res/values/drive_config.xml`, placeholder
+`[TO_COMPLETE]`), because it's tied to the app's registration on Google
+Cloud Console — an application-level configuration value, not an
+end-user one. The TheGamesDB API key is instead personal to the account
+the user registers on the site: two different users of the same APK would
+have different keys. A build placeholder would therefore have required
+rebuilding the app on every key (or account) change, while a Settings
+field allows changing it without touching the code — the more correct
+pattern for a per-user, not per-install, value.
+
+### Retrofit/Ktor mentioned in the request, but not added
+
+The request mentioned Retrofit/Ktor as an example HTTP library "if not
+already present". The project had already solved the same problem in
+Phase 4 with `DriveApiClient` (`HttpURLConnection` + `kotlinx.serialization`,
+zero additional dependencies beyond the one already present for JSON). For
+internal consistency and because CLAUDE.md explicitly asks not to add
+dependencies without real need, I wrote `TheGamesDbApiClient` with the
+same hand-rolled pattern instead of introducing Retrofit/Ktor — four GET
+endpoints (search + three id→name lookups) aren't enough to justify an
+entire HTTP client with its dependency chain (OkHttp/JSON converter,
+interceptors, etc.), which would moreover end up duplicating what
+`DriveApiClient` already demonstrates works well for this project.
+
+### `releaseYear`/`developer` only on the backlog, not on the review
+
+The request listed "platform, genre, year, developer" as metadata to save
+from online search, generically for "Stage 2" (which touches both the
+backlog form and the review form). Platform and genre already existed on
+both models; year and developer didn't. Extending `ReviewEntity`/`Review`
+— a schema with five phases of functionality already built on top (JSON/
+CSV/PDF/Markdown export, dedicated backup DTO, statistics computation) —
+for two bibliographic fields that were never part of the core of a review
+(rating/pros/cons/free text) would have had a blast radius disproportionate
+to the benefit: new migration, new fields in every export formatter, new
+field in the backup DTO, possible impact on statistics computation. I
+added the two fields only to `BacklogItemEntity`/`BacklogItem`, where they
+make more conceptual sense (cataloguing data for a game not yet played)
+and where the blast radius is contained to an entity introduced in this
+same session. Online search in the review form therefore remains limited
+to title/platform/genre/cover — the same field selection already used for
+pre-filling from a backlog item (Stage 1).
+
+### Additive migration instead of `fallbackToDestructiveMigration()`
+
+The app introduced by this project is already in real use on the device of
+whoever is developing it (see the opening of `CLAUDE.md`), not a
+throwaway prototype. A `fallbackToDestructiveMigration()` from Room
+database version 1 to 2 would have silently deleted all existing reviews
+on the first launch after the update — unacceptable. I wrote
+`MIGRATION_1_2` (`data/local/Migrations.kt`) with raw SQL that only
+creates the seven new backlog tables/indices, without touching `reviews`
+or the existing lookup tables.
+
+### Hand-written drag-to-reorder, gesture separated from the row click
+
+Manual reordering of items within a list was explicitly requested
+("drag-to-reorder, useful for prioritizing"). Without adding a third-party
+library, the simplest option would have been applying
+`Modifier.pointerInput`/`detectDragGestures` to the whole clickable row —
+but the same row must also open the item detail on tap. Overlapping a drag
+detector and a `clickable` on the same element in Compose leads to
+non-trivial gesture-handling conflicts that are hard to resolve reliably.
+I instead isolated the drag gesture on a small dedicated "handle" icon next
+to the row (which remains clickable to open the detail), translating the
+whole row vertically via shared lifted state
+(`graphicsLayer { translationY = ... }`) while `pointerInput` stays only
+on the handle. The final order is written to the repository only once, on
+gesture release (`onDragEnd`), not on every offset change during the
+drag.
+
+### Lists reordered with arrows, not drag-and-drop
+
+Neither spec nor CLAUDE.md specify the reordering mechanism for the lists
+themselves (only for items within a list). The number of lists in a
+personal backlog is typically small (a handful: "to buy", "in progress",
+etc.), unlike items, which can be numerous and for which the spec
+explicitly asks for drag-to-reorder ("useful for prioritizing"). For lists
+I chose up/down buttons — reordering just as functional with much less
+implementation/interaction complexity, avoiding writing the same drag
+logic twice for a use case where the benefit (being able to drag instead
+of pressing an arrow a couple of times) is marginal.
+
+## Phase 5 (Internationalization, theme, documentation)
+
+See the "Phase 5 — Internationalization, theme and documentation" section
+in `CLAUDE.md` for the full architectural summary. Only the choices that
+weren't obvious from the original request are covered here.
+
+### `ReviewStatus.label()` untouched, new `displayName()` for the UI
+
+The request asked to extract "the screens'" strings, not the content of
+exported files. `ReviewStatus.label()` in `domain/model`, however, serves
+both purposes: it's called both by the screens (to show "In progress"/
+"Completed"/"Abandoned") and by `ReviewMarkdownFormatter` and
+`PdfReviewRenderer` during export, where the labels stay fixed in Italian
+so as not to break the "pure `domain/export`, no Android dependencies"
+pattern already established in Phase 2.
+
+I left `label()` unchanged (it continues to be used only by export) and
+added `ReviewStatus.displayName()`, a `@Composable` in
+`ui/common/ReviewStatusDisplay.kt` that resolves the localized string
+resource. The screens (`FilterSheet`, `ReviewListItem`, `DetailScreen`,
+`ReviewFormScreen`, `StatsScreen`) all use `displayName()`. The
+alternative would have been to make `label()` itself language-aware, but
+that would have required passing it a `Context`/Android resources,
+propagating the Android dependency into `domain/export` and defeating its
+pure-JVM testability.
+
+### ViewModel messages: `@ApplicationContext Context` instead of moving construction into the UI
+
+Several ViewModels (`LibraryViewModel`, `DetailViewModel`,
+`ReviewFormViewModel`, `SettingsViewModel`) build text messages (export/
+backup outcomes, validation errors) that end up in a Snackbar or an
+on-screen error field. `stringResource()` can't be used outside a
+`@Composable`, so the alternatives were: (a) inject
+`@ApplicationContext Context` into the ViewModel and call
+`context.getString(...)`, or (b) bubble up a resource id/outcome enum to
+the UI and resolve the text there. I chose (a): it's the most direct
+pattern, requires the minimal change to existing ViewModels (one extra
+parameter in the Hilt constructor) and doesn't introduce a new "result"
+type just to carry a localized string — consistent with "no abstractions
+beyond what's needed" already followed throughout the project.
+
+### Language change broken in two different ways before the real fix: needs `AppCompatActivity`
+
+The language change was manually verified on a real device after the
+Phase 5 merge, and required two wrong iterations before reaching the real
+cause — worth documenting both, not just the final solution.
+
+**Attempt 1**: `MainActivity` was a plain `ComponentActivity` (Compose,
+no View system). Since the automatic Activity re-creation that AppCompat
+reliably offers is tied to `AppCompatActivity`'s lifecycle,
+`applyAppLanguage()` always called an explicit `recreate()` on the current
+Activity right after `setApplicationLocales()` (resolved from `Context`
+via `ContextWrapper`). Result on a real device (API 33+): selecting a
+language showed the "Drive not configured" error (see note below) and,
+going back and reopening the app, the UI stayed stuck on a solid-color
+screen, no longer responsive to touch.
+
+**Attempt 2**: (wrong) hypothesis that the freeze was due to two
+`recreate()` calls racing — the OS's own (which from Android 13 onward
+handles a language change as a real configuration change and re-creates
+foreground activities itself) plus the manual one. Fix applied:
+conditioning the explicit `recreate()` on
+`Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU`. Result on a real
+device: the freeze disappeared, but the language change stopped working
+entirely — no error, no reaction, the UI stayed in Italian at all times.
+The symptom, by elimination, disproved the double-`recreate()` hypothesis.
+
+**Real cause**: the official Android documentation is explicit — *"If
 you're using Compose with setApplicationLocales, you must extend your
 activity from AppCompatActivity. Otherwise, setting the app locale won't
-work."* `ComponentActivity` non ha semplicemente un supporto "meno
-affidabile" per il cambio lingua sotto Compose: **non funziona per niente**,
-perché manca l'aggancio che porta la nuova configurazione (la locale) fino
-al meccanismo di ricomposizione di Compose. Chiamare `recreate()` a mano su
-una `ComponentActivity` in questo stato non risolve il problema alla radice
-— ricrea l'Activity, ma senza che la configurazione risolta rifletta la
-nuova lingua, lasciando l'app in uno stato incoerente (da cui il blocco
-visto nel Tentativo 1).
+work."* `ComponentActivity` doesn't simply have "less reliable" support
+for language change under Compose: **it doesn't work at all**, because it
+lacks the hook that carries the new configuration (the locale) through to
+Compose's recomposition mechanism. Calling `recreate()` manually on a
+`ComponentActivity` in this state doesn't fix the root problem — it
+re-creates the Activity, but without the resolved configuration
+reflecting the new language, leaving the app in an inconsistent state
+(hence the freeze seen in Attempt 1).
 
-**Fix definitivo**: `MainActivity` estende ora `AppCompatActivity` (non
-`ComponentActivity`) — resta comunque Compose puro, `setContent {}` è
-l'unico entry point della UI, nessun layout XML introdotto.
-`AppCompatActivity` richiede un tema Android che discenda da
-`Theme.AppCompat` (altrimenti lancia un'eccezione a runtime): il tema in
-`res/values/themes.xml`, prima `android:Theme.Material.Light.NoActionBar`,
-è diventato `Theme.AppCompat.DayNight.NoActionBar`. Con questa base class,
-`setApplicationLocales()` innesca da sola la ricreazione corretta
-dell'Activity, sia su API 33+ che sotto — `applyAppLanguage()` in
-`ui/settings/AppLanguage.kt` si limita a chiamare `setApplicationLocales()`,
-nessuna `recreate()` manuale, nessuna condizione sull'API level.
+**Definitive fix**: `MainActivity` now extends `AppCompatActivity` (not
+`ComponentActivity`) — it's still pure Compose, `setContent {}` is still
+the only UI entry point, no XML layout introduced. `AppCompatActivity`
+requires an Android theme descending from `Theme.AppCompat` (otherwise it
+throws a runtime exception): the theme in `res/values/themes.xml`,
+previously `android:Theme.Material.Light.NoActionBar`, became
+`Theme.AppCompat.DayNight.NoActionBar`. With this base class,
+`setApplicationLocales()` triggers the correct Activity re-creation on its
+own, both on API 33+ and below — `applyAppLanguage()` in
+`ui/settings/AppLanguage.kt` just calls `setApplicationLocales()`, no
+manual `recreate()`, no API level condition.
 
-Nota (superata dalla Fase 7): al momento della diagnosi, un cambio lingua
-che innescava una vera ricreazione dell'Activity faceva ripartire da zero
-anche il caricamento automatico dei backup nella schermata Impostazioni,
-riportando in vista il messaggio "Drive non configurato" — non un effetto
-del cambio lingua in sé, solo dello stesso `LaunchedEffect(Unit)` già
-presente dalla Fase 4 ogni volta che la schermata veniva ricomposta.
-Il rework della UI di backup nella Fase 7 (login Google esplicito, nessun
-caricamento automatico prima del sign-in) ha eliminato questo effetto
-collaterale.
+Note (superseded by Phase 7): at the time of diagnosis, a language change
+that triggered a real Activity re-creation would also restart the
+automatic backup loading in the Settings screen from scratch, bringing the
+"Drive not configured" message back into view — not an effect of the
+language change itself, just of the same `LaunchedEffect(Unit)` already
+present since Phase 4 every time the screen was recomposed. The Phase 7
+rework of the backup UI (explicit Google login, no automatic loading
+before sign-in) eliminated this side effect.
 
-### `ThemeMode` con nomi italiani, come `ReviewStatus`
+### `ThemeMode` with Italian names, like `ReviewStatus`
 
-`domain/model/ThemeMode.kt` usa `SISTEMA`/`CHIARO`/`SCURO` invece di
-`SYSTEM`/`LIGHT`/`DARK`. Non era una scelta obbligata — è un concetto
-tecnico generico, non lessico di dominio come lo stato di una recensione —
-ma ho preferito restare coerente con il precedente già stabilito da
-`ReviewStatus` (enum con nomi italiani, etichette localizzate separate)
-piuttosto che introdurre due convenzioni diverse nello stesso codebase.
+`domain/model/ThemeMode.kt` uses `SISTEMA`/`CHIARO`/`SCURO` instead of
+`SYSTEM`/`LIGHT`/`DARK`. This wasn't a forced choice — it's a generic
+technical concept, not domain vocabulary like a review's status — but I
+preferred to stay consistent with the precedent already set by
+`ReviewStatus` (enum with Italian names, separate localized labels) rather
+than introduce two different conventions in the same codebase.
 
-### Due istanze di `ThemeViewModel`, nessuno scope condiviso
+### Two `ThemeViewModel` instances, no shared scope
 
-`ThemeViewModel` viene creato via `hiltViewModel()` sia nella root
-dell'app (`MainActivity.ThePatientGamerHelperApp`, per applicare il tema) sia in
-`SettingsScreen` (per mostrare/cambiare la selezione) — due istanze
-`ViewModel` distinte, scope diverso (Activity vs backstack entry della
-route Settings). Non ho introdotto un'istanza condivisa a livello di grafo
-di navigazione: `ThemePreferences.themeMode` è un `Flow` letto da
-`DataStore`, che resta la vera single source of truth, quindi le due
-istanze convergono comunque sullo stesso stato senza bisogno di scope
-condiviso — stesso principio già in uso per Room/`Flow` nel resto dell'app.
+`ThemeViewModel` is created via `hiltViewModel()` both at the app root
+(`MainActivity.ThePatientGamerHelperApp`, to apply the theme) and in
+`SettingsScreen` (to show/change the selection) — two distinct `ViewModel`
+instances, different scope (Activity vs. the Settings route's backstack
+entry). I did not introduce a shared instance at the navigation graph
+level: `ThemePreferences.themeMode` is a `Flow` read from `DataStore`,
+which remains the true single source of truth, so the two instances
+converge on the same state regardless without needing a shared scope —
+same principle already in use for Room/`Flow` throughout the rest of the
+app.
 
-## Fase 4 (Backup cloud Google Drive)
+## Phase 4 (Google Drive cloud backup)
 
-Vedi la sezione "Fase 4 — Backup cloud Google Drive" in `CLAUDE.md` per il
-riepilogo architetturale completo (autenticazione, formato di backup,
-worker periodico, UI). Qui solo le scelte che non erano ovvie dalla
-richiesta originale.
+See the "Phase 4 — Google Drive cloud backup" section in `CLAUDE.md` for
+the full architectural summary (authentication, backup format, periodic
+worker, UI). Only the choices that weren't obvious from the original
+request are covered here.
 
-### `domain/backup` separato da `domain/export`
+### `domain/backup` separate from `domain/export`
 
-La richiesta parlava genericamente di "JSON completo dei dati" per il
-backup, e la Fase 2 aveva già un formato di export JSON
-(`domain/export/ReviewExportDto.kt`). Ho scelto di **non riusarlo** e creare
-un DTO di backup dedicato (`domain/backup/BackupReviewDto.kt`) per due
-motivi concreti, non solo principio di separazione:
-- Il DTO di export Fase 2 ha `copertina` come **percorso assoluto sul
-  device** (`context.filesDir/covers/<uuid>.jpg`) — corretto per un export
-  che l'utente scarica e guarda, ma inutilizzabile per un restore su
-  un'installazione diversa (percorso diverso, magari device diverso). Il
-  DTO di backup porta invece solo il **nome file** della copertina,
-  risolto a un path nuovo al momento del restore.
-- Le etichette del DTO di export sono in italiano, pensate per essere
-  leggibili da chi apre il JSON esportato; il formato di backup è interno
-  e non ha bisogno di quel vincolo, né deve essere accoppiato
-  all'evoluzione del formato di export (già ha un `schemaVersion` proprio
-  per poter cambiare in futuro senza toccare l'export utente, e
-  viceversa).
+The request talked generically about "complete JSON of the data" for
+backup, and Phase 2 already had a JSON export format
+(`domain/export/ReviewExportDto.kt`). I chose **not to reuse it** and
+created a dedicated backup DTO (`domain/backup/BackupReviewDto.kt`) for
+two concrete reasons, not just separation on principle:
+- The Phase 2 export DTO has `copertina` as an **absolute path on the
+  device** (`context.filesDir/covers/<uuid>.jpg`) — correct for an export
+  the user downloads and looks at, but unusable for a restore on a
+  different install (different path, possibly different device). The
+  backup DTO instead carries only the cover's **file name**, resolved to a
+  new path at restore time.
+- The export DTO's labels are in Italian, meant to be readable by whoever
+  opens the exported JSON; the backup format is internal and doesn't need
+  that constraint, nor should it be coupled to the evolution of the export
+  format (it already has its own `schemaVersion` precisely so it can
+  change in the future without touching user-facing export, and vice
+  versa).
 
-### Restore come sovrascrittura completa, non merge
+### Restore as a full overwrite, not a merge
 
-Richiesto esplicitamente ("nessuna gestione di merge/conflitti... in caso
-di restore va bene una sovrascrittura completa"). Implementato con un nuovo
-metodo `ReviewRepository.replaceAll(reviews: List<Review>)`, distinto da
+Explicitly requested ("no merge/conflict handling... a full overwrite is
+fine on restore"). Implemented with a new
+`ReviewRepository.replaceAll(reviews: List<Review>)` method, distinct from
 `save()`:
-- `save()` è pensato per il form crea/modifica: genera un nuovo id se
-  assente, imposta `createdAt` a "ora" per le nuove recensioni e lo
-  preserva per le modifiche cercandolo sulla riga esistente.
-- Un restore deve invece **preservare esattamente** `id`/`createdAt`/`updatedAt`
-  dal backup — se avessi riusato `save()`, dopo aver cancellato le
-  recensioni esistenti (necessario per l'overwrite) la ricerca del
-  `createdAt` precedente sulla riga (ormai cancellata) sarebbe fallita,
-  facendo perdere la data di creazione originale a ogni recensione
-  ripristinata. `replaceAll()` scrive l'entità Room direttamente con i
-  timestamp del backup, in un'unica transazione che cancella anche le
-  tabelle di lookup (platform/genre/tag) prima di ricrearle — altrimenti
-  restore ripetuti accumulerebbero voci di lookup orfane mai più
-  referenziate da nessuna recensione, sporcando l'autocomplete.
-- La logica di risoluzione nome→id lookup e scrittura cross-ref/pro-con
-  era duplicata fra `save()` e la prima bozza di `replaceAll()`: estratta
-  in un metodo privato condiviso (`writeRelations`) su
+- `save()` is meant for the create/edit form: it generates a new id if
+  absent, sets `createdAt` to "now" for new reviews and preserves it for
+  edits by looking it up on the existing row.
+- A restore must instead **preserve exactly** `id`/`createdAt`/`updatedAt`
+  from the backup — if I had reused `save()`, after deleting existing
+  reviews (necessary for the overwrite) looking up the previous
+  `createdAt` on the (by-then deleted) row would have failed, losing the
+  original creation date on every restored review. `replaceAll()` writes
+  the Room entity directly with the backup's timestamps, in a single
+  transaction that also clears the lookup tables (platform/genre/tag)
+  before recreating them — otherwise repeated restores would accumulate
+  orphaned lookup entries never referenced by any review again, polluting
+  autocomplete.
+- The name→lookup-id resolution and cross-ref/pro-con writing logic was
+  duplicated between `save()` and the first draft of `replaceAll()`:
+  extracted into a shared private method (`writeRelations`) on
   `ReviewRepositoryImpl`.
 
-### Client Drive scritto a mano, non il client Java ufficiale di Google
+### Hand-written Drive client, not Google's official Java client
 
-La richiesta specificava "Drive REST API v3" (non "Google API Client
-Library for Java"), e CLAUDE.md chiede esplicitamente di non aggiungere
-dipendenze senza necessità reale. `google-api-client-android` +
-`google-api-services-drive` sono le librerie ufficiali ma pesanti (portano
-Guava e un grafo di dipendenze ampio) per tre soli endpoint (upload
-multipart, list, download by id). Ho scritto un client minimale con
-`java.net.HttpURLConnection` in `data/drive/DriveApiClient.kt` — zero
-dipendenze aggiuntive oltre a `kotlinx.serialization` (già presente) per
-il parsing delle risposte JSON.
+The request specified "Drive REST API v3" (not "Google API Client Library
+for Java"), and CLAUDE.md explicitly asks not to add dependencies without
+real need. `google-api-client-android` + `google-api-services-drive` are
+the official libraries but heavy (they bring in Guava and a large
+dependency graph) for just three endpoints (multipart upload, list,
+download by id). I wrote a minimal client with `java.net.HttpURLConnection`
+in `data/drive/DriveApiClient.kt` — zero additional dependencies beyond
+`kotlinx.serialization` (already present) for parsing JSON responses.
 
-### Cadenza del backup automatico non configurabile
+### Automatic backup cadence not configurable
 
-WorkManager supporta un intervallo minimo di 15 minuti per il lavoro
-periodico; ho scelto una cadenza fissa giornaliera
-(`BackupScheduler`, 24h, `NetworkType.CONNECTED`) senza esporre in UI la
-possibilità di cambiarla. Per un'app di recensioni personale, dove i dati
-cambiano al più qualche volta al giorno, un backup giornaliero è più che
-sufficiente e una UI di configurazione dell'intervallo sarebbe complessità
-non richiesta — stesso principio "non over-engineerare" applicato al resto
-della Fase 4 (restore senza merge, nessuna UI per gestire/cancellare
-backup vecchi).
+WorkManager supports a minimum interval of 15 minutes for periodic work; I
+chose a fixed daily cadence (`BackupScheduler`, 24h, `NetworkType.CONNECTED`)
+without exposing a way to change it in the UI. For a personal review app,
+where data changes at most a few times a day, a daily backup is more than
+sufficient and a configuration UI for the interval would be unrequested
+complexity — same "don't over-engineer" principle applied to the rest of
+Phase 4 (restore without merge, no UI to manage/delete old backups).
 
-## Fase 3 (Statistiche libreria)
+## Phase 3 (Library statistics)
 
-Le decisioni sotto restano riferite specificamente alla Fase 3. Vedi anche
-la sezione "Fase 3 — Statistiche libreria" in `CLAUDE.md` per il riepilogo
-architetturale.
+The decisions below refer specifically to Phase 3. See also the "Phase 3
+— Library statistics" section in `CLAUDE.md` for the architectural
+summary.
 
-### Nessuna dipendenza di charting aggiunta
+### No charting dependency added
 
-La spec/task lasciava la scelta aperta tra barre Compose native e Vico (se
-"la complessità in più è giustificata"). Ho optato per barre Compose native
-(`Box` con `fillMaxWidth(fraction = count / maxCount)` per le distribuzioni,
-una barra impilata a segmenti per lo stato) e **nessuna nuova dipendenza**.
+The spec/task left the choice open between native Compose bars and Vico
+(if "the added complexity is justified"). I opted for native Compose bars
+(`Box` with `fillMaxWidth(fraction = count / maxCount)` for the
+distributions, a segmented stacked bar for status) and **no new
+dependency**.
 
-Motivazione:
-- CLAUDE.md indica esplicitamente di non aggiungere dipendenze per Fase 3/4
-  senza richiesta esplicita, segnalando piuttosto la necessità.
-- Il caso d'uso è una libreria single-user: il numero di piattaforme/generi
-  distinti è tipicamente piccolo (poche piattaforme possedute, un numero
-  moderato di generi), quindi barre orizzontali semplici restano leggibili
-  senza bisogno di scroll/zoom/interattività che giustifichino una libreria
-  di charting.
-- Se in futuro le esigenze di visualizzazione crescono (grafici a torta,
-  trend temporali, drill-down interattivo), Vico resta la scelta raccomandata
-  da rivalutare a quel punto, invece di continuare ad estendere rendering
-  manuale con `Canvas`/`Box`.
+Rationale:
+- CLAUDE.md explicitly indicates not to add dependencies for Phase 3/4
+  without an explicit request, and instead to flag the need.
+- The use case is a single-user library: the number of distinct
+  platforms/genres is typically small (a few owned platforms, a moderate
+  number of genres), so simple horizontal bars remain readable without
+  needing scroll/zoom/interactivity that would justify a charting
+  library.
+- If visualization needs grow in the future (pie charts, time trends,
+  interactive drill-down), Vico remains the recommended choice to
+  reevaluate at that point, instead of continuing to extend hand-rolled
+  `Canvas`/`Box` rendering.
 
-### Percentuali solo sulla ripartizione per stato
+### Percentages only on the status breakdown
 
-La spec chiede esplicitamente una "percentuale completato/abbandonato/in
-corso" ma non chiede percentuali per le distribuzioni piattaforma/genere.
-Questo non è un'omissione: piattaforma e genere sono relazioni many-to-many
-con la recensione (una recensione può avere più piattaforme e più generi),
-mentre lo stato è un campo singolo (enum, un solo valore per recensione).
+The spec explicitly asks for a "completed/abandoned/in-progress
+percentage" but doesn't ask for percentages on the platform/genre
+distributions. This isn't an omission: platform and genre are many-to-many
+relationships with the review (a review can have multiple platforms and
+multiple genres), while status is a single field (enum, one value per
+review).
 
-Se si calcolasse una percentuale per piattaforma/genere dividendo per il
-numero totale di recensioni, le percentuali visualizzate non sommerebbero al
-100% (una recensione multi-piattaforma verrebbe conteggiata più volte),
-risultando fuorviante per chi legge lo schermo aspettandosi un totale del
-100% come per lo stato. Ho quindi scelto di mostrare le distribuzioni
-piattaforma/genere solo come conteggi assoluti (con barra proporzionale al
-valore massimo nel set), mantenendo la percentuale solo dove il dato è a
-scelta singola e la percentuale è matematicamente coerente.
+If a percentage for platform/genre were computed by dividing by the total
+number of reviews, the displayed percentages wouldn't add up to 100% (a
+multi-platform review would be counted more than once), which would be
+misleading to someone reading the screen expecting a 100% total like for
+status. I therefore chose to show the platform/genre distributions only
+as absolute counts (with a bar proportional to the maximum value in the
+set), keeping the percentage only where the data is single-choice and the
+percentage is mathematically coherent.
 
-### Struttura dati per le aggregazioni
+### Data structure for the aggregations
 
-- `domain/model/LibraryStatistics.kt`: modelli puri (`LibraryStatistics`,
-  `DistributionEntry`, `StatusShare`), nessuna dipendenza Android.
-- `domain/stats/LibraryStatisticsCalculator.kt`: funzione pura
-  `computeLibraryStatistics(List<Review>): LibraryStatistics`, stesso
-  pattern di `domain/filter/LibraryFiltering.kt` — unit-testabile in JVM
-  puro senza SDK Android o Robolectric (vedi
+- `domain/model/LibraryStatistics.kt`: pure models (`LibraryStatistics`,
+  `DistributionEntry`, `StatusShare`), no Android dependency.
+- `domain/stats/LibraryStatisticsCalculator.kt`: pure function
+  `computeLibraryStatistics(List<Review>): LibraryStatistics`, same
+  pattern as `domain/filter/LibraryFiltering.kt` — unit-testable in pure
+  JVM without the Android SDK or Robolectric (see
   `domain/stats/LibraryStatisticsCalculatorTest.kt`).
-- Le distribuzioni sono ordinate per conteggio decrescente (poi per nome, a
-  parità di conteggio) — stessa euristica "più frequente in cima" per
-  piattaforma e genere.
-- `ore totali tracciate` somma `hoursPlayed`, trattando `null` (campo
-  opzionale) come 0 anziché escludere la recensione dal conteggio totale.
-- `voto medio` è `Double?` (non `Double`) per distinguere esplicitamente "0
-  recensioni" (nessun voto medio, mostrato come "—" in UI) da un'ipotetica
-  media pari a 0.0.
+- The distributions are sorted by descending count (then by name, for
+  equal counts) — same "most frequent on top" heuristic for both platform
+  and genre.
+- `total tracked hours` sums `hoursPlayed`, treating `null` (optional
+  field) as 0 rather than excluding the review from the total count.
+- `average rating` is `Double?` (not `Double`) to explicitly distinguish
+  "0 reviews" (no average rating, shown as "—" in the UI) from a
+  hypothetical average equal to 0.0.
 
-### UI e navigazione
+### UI and navigation
 
-- Nuova route `Destination.Stats` (oggetto senza parametri, coerente con
-  `Destination.Library`), raggiungibile da un'icona (`Icons.Filled.BarChart`)
-  nella top bar della libreria, accanto a filtri/ordinamento/export.
-- `ui/stats/StatsScreen.kt` + `StatsViewModel` + `StatsUiState`: stesso
-  pattern MVVM/UDF delle altre schermate (`ui/library`, `ui/detail`), con
-  `ReviewRepository.observeAll()` come unica fonte dati (nessun mock).
+- New `Destination.Stats` route (parameterless object, consistent with
+  `Destination.Library`), reachable from an icon (`Icons.Filled.BarChart`)
+  in the library's top bar, next to filters/sort/export.
+- `ui/stats/StatsScreen.kt` + `StatsViewModel` + `StatsUiState`: same
+  MVVM/UDF pattern as the other screens (`ui/library`, `ui/detail`), with
+  `ReviewRepository.observeAll()` as the single data source (no mocks).
