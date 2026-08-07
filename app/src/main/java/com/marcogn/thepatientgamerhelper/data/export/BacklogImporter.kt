@@ -19,9 +19,17 @@ class BacklogImporter @Inject constructor(
 ) {
     suspend fun import(source: Uri): BacklogImportResult {
         val content = archiveReader.read(fileReader.readBytes(source))
-        val importedLists = content.payload.toImportedLists { fileName ->
-            content.images[fileName]?.let { bytes -> imageStorage.writeBytes(newCoverFileName(fileName), bytes) }
-        }
+        // toImportedLists()/toImportedItem() live in domain/export (pure, non-suspend), so the
+        // suspend cover writes can't happen inside the resolveCoverPath callback passed to them —
+        // resolve every referenced cover up front instead (same shape as BackupManager.restoreBackup).
+        val referencedCoverFileNames = content.payload.liste
+            .flatMap { it.elementi }
+            .mapNotNull { it.copertina }
+            .toSet()
+        val coverPathsByFileName = referencedCoverFileNames.mapNotNull { fileName ->
+            content.images[fileName]?.let { bytes -> fileName to imageStorage.writeBytes(newCoverFileName(fileName), bytes) }
+        }.toMap()
+        val importedLists = content.payload.toImportedLists { fileName -> coverPathsByFileName[fileName] }
         backlogRepository.importLists(importedLists)
         return BacklogImportResult(
             listsImported = importedLists.size,
