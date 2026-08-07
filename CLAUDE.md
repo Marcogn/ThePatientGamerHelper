@@ -1,1497 +1,1410 @@
 # CLAUDE.md
 
-Guida per agenti Claude che lavorano su questo repository. Leggi anche
-`docs/spec.md` per la specifica funzionale completa e
-`docs/piano-di-test.md` per il piano di test manuale (interazione
-uomo/applicazione) completo di ogni funzionalità ed edge case — va
-aggiornato con una nuova sezione ad ogni fase/funzionalità aggiunta, e con
-una nuova voce in "Regressioni note" ad ogni bug reale scoperto in verifica
-manuale su device.
+Guide for Claude agents working on this repository. Also read
+`docs/spec.md` for the complete functional specification and
+`docs/test-plan.md` for the manual test plan (human/application
+interaction) covering every feature and edge case — it must be
+updated with a new section for every phase/feature added, and with
+a new entry in "Known regressions" for every real bug discovered during
+manual on-device verification.
 
-## Cos'è questo progetto
+## What this project is
 
-App Android nativa, single-user, offline-first per gestire recensioni di
-videogiochi (flusso personale per r/patientgamer). Kotlin + Jetpack Compose +
-Material 3, Room, Hilt, ViewModel/StateFlow con unidirectional data flow.
+A native, single-user, offline-first Android app for managing video game
+reviews (a personal workflow for r/patientgamer). Kotlin + Jetpack Compose +
+Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
 
-## Stato di avanzamento per fasi
+## Progress status by phase
 
-- **Fase 1 — MVP locale**: ✅ completata (CRUD, libreria con
-  ricerca/filtri/ordinamento, dettaglio, form crea/modifica, copertina immagine).
-- **Fase 2 — Export**: ✅ completata (JSON/CSV per l'intera libreria, Markdown
-  compatibile Reddit per singola recensione, PDF nativo per singola
-  recensione e libreria in batch). Vedi sezione dedicata sotto.
-- **Fase 3 — Statistiche libreria**: ✅ completata (nuova schermata Statistiche
-  raggiungibile dalla libreria: totali/medie, distribuzione piattaforma/genere,
-  ripartizione per stato). Vedi sezione dedicata sotto.
-- **Fase 4 — Backup cloud Google Drive**: ✅ completata (backup manuale +
-  automatico via WorkManager, ripristino da elenco backup). Vedi sezione
-  dedicata sotto.
-- **Fase 5 — Internazionalizzazione, tema e documentazione**: ✅ completata
-  (app tradotta IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema
-  persistito con DataStore, documentazione riorganizzata sotto `docs/` con
-  traduzione inglese in `docs/en/`). Vedi sezione dedicata sotto.
-- **Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)**: ✅
-  completata in due tappe — Tappa 1: nuova sezione Backlog (liste di
-  gioco, item con stato/commenti/storico automatico/riordino manuale,
-  trigger "scrivi una recensione" al completamento). Tappa 2: pulsante
-  "Cerca online" (TheGamesDB) nei form di backlog e recensione per
-  precompilare copertina/piattaforma/genere (+ anno/sviluppatore per il
-  backlog). Vedi sezione dedicata sotto.
-- **Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB**: ✅
-  completata (app rinominata ThePatientGamerHelper ovunque, incluso
-  `applicationId`/package Kotlin; nuova schermata Home "cosa vuoi fare?" +
-  cassetto laterale hamburger con le 3 sezioni principali + impostazioni;
-  fix del bug "ricerca TheGamesDB sempre fallita"). Vedi sezione dedicata
-  sotto.
-- **Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste
-  griglia**: ✅ completata (import recensioni da Markdown, reverse
-  dell'export esistente; export/import dell'intero backlog con le sue
-  liste, sempre additivo, formato ZIP separato dal backup Drive; tempi
-  stimati HowLongToBeat nel form/dettaglio backlog e nelle statistiche,
-  integrazione intrinsecamente fragile perché HowLongToBeat non ha
-  un'API pubblica — vedi sotto; vista lista/griglia per libreria e
-  backlog). Vedi sezione dedicata sotto e
-  `docs/decisioni-implementazione.md` per il ragionamento completo.
-- **Export DOCX**: **deciso di non implementarlo**, non solo rimandato. Vedi
-  "Export DOCX — perché non è stato implementato" sotto.
+- **Phase 1 — Local MVP**: ✅ completed (CRUD, library with
+  search/filters/sorting, detail view, create/edit form, image cover).
+- **Phase 2 — Export**: ✅ completed (JSON/CSV for the entire library, Markdown
+  compatible with Reddit for a single review, native PDF for a single
+  review and for the library in batch). See dedicated section below.
+- **Phase 3 — Library statistics**: ✅ completed (new Statistics screen
+  reachable from the library: totals/averages, platform/genre
+  distribution, breakdown by status). See dedicated section below.
+- **Phase 4 — Google Drive cloud backup**: ✅ completed (manual + automatic
+  backup via WorkManager, restore from a list of backups). See dedicated
+  section below.
+- **Phase 5 — Internationalization, theme, and documentation**: ✅ completed
+  (app translated IT/EN with an in-app language selector, light/dark/system
+  theme persisted with DataStore, documentation reorganized under `docs/`).
+  See dedicated section below.
+- **Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)**: ✅
+  completed in two stages — Stage 1: new Backlog section (game
+  lists, items with status/comments/automatic history/manual reorder,
+  "write a review" trigger on completion). Stage 2: "Search online"
+  button (TheGamesDB) in the backlog and review forms to
+  prefill cover/platform/genre (+ year/developer for the
+  backlog). See dedicated section below.
+- **Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix**: ✅
+  completed (app renamed to ThePatientGamerHelper everywhere, including
+  the `applicationId`/Kotlin package; new Home screen "what do you want to
+  do?" + hamburger side drawer with the 3 main sections + settings;
+  fix for the "TheGamesDB search always failed" bug). See dedicated section
+  below.
+- **Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid
+  views**: ✅ completed (review import from Markdown, the reverse
+  of the existing export; export/import of the entire backlog with its
+  lists, always additive, ZIP format separate from the Drive backup; estimated
+  HowLongToBeat times in the backlog form/detail and in statistics,
+  an integration that is inherently fragile because HowLongToBeat has no
+  public API — see below; list/grid view for library and
+  backlog). See dedicated section below and
+  `docs/implementation-decisions.md` for the full reasoning.
+- **DOCX export**: **decided not to implement it**, not merely postponed. See
+  "DOCX export — why it was not implemented" below.
 
-Con le Fasi 6-8 la roadmap è ulteriormente estesa oltre quella originaria (vedi
-`docs/spec.md`). Non implementare funzionalità non ancora presenti in questo
-file o nella spec a meno che l'utente non lo richieda esplicitamente in una
-nuova sessione.
+With Phases 6-8 the roadmap has been further extended beyond the original one (see
+`docs/spec.md`). Do not implement features not yet present in this
+file or in the spec unless the user explicitly requests it in a
+new session.
 
-## Decisioni di prodotto già prese (non richiederle di nuovo)
+## Product decisions already made (do not ask again)
 
-- Scala voto: **0–10 con un decimale** (es. 7.3), non stelle.
-- Stato recensione: enum `IN_CORSO` / `COMPLETATO` / `ABBANDONATO`.
-- Una sola recensione per gioco (nessun replay/rigioco nell'MVP).
-- Copertina immagine: **implementata** in Fase 1 (photo picker + copia in
-  storage interno app, nessun permesso runtime richiesto grazie a
+- Rating scale: **0–10 with one decimal** (e.g. 7.3), not stars.
+- Review status: enum `IN_CORSO` / `COMPLETATO` / `ABBANDONATO`.
+- A single review per game (no replay/rigioco in the MVP).
+- Cover image: **implemented** in Phase 1 (photo picker + copy into
+  the app's internal storage, no runtime permission required thanks to
   `ActivityResultContracts.PickVisualMedia`).
-- Piattaforma e Genere: **relazione many-to-many** con la recensione (un
-  gioco può uscire su più piattaforme / avere più generi), modellate come
-  tabelle di lookup con tabelle ponte, per garantire autocomplete coerente.
-- Tag personalizzati: stesso pattern di Piattaforma/Genere (tabella lookup +
-  tabella ponte), per coerenza di modello e autocomplete.
-- Pro/Contro: tabella figlia relazionale (`review_pro_con`) con un campo
-  `tipo` (PRO/CONTRO) e `posizione` per l'ordine, non stringhe concatenate.
-- Export JSON/CSV: **sempre l'intera libreria**, ignora i filtri attivi in
-  UI (un backup deve essere completo).
-- Export PDF in batch: **un unico file PDF multi-pagina** con tutte le
-  recensioni (non uno zip di PDF separati) — coerente con SAF
-  `ACTION_CREATE_DOCUMENT`, che fa scegliere una singola destinazione.
+- Platform and Genre: **many-to-many relationship** with the review (a
+  game can be released on multiple platforms / have multiple genres), modeled as
+  lookup tables with bridge tables, to guarantee consistent autocomplete.
+- Custom tags: same pattern as Platform/Genre (lookup table +
+  bridge table), for model consistency and autocomplete.
+- Pros/Cons: relational child table (`review_pro_con`) with a `tipo`
+  field (PRO/CONTRO) and `posizione` for ordering, not concatenated strings.
+- JSON/CSV export: **always the entire library**, ignoring the filters active
+  in the UI (a backup must be complete).
+- Batch PDF export: **a single multi-page PDF file** with all
+  reviews (not a zip of separate PDFs) — consistent with SAF
+  `ACTION_CREATE_DOCUMENT`, which makes the user choose a single destination.
 
-## Package/architettura
+## Package/architecture
 
 ```
 com.marcogn.thepatientgamerhelper
 ├── data/
 │   ├── local/
-│   │   ├── entity/      # Entità Room (Review, Platform, Genre, Tag, cross-ref, ProCon,
-│   │   │                # Backlog* dalla Fase 6)
-│   │   ├── dao/          # DAO Room, esposti come Flow (ReviewDao, LookupDaos, BacklogDao)
-│   │   ├── Converters.kt # TypeConverter per LocalDate/Instant/enum
-│   │   └── Migrations.kt # MIGRATION_1_2 (Fase 6: tabelle backlog), MIGRATION_2_3 (Fase 8:
-│   │                      # colonne stima HowLongToBeat su backlog_items) — entrambe additive
-│   ├── repository/       # Implementazioni dei repository (upsert transazionale)
-│   ├── export/            # I/O Android per l'export/import: ExportFileWriter (SAF, scrittura),
-│   │                      # ImportFileReader (Fase 8, SAF, lettura — usato sia dall'import
-│   │                      # Markdown recensioni sia dall'import backlog), PdfReviewRenderer
+│   │   ├── entity/      # Room entities (Review, Platform, Genre, Tag, cross-ref, ProCon,
+│   │   │                # Backlog* from Phase 6)
+│   │   ├── dao/          # Room DAOs, exposed as Flow (ReviewDao, LookupDaos, BacklogDao)
+│   │   ├── Converters.kt # TypeConverter for LocalDate/Instant/enum
+│   │   └── Migrations.kt # MIGRATION_1_2 (Phase 6: backlog tables), MIGRATION_2_3 (Phase 8:
+│   │                      # HowLongToBeat estimate columns on backlog_items) — both additive
+│   ├── repository/       # Repository implementations (transactional upsert)
+│   ├── export/            # Android I/O for export/import: ExportFileWriter (SAF, write),
+│   │                      # ImportFileReader (Phase 8, SAF, read — used both by review
+│   │                      # Markdown import and by backlog import), PdfReviewRenderer
 │   │                      # (PdfDocument), ReviewExporter, BacklogExporter/BacklogImporter +
-│   │                      # BacklogExportArchiveBuilder/Reader (Fase 8, zip dati+copertine) —
-│   │                      # tutte classi concrete iniettate via Hilt, come ImageStorage, non
-│   │                      # un'astrazione interfaccia/impl come i repository
-│   ├── drive/             # Client REST Drive v3 (DriveApiClient, HttpURLConnection)
+│   │                      # BacklogExportArchiveBuilder/Reader (Phase 8, zip data+covers) —
+│   │                      # all concrete classes injected via Hilt, like ImageStorage, not
+│   │                      # an interface/impl abstraction like the repositories
+│   ├── drive/             # Drive REST v3 client (DriveApiClient, HttpURLConnection)
 │   │                      # + auth (DriveAuthManager: Credential Manager + AuthorizationClient)
-│   ├── backup/            # Orchestrazione backup/restore: BackupManager, archivio zip
+│   ├── backup/            # Backup/restore orchestration: BackupManager, zip archive
 │   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
 │   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
-│   ├── settings/          # ThemePreferences (Fase 5, Preferences DataStore), ViewModePreferences
-│   │                      # (Fase 8, SharedPreferences, vista lista/griglia libreria e backlog)
-│   ├── thegamesdb/        # Fase 6, Tappa 2: TheGamesDbApiClient (HttpURLConnection, stesso
-│   │                      # pattern di DriveApiClient), TheGamesDbPreferences (SharedPreferences,
-│   │                      # API key inserita a runtime dall'utente), GameMetadataSearchCoordinator
-│   │                      # (logica condivisa "cerca online" tra form recensione e form backlog,
-│   │                      # Fase 8: espone anche searchHowLongToBeat(), backlog-only)
-│   ├── howlongtobeat/     # Fase 8: HowLongToBeatApiClient — client HttpURLConnection per un
-│   │                      # endpoint non ufficiale/non documentato, tecnica reverse-engineered
-│   │                      # (vedi sezione dedicata sotto), non lo stesso livello di affidabilità
-│   │                      # di TheGamesDbApiClient/DriveApiClient
-│   └── debug/            # DebugSeeder, attivo solo dietro BuildConfig.SEED_DEBUG_DATA
+│   ├── settings/          # ThemePreferences (Phase 5, Preferences DataStore), ViewModePreferences
+│   │                      # (Phase 8, SharedPreferences, list/grid view for library and backlog)
+│   ├── thegamesdb/        # Phase 6, Stage 2: TheGamesDbApiClient (HttpURLConnection, same
+│   │                      # pattern as DriveApiClient), TheGamesDbPreferences (SharedPreferences,
+│   │                      # API key entered at runtime by the user), GameMetadataSearchCoordinator
+│   │                      # (logic shared "search online" between the review form and the
+│   │                      # backlog form, Phase 8: also exposes searchHowLongToBeat(), backlog-only)
+│   ├── howlongtobeat/     # Phase 8: HowLongToBeatApiClient — HttpURLConnection client for an
+│   │                      # unofficial/undocumented endpoint, reverse-engineered technique
+│   │                      # (see dedicated section below), not the same level of reliability
+│   │                      # as TheGamesDbApiClient/DriveApiClient
+│   └── debug/            # DebugSeeder, active only behind BuildConfig.SEED_DEBUG_DATA
 ├── domain/
-│   ├── model/            # Modelli di dominio puri (no dipendenze Android), incluso ThemeMode,
-│   │                      # Backlog* e GameMetadataSearchResult (Fase 6), HowLongToBeatEstimate/
-│   │                      # ViewMode/ImportedBacklog* (Fase 8)
-│   ├── filter/            # Logica di filtro/ordinamento libreria e backlog, pure function, unit-testata
-│   ├── stats/             # Aggregazioni pure: LibraryStatisticsCalculator (Fase 3),
-│   │                      # BacklogStatisticsCalculator (Fase 6, conteggi per stato/lista;
-│   │                      # Fase 8: anche computeBacklogTimeEstimateStatistics)
-│   ├── export/            # Formattazione export/import pura: JSON (kotlinx.serialization),
-│   │                      # CSV (writer manuale), Markdown (template stringhe, Fase 8: anche
-│   │                      # ReviewMarkdownParser, il reverse) — nessun import Android,
-│   │                      # unit-testabile in JVM puro. Le etichette restano in italiano fisso
-│   │                      # (vedi Fase 5, non seguono la lingua app). Fase 8: anche
-│   │                      # BacklogExportDto.kt (payload zip export/import backlog, formato
-│   │                      # separato da domain/backup — vedi sezione dedicata sotto)
-│   ├── backup/            # Formato di backup puro: BackupPayload/BackupReviewDto,
-│   │                      # mapping Review<->DTO, naming file — stesso pattern di domain/export
-│   └── repository/        # Interfacce repository (ReviewRepository, LookupRepository,
-│                          # BacklogRepository dalla Fase 6, + importLists() dalla Fase 8)
-├── di/                    # Moduli Hilt (Database, Repository)
+│   ├── model/            # Pure domain models (no Android dependencies), including ThemeMode,
+│   │                      # Backlog* and GameMetadataSearchResult (Phase 6), HowLongToBeatEstimate/
+│   │                      # ViewMode/ImportedBacklog* (Phase 8)
+│   ├── filter/            # Library and backlog filter/sort logic, pure functions, unit-tested
+│   ├── stats/             # Pure aggregations: LibraryStatisticsCalculator (Phase 3),
+│   │                      # BacklogStatisticsCalculator (Phase 6, counts by status/list;
+│   │                      # Phase 8: also computeBacklogTimeEstimateStatistics)
+│   ├── export/            # Pure export/import formatting: JSON (kotlinx.serialization),
+│   │                      # CSV (manual writer), Markdown (string templates, Phase 8: also
+│   │                      # ReviewMarkdownParser, the reverse) — no Android import,
+│   │                      # unit-testable in plain JVM. The labels remain fixed in Italian
+│   │                      # (see Phase 5, they do not follow the app language). Phase 8: also
+│   │                      # BacklogExportDto.kt (backlog export/import zip payload, format
+│   │                      # separate from domain/backup — see dedicated section below)
+│   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto,
+│   │                      # Review<->DTO mapping, file naming — same pattern as domain/export
+│   └── repository/        # Repository interfaces (ReviewRepository, LookupRepository,
+│                          # BacklogRepository from Phase 6, + importLists() from Phase 8)
+├── di/                    # Hilt modules (Database, Repository)
 └── ui/
-    ├── theme/             # Tema Material 3 (Compose) + ThemeViewModel (Fase 5, legge ThemePreferences)
-    ├── navigation/        # Navigation Compose, route type-safe (kotlinx.serialization).
-    │                      # Fase 7: ModalNavigationDrawer attorno al NavHost (cassetto
-    │                      # hamburger con le 3 sezioni + impostazioni), Destination.Home
-    │                      # come startDestination
-    ├── home/              # Fase 7: HomeScreen, schermata "cosa vuoi fare?" con le 3 scelte
-    │                      # principali (recensioni/backlog/statistiche)
-    ├── library/           # Schermata libreria (lista, ricerca, filtri, ordinamento, export).
-    │                      # Fase 7: non più startDestination, top bar senza nome app/icone
-    │                      # backlog/statistiche/impostazioni (ora nel drawer). Fase 8: import
-    │                      # Markdown, toggle vista lista/griglia
-    ├── detail/            # Schermata dettaglio recensione (+ export singola recensione)
-    ├── form/              # Form crea/modifica recensione (+ "Cerca online" e pre-popolamento
-    │                      # da backlog item, Fase 6)
-    ├── backlog/            # Fase 6: BacklogScreen (liste + ricerca/filtro unificata + stats
-    │                       # aggregate leggere), BacklogListDetailScreen (drag-to-reorder),
-    │                       # BacklogItemFormScreen, BacklogItemDetailScreen (stato/commenti/
-    │                       # storico/nota abbandono, Fase 8: anche stima HowLongToBeat).
-    │                       # Fase 8: export/import backlog in BacklogScreen, toggle vista
-    │                       # lista/griglia in BacklogListDetailScreen (griglia senza
+    ├── theme/             # Material 3 (Compose) theme + ThemeViewModel (Phase 5, reads ThemePreferences)
+    ├── navigation/        # Navigation Compose, type-safe routes (kotlinx.serialization).
+    │                      # Phase 7: ModalNavigationDrawer around the NavHost (hamburger
+    │                      # drawer with the 3 sections + settings), Destination.Home
+    │                      # as startDestination
+    ├── home/              # Phase 7: HomeScreen, "what do you want to do?" screen with the 3
+    │                      # main choices (reviews/backlog/statistics)
+    ├── library/           # Library screen (list, search, filters, sorting, export).
+    │                      # Phase 7: no longer startDestination, top bar without the app name/
+    │                      # backlog/statistics/settings icons (now in the drawer). Phase 8: Markdown
+    │                      # import, list/grid view toggle
+    ├── detail/            # Review detail screen (+ single review export)
+    ├── form/              # Create/edit review form (+ "Search online" and prefilling
+    │                      # from a backlog item, Phase 6)
+    ├── backlog/            # Phase 6: BacklogScreen (lists + unified search/filter + lightweight
+    │                       # aggregate stats), BacklogListDetailScreen (drag-to-reorder),
+    │                       # BacklogItemFormScreen, BacklogItemDetailScreen (status/comments/
+    │                       # history/abandonment note, Phase 8: also HowLongToBeat estimate).
+    │                       # Phase 8: backlog export/import in BacklogScreen, list/grid view toggle
+    │                       # in BacklogListDetailScreen (grid without
     │                       # drag-to-reorder)
-    ├── settings/           # Schermata Impostazioni: preferenze tema/lingua (Fase 5), backup
-    │                       # manuale/automatico, ripristino, API key TheGamesDB (Fase 6)
-    └── common/            # Composable condivisi (chip input, rating, date picker, cover
+    ├── settings/           # Settings screen: theme/language preferences (Phase 5), manual/automatic
+    │                       # backup, restore, TheGamesDB API key (Phase 6)
+    └── common/            # Shared composables (chip input, rating, date picker, cover
                             # thumbnail, ReviewStatus/BacklogItemStatus display, GameSearchDialog
-                            # Fase 6, GameGridTile/ViewModeToggle Fase 8, ecc.)
+                            # Phase 6, GameGridTile/ViewModeToggle Phase 8, etc.)
 ```
 
-Risorse (`app/src/main/res/`): `values/strings.xml` è l'italiano (lingua di
-default), `values-en/strings.xml` la traduzione inglese, `xml/locales_config.xml`
-elenca le lingue supportate per l'integrazione con le impostazioni di sistema
-(API 33+). Vedi sezione "Fase 5" sotto per i dettagli.
+Resources (`app/src/main/res/`): `values/strings.xml` is Italian (the project's
+default language), `values-en/strings.xml` the English translation,
+`xml/locales_config.xml` lists the supported languages for integration with the
+system settings (API 33+). See the "Phase 5" section below for details.
 
-Regola guida: **Room è la single source of truth**, esposta via `Flow`. I
-ViewModel combinano il flow di dati con lo stato UI locale (query di ricerca,
-filtri selezionati) usando `combine()`, producendo un unico `StateFlow` di UI
-state consumato dalla Compose UI (pattern UDF: eventi salgono via lambda,
-stato scende via `StateFlow`).
+Guiding rule: **Room is the single source of truth**, exposed via `Flow`. The
+ViewModels combine the data flow with local UI state (search query,
+selected filters) using `combine()`, producing a single `StateFlow` of UI
+state consumed by the Compose UI (UDF pattern: events flow up via lambda,
+state flows down via `StateFlow`).
 
-La logica di filtro/ordinamento vive in `domain/filter` come funzioni Kotlin
-pure (nessun import Android), per essere unit-testabile in JVM puro senza
-bisogno dell'SDK Android o di Robolectric.
+The filter/sort logic lives in `domain/filter` as pure Kotlin
+functions (no Android import), to be unit-testable in plain JVM without
+needing the Android SDK or Robolectric.
 
-## Fase 2 — Export
+## Phase 2 — Export
 
-- **JSON/CSV**: sempre sull'intera libreria, **non filtrata** (un backup deve
-  essere completo indipendentemente dai filtri attivi in UI). Punto di
-  ingresso: menu nella top bar della libreria.
-- **Markdown**: singola recensione, sintassi compatibile Reddit — titolo come
-  `#`, metadati come bullet list (non trailing-space hard break, che sparisce
-  facilmente in clipboard/editor prima di arrivare su Reddit), sezioni
-  Pro/Contro/corpo solo se non vuote. Punto di ingresso: menu nella top bar
-  del dettaglio.
-- **PDF**: sia singola recensione che libreria intera in un unico file
-  multi-pagina (un file per la SAF `ACTION_CREATE_DOCUMENT`, non uno zip).
-  `android.graphics.pdf.PdfDocument` nativo — **non PDFBox né iText** (iText7
-  è AGPL, esplicitamente escluso dalla spec). Impaginazione tramite
-  `StaticLayout` + `Canvas.translate`/`clipRect` per affettare un unico
-  layout su più pagine; ogni recensione in batch inizia sempre su una pagina
-  nuova.
-- Salvataggio file: **sempre** Storage Access Framework
-  (`ActivityResultContracts.CreateDocument`), mai scritture dirette su
-  storage esterno — coerente con scoped storage.
-- `domain/export` è puro Kotlin (formattazione), `data/export` è dove vive
-  l'I/O Android (SAF, `PdfDocument`). `ReviewExporter` è una classe concreta
-  con `@Inject constructor`, non un'interfaccia con binding Hilt come i
-  repository — non è un'astrazione di dominio sostituibile, è un utility di
-  I/O (stesso pattern di `ImageStorage`).
-- **`PdfDocument` non è testabile in modo significativo via Robolectric**: la
-  serializzazione PDF dipende da codice nativo che Robolectric non fornisce
-  (a differenza di SQLite/Room, shadowato bene). `PdfReviewRendererTest`
-  testa solo `buildReviewText()` (costruzione dello `SpannableStringBuilder`,
-  nessun rendering reale) — se tocchi la logica di impaginazione/pagine,
-  verificala a mano in Android Studio con un device/emulatore.
+- **JSON/CSV**: always over the entire library, **unfiltered** (a backup must
+  be complete regardless of the filters active in the UI). Entry
+  point: menu in the library's top bar.
+- **Markdown**: single review, Reddit-compatible syntax — title as
+  `#`, metadata as a bullet list (not a trailing-space hard break, which disappears
+  easily in clipboard/editor before reaching Reddit), Pros/Cons/body
+  sections only if non-empty. Entry point: menu in the detail view's top bar.
+- **PDF**: both single review and entire library into a single
+  multi-page file (one file for SAF `ACTION_CREATE_DOCUMENT`, not a zip).
+  Native `android.graphics.pdf.PdfDocument` — **not PDFBox nor iText** (iText7
+  is AGPL, explicitly excluded from the spec). Pagination via
+  `StaticLayout` + `Canvas.translate`/`clipRect` to slice a single
+  layout across multiple pages; each review in the batch always starts on a
+  new page.
+- File saving: **always** the Storage Access Framework
+  (`ActivityResultContracts.CreateDocument`), never direct writes to
+  external storage — consistent with scoped storage.
+- `domain/export` is pure Kotlin (formatting), `data/export` is where the
+  Android I/O lives (SAF, `PdfDocument`). `ReviewExporter` is a concrete class
+  with `@Inject constructor`, not an interface with a Hilt binding like the
+  repositories — it is not a swappable domain abstraction, it is an I/O
+  utility (same pattern as `ImageStorage`).
+- **`PdfDocument` cannot be meaningfully tested via Robolectric**: PDF
+  serialization depends on native code that Robolectric does not provide
+  (unlike SQLite/Room, which is well shadowed). `PdfReviewRendererTest`
+  only tests `buildReviewText()` (construction of the `SpannableStringBuilder`,
+  no real rendering) — if you touch the pagination/page logic,
+  verify it by hand in Android Studio with a device/emulator.
 
-## Fase 3 — Statistiche libreria
+## Phase 3 — Library statistics
 
-- Metriche calcolate: numero totale recensioni, voto medio, ore totali
-  tracciate (somma `oreGioco`, `null` trattato come 0), distribuzione per
-  piattaforma, distribuzione per genere, ripartizione percentuale per
+- Metrics computed: total number of reviews, average rating, total hours
+  tracked (sum of `oreGioco`, `null` treated as 0), distribution by
+  platform, distribution by genre, percentage breakdown by
   `stato` (`IN_CORSO`/`COMPLETATO`/`ABBANDONATO`).
-- `domain/stats/LibraryStatisticsCalculator.kt`: funzione pura
-  `computeLibraryStatistics(List<Review>): LibraryStatistics`, nessun import
-  Android, unit-testata in JVM puro (`domain/model/LibraryStatistics.kt` per
-  i modelli) — stesso pattern di `domain/filter`.
-- Le distribuzioni piattaforma/genere **non** portano una percentuale: sono
-  campi many-to-many (una recensione può avere più piattaforme/generi), quindi
-  le quote non sommerebbero a 100% e una percentuale sarebbe fuorviante. Solo
-  la ripartizione per `stato` (campo singolo) espone una percentuale, come
-  richiesto dalla spec. Vedi `docs/decisioni-implementazione.md`.
-- UI: nuova schermata `ui/stats/StatsScreen.kt` (+ `StatsViewModel`,
-  `StatsUiState`), raggiungibile da un'icona nella top bar della libreria
-  (`ui/library/LibraryScreen.kt`). Le distribuzioni sono barre orizzontali
-  costruite con Compose nativo (`Box` + `fillMaxWidth(fraction = ...)`), la
-  ripartizione per stato è una barra impilata a segmenti + legenda — **nessuna
-  nuova dipendenza di charting introdotta** (niente Vico): con al più una
-  manciata di piattaforme/generi per una libreria single-user, la complessità
-  di una libreria di grafici non è sembrata giustificata. Se in futuro le
-  distribuzioni dovessero diventare più ricche (es. grafici a torta, trend nel
-  tempo), rivalutare Vico prima di scrivere altro codice di rendering a mano.
-- Route di navigazione: `Destination.Stats` in
-  `ui/navigation/Destinations.kt`, wiring in `ThePatientGamerHelperNavGraph.kt`.
+- `domain/stats/LibraryStatisticsCalculator.kt`: pure function
+  `computeLibraryStatistics(List<Review>): LibraryStatistics`, no Android
+  import, unit-tested in plain JVM (`domain/model/LibraryStatistics.kt` for
+  the models) — same pattern as `domain/filter`.
+- The platform/genre distributions **do not** carry a percentage: they are
+  many-to-many fields (a review can have multiple platforms/genres), so
+  the shares would not add up to 100% and a percentage would be misleading. Only
+  the breakdown by `stato` (a single-valued field) exposes a percentage, as
+  required by the spec. See `docs/implementation-decisions.md`.
+- UI: new screen `ui/stats/StatsScreen.kt` (+ `StatsViewModel`,
+  `StatsUiState`), reachable from an icon in the library's top bar
+  (`ui/library/LibraryScreen.kt`). The distributions are horizontal bars
+  built with native Compose (`Box` + `fillMaxWidth(fraction = ...)`), the
+  breakdown by status is a segmented stacked bar + legend — **no
+  new charting dependency introduced** (no Vico): with at most a
+  handful of platforms/genres for a single-user library, the complexity
+  of a charting library did not seem justified. If in the future the
+  distributions were to become richer (e.g. pie charts, trends over
+  time), re-evaluate Vico before writing more hand-rolled rendering code.
+- Navigation route: `Destination.Stats` in
+  `ui/navigation/Destinations.kt`, wired in `ThePatientGamerHelperNavGraph.kt`.
 
-## Fase 4 — Backup cloud Google Drive
+## Phase 4 — Google Drive cloud backup
 
-- **Autenticazione/autorizzazione**: due passi distinti, come da spec
-  sezione 6.
-  1. **Credential Manager** (`androidx.credentials`) per l'accesso "Accedi
-     con Google" (`GetGoogleIdOption`), per far scegliere/confermare
-     all'utente l'account Google.
+- **Authentication/authorization**: two distinct steps, as per spec
+  section 6.
+  1. **Credential Manager** (`androidx.credentials`) for the "Sign in
+     with Google" flow (`GetGoogleIdOption`), to let the user
+     choose/confirm their Google account.
   2. **AuthorizationClient** (`com.google.android.gms.auth.api.identity.Identity.getAuthorizationClient`)
-     per richiedere lo scope `drive.appdata` su quell'account.
-  Entrambi vivono in `data/drive/DriveAuthManager.kt`.
-  - **Nota su `play-services-auth`**: la richiesta esplicita era "non
-    `GoogleSignInClient`/`play-services-auth` perché deprecato". In pratica
-    `AuthorizationClient` (pacchetto `com.google.android.gms.auth.api.identity`,
-    **non** `com.google.android.gms.auth.api.signin`) è distribuito proprio
-    nell'artefatto Maven `com.google.android.gms:play-services-auth` — non
-    esiste un artefatto separato. La parte deprecata è la classe
-    `GoogleSignInClient`/`GoogleSignInOptions` (pacchetto `...auth.api.signin`),
-    non l'intero artefatto: qui non viene mai importata. La dipendenza
-    Gradle è quindi necessaria, ma il codice non tocca l'API deprecata —
-    scelta verificata contro la documentazione Android Identity Services
-    citata nella spec, non un'interpretazione libera. Se preferisci evitare
-    del tutto quell'artefatto Maven anche solo per principio, dimmelo: è
-    l'unico modo noto per ottenere un access token Drive con
-    l'`AuthorizationClient` moderno.
-  - **Autorizzazione silenziosa in background**: `DriveAuthManager.authorize()`
-    chiamato con il solo `applicationContext` (nessuna Activity) restituisce
-    un token fresco senza UI se il consenso è già stato concesso in
-    precedenza — è quello che usa `BackupWorker` per i backup automatici. Se
-    il consenso non è (più) valido, il worker fallisce silenziosamente
-    (`Result.failure()`, nessun crash, nessun prompt): la prossima volta che
-    l'utente apre Impostazioni e fa un backup manuale, il flusso interattivo
-    ristabilisce il consenso.
-- **Drive REST API v3**: client scritto a mano in
-  `data/drive/DriveApiClient.kt` con `java.net.HttpURLConnection` — **niente
-  dipendenza da `google-api-client`/`google-api-services-drive`** (il client
-  Java ufficiale di Google), che porta con sé Guava e un grafo di
-  dipendenze pesante per tre soli endpoint (upload multipart, list,
-  download). Coerente con l'indicazione esplicita di CLAUDE.md di non
-  aggiungere dipendenze senza necessità reale.
-- **Formato del backup**: un unico archivio ZIP (`java.util.zip`, nessuna
-  dipendenza) con `data.json` (l'intera libreria, DTO in
-  `domain/backup/BackupPayload.kt`) e le copertine sotto `images/<nome-file>`.
-  `domain/backup` è deliberatamente **separato** da `domain/export`
-  (Fase 2): l'export Fase 2 è un formato rivolto all'utente con etichette in
-  italiano e un percorso assoluto per la copertina (non riusabile per un
-  restore su un altro device/installazione); il formato di backup porta
-  invece solo il nome file della copertina (`coverImageFileName`), risolto a
-  un path assoluto nuovo al momento del restore.
-- **Ripristino**: `BackupManager.restoreBackup()` scarica l'archivio, lo
-  decomprime, cancella tutte le copertine locali
-  (`ImageStorage.clearAll()`) e chiama `ReviewRepository.replaceAll()` — un
-  nuovo metodo sul repository che, in un'unica transazione, cancella
-  interamente `reviews`+lookup (`platforms`/`genres`/`tags`, con cascade su
-  cross-ref e pro/con) e reinserisce ogni recensione preservando
-  `id`/`createdAt`/`updatedAt` dal backup (a differenza di `save()`, pensato
-  per il form e non per un restore). **Nessuna gestione di merge/conflitti**:
-  è un'app single-user, un restore è una sovrascrittura completa, come da
-  richiesta esplicita.
-- **Backup automatico**: `BackupWorker` (`@HiltWorker`, WorkManager) con
-  cadenza fissa giornaliera (`BackupScheduler`, 24h,
-  `NetworkType.CONNECTED`) — nessuna UI per configurare l'intervallo, stesso
-  principio "non over-engineerare" già applicato in Fase 3.
-  `ThePatientGamerHelperApplication` implementa `Configuration.Provider` per iniettare
-  `HiltWorkerFactory`; il manifest rimuove esplicitamente
+     to request the `drive.appdata` scope on that account.
+  Both live in `data/drive/DriveAuthManager.kt`.
+  - **Note on `play-services-auth`**: the explicit requirement was "not
+    `GoogleSignInClient`/`play-services-auth` because it's deprecated". In practice
+    `AuthorizationClient` (package `com.google.android.gms.auth.api.identity`,
+    **not** `com.google.android.gms.auth.api.signin`) is distributed precisely
+    in the Maven artifact `com.google.android.gms:play-services-auth` — there is no
+    separate artifact. The deprecated part is the class
+    `GoogleSignInClient`/`GoogleSignInOptions` (package `...auth.api.signin`),
+    not the entire artifact: it is never imported here. The Gradle
+    dependency is therefore necessary, but the code never touches the deprecated API —
+    a choice verified against the Android Identity Services documentation
+    cited in the spec, not a free interpretation. If you'd prefer to avoid
+    that Maven artifact entirely purely on principle, let me know: it is
+    the only known way to obtain a Drive access token with the
+    modern `AuthorizationClient`.
+  - **Silent background authorization**: `DriveAuthManager.authorize()`
+    called with only the `applicationContext` (no Activity) returns
+    a fresh token with no UI if consent was already granted
+    previously — that is what `BackupWorker` uses for automatic backups. If
+    consent is not (or no longer) valid, the worker fails silently
+    (`Result.failure()`, no crash, no prompt): the next time the
+    user opens Settings and does a manual backup, the interactive flow
+    re-establishes consent.
+- **Drive REST API v3**: hand-written client in
+  `data/drive/DriveApiClient.kt` using `java.net.HttpURLConnection` — **no
+  dependency on `google-api-client`/`google-api-services-drive`** (Google's
+  official Java client), which brings along Guava and a heavy
+  dependency graph for just three endpoints (multipart upload, list,
+  download). Consistent with CLAUDE.md's explicit guidance not to
+  add dependencies without a real need.
+- **Backup format**: a single ZIP archive (`java.util.zip`, no
+  dependency) with `data.json` (the entire library, DTO in
+  `domain/backup/BackupPayload.kt`) and the covers under `images/<file-name>`.
+  `domain/backup` is deliberately **separate** from `domain/export`
+  (Phase 2): the Phase 2 export is a user-facing format with labels in
+  Italian and an absolute path for the cover (not reusable for a
+  restore on another device/installation); the backup format instead
+  carries only the cover's file name (`coverImageFileName`), resolved to
+  a new absolute path at restore time.
+- **Restore**: `BackupManager.restoreBackup()` downloads the archive,
+  decompresses it, deletes all local covers
+  (`ImageStorage.clearAll()`) and calls `ReviewRepository.replaceAll()` — a
+  new repository method that, in a single transaction, entirely
+  deletes `reviews`+lookup (`platforms`/`genres`/`tags`, with cascade on
+  cross-ref and pro/con) and re-inserts each review preserving
+  `id`/`createdAt`/`updatedAt` from the backup (unlike `save()`, designed
+  for the form and not for a restore). **No merge/conflict handling**:
+  it is a single-user app, a restore is a full overwrite, as per
+  explicit request.
+- **Automatic backup**: `BackupWorker` (`@HiltWorker`, WorkManager) with a
+  fixed daily cadence (`BackupScheduler`, 24h,
+  `NetworkType.CONNECTED`) — no UI to configure the interval, same
+  "don't over-engineer" principle already applied in Phase 3.
+  `ThePatientGamerHelperApplication` implements `Configuration.Provider` to inject
+  `HiltWorkerFactory`; the manifest explicitly removes
   `androidx.startup.InitializationProvider`
-  (`tools:node="remove"`) — necessario perché Android Lint
-  (`RemoveWorkManagerInitializer`) lo richiede quando `Application`
-  implementa `Configuration.Provider`, altrimenti la build fallisce (vedi
-  sezione "Bug reali trovati solo grazie alla CI" sotto).
-- **Stato persistito**: `BackupPreferences` (semplice `SharedPreferences`,
-  niente DataStore per tre soli flag) tiene il toggle "backup automatico" e
-  l'esito dell'ultimo backup (timestamp/errore), scritti da
-  `BackupManager.createBackup()` così sia il pulsante manuale che il worker
-  periodico aggiornano lo stesso stato mostrato in Impostazioni.
-- **UI**: nuova schermata `ui/settings/SettingsScreen.kt` (+
-  `SettingsViewModel`, `SettingsUiState`), raggiungibile da un'icona
-  ingranaggio nella top bar della libreria. Il flusso di consenso
-  interattivo (`AuthorizationResult.hasResolution() == true`) usa lo stesso
-  pattern già in uso per gli export (`rememberLauncherForActivityResult`),
-  con un ponte `StateFlow<IntentSenderRequest?>` +
-  `CompletableDeferred<ActivityResult>` nel ViewModel per sospendere la
-  coroutine di autorizzazione finché l'utente non risponde al consenso.
+  (`tools:node="remove"`) — necessary because Android Lint
+  (`RemoveWorkManagerInitializer`) requires it when `Application`
+  implements `Configuration.Provider`, otherwise the build fails (see
+  the "Real bugs found only thanks to CI" section below).
+- **Persisted state**: `BackupPreferences` (a simple `SharedPreferences`,
+  no DataStore for just three flags) holds the "automatic backup" toggle and
+  the outcome of the last backup (timestamp/error), written by
+  `BackupManager.createBackup()` so both the manual button and the
+  periodic worker update the same state shown in Settings.
+- **UI**: new screen `ui/settings/SettingsScreen.kt` (+
+  `SettingsViewModel`, `SettingsUiState`), reachable from a gear
+  icon in the library's top bar. The interactive consent
+  flow (`AuthorizationResult.hasResolution() == true`) uses the same
+  pattern already in use for exports (`rememberLauncherForActivityResult`),
+  with a bridge `StateFlow<IntentSenderRequest?>` +
+  `CompletableDeferred<ActivityResult>` in the ViewModel to suspend the
+  authorization coroutine until the user responds to the consent prompt.
   Route: `Destination.Settings` in `ui/navigation/Destinations.kt`.
-- **Login esplicito, non implicito**: la prima versione faceva scattare
-  `signIn()` (bottom sheet di Credential Manager) a ogni singola azione
-  (backup, elenco backup, ripristino) — funzionale ma confuso, l'utente
-  vedeva il picker dell'account senza un punto di ingresso chiaro. Ora
-  `SettingsUiState.signedInEmail` traccia lo stato "connesso" della
-  sessione (solo in memoria nel ViewModel, non persistito su disco — niente
-  refresh token salvato: un riavvio dell'app richiede un nuovo login, scelta
-  deliberata per non introdurre storage di credenziali). Un unico tasto
-  "Accedi con Google" (`onLoginClick`) esegue `signIn()` + `authorize()`
-  insieme; finché `signedInEmail == null` la UI mostra solo quel tasto e
-  nasconde backup/ripristino (le sezioni Preferenze e TheGamesDB restano
-  visibili, non dipendono da Drive). Le azioni successive
-  (`onBackupNow`/`onRefreshBackups`/`onRestore`) richiamano solo
-  `authorize()` (silenzioso una volta concesso lo scope, niente altro
-  picker) tramite `ensureAccessToken()`, non più `signIn()`.
-  `DriveAuthManager.isConfigured()` espone se `google_oauth_web_client_id`
-  è ancora al placeholder: se sì, la schermata mostra direttamente in-app
-  (`DriveNotConfiguredCard`, stringhe localizzate IT/EN) una card che
-  spiega cosa manca e dove va configurato — invece di un errore generico
-  dopo aver premuto login. Il client ID OAuth resta comunque l'unica cosa
-  che **deve** vivere in un file di risorse: è la registrazione one-time
-  dell'app su Google Cloud Console (legata a SHA-1 + `applicationId`), non
-  un dato per-utente — nessuna API Google permette di crearla da codice a
-  runtime, quindi non è spostabile dietro un tasto di login.
-- **Configurazione esterna richiesta** (fuori dallo scope di queste
-  modifiche): `res/values/drive_config.xml` contiene
-  `google_oauth_web_client_id` con placeholder `[DA_COMPLETARE]` — va
-  sostituito con il client ID OAuth "Web application" creato in Google
-  Cloud Console (progetto con schermata di consenso in modalità testing,
-  client ID Android con lo SHA-1 del certificato di firma). Se lasciato al
-  placeholder, `DriveAuthManager` lancia `DriveNotConfiguredException` con
-  un messaggio esplicito invece di tentare il sign-in.
-- **Non testabile in modo significativo via Robolectric**: le chiamate
-  `HttpURLConnection` verso `googleapis.com`, Credential Manager e
-  `AuthorizationClient` richiedono rete reale/Play Services — stesso discorso
-  già fatto per `PdfDocument` in Fase 2. Sono invece unit-testati: il mapping
-  DTO/JSON (`domain/backup/BackupPayloadTest.kt`), l'archivio zip
-  (`data/backup/BackupArchiveTest.kt`, Robolectric con `ImageStorage` reale)
-  e `ReviewRepositoryImpl.replaceAll()`
-  (`data/repository/ReviewRepositoryImplTest.kt`, Robolectric). Il flusso di
-  autenticazione/autorizzazione va verificato a mano su device/emulatore con
-  Play Services, dopo aver configurato il client OAuth.
+- **Explicit login, not implicit**: the first version triggered
+  `signIn()` (Credential Manager bottom sheet) on every single action
+  (backup, list backups, restore) — functional but confusing, the user
+  saw the account picker with no clear entry point. Now
+  `SettingsUiState.signedInEmail` tracks the "logged in" state of the
+  session (in-memory only in the ViewModel, not persisted to disk — no
+  refresh token saved: an app restart requires a new login, a deliberate
+  choice to avoid introducing credential storage). A single "Sign in
+  with Google" button (`onLoginClick`) performs `signIn()` + `authorize()`
+  together; as long as `signedInEmail == null` the UI shows only that button and
+  hides backup/restore (the Preferences and TheGamesDB sections remain
+  visible, they don't depend on Drive). Subsequent actions
+  (`onBackupNow`/`onRefreshBackups`/`onRestore`) only call
+  `authorize()` (silent once the scope has been granted, no further
+  picker) via `ensureAccessToken()`, no longer `signIn()`.
+  `DriveAuthManager.isConfigured()` exposes whether `google_oauth_web_client_id`
+  is still at its placeholder value: if so, the screen shows directly in-app
+  (`DriveNotConfiguredCard`, localized IT/EN strings) a card that
+  explains what is missing and where it needs to be configured — instead of a generic
+  error after pressing login. The OAuth client ID remains the only thing
+  that **must** live in a resource file: it is the app's one-time
+  registration on Google Cloud Console (tied to SHA-1 + `applicationId`), not
+  a per-user piece of data — no Google API allows creating it from code at
+  runtime, so it cannot be moved behind a login button.
+- **External configuration required** (out of scope for these
+  changes): `res/values/drive_config.xml` contains
+  `google_oauth_web_client_id` with the placeholder `[TO_COMPLETE]` — it must be
+  replaced with the "Web application" OAuth client ID created in Google
+  Cloud Console (project with the consent screen in testing mode,
+  Android client ID with the SHA-1 of the signing certificate). If left at the
+  placeholder, `DriveAuthManager` throws `DriveNotConfiguredException` with
+  an explicit message instead of attempting sign-in.
+- **Cannot be meaningfully tested via Robolectric**: the `HttpURLConnection`
+  calls to `googleapis.com`, Credential Manager, and
+  `AuthorizationClient` require real network/Play Services — same discussion
+  already made for `PdfDocument` in Phase 2. What is instead unit-tested: the
+  DTO/JSON mapping (`domain/backup/BackupPayloadTest.kt`), the zip archive
+  (`data/backup/BackupArchiveTest.kt`, Robolectric with a real `ImageStorage`)
+  and `ReviewRepositoryImpl.replaceAll()`
+  (`data/repository/ReviewRepositoryImplTest.kt`, Robolectric). The
+  authentication/authorization flow must be verified by hand on a device/emulator with
+  Play Services, after configuring the OAuth client.
 
-## Fase 5 — Internazionalizzazione, tema e documentazione
+## Phase 5 — Internationalization, theme, and documentation
 
-### Internazionalizzazione IT/EN
+### IT/EN internationalization
 
-- Tutte le stringhe delle schermate (fasi 1-4) sono state estratte in
-  string resource: `res/values/strings.xml` è l'italiano (lingua di
-  default del progetto), `res/values-en/strings.xml` la traduzione
-  inglese. Le due liste di chiavi sono tenute allineate 1:1 — se aggiungi
-  una stringa in una, aggiungila anche nell'altra.
-- **`domain/export` non è toccato da questa fase**: le etichette usate
-  nei file esportati (Markdown/CSV/JSON/PDF) restano fisse in italiano,
-  scritte a mano nei formatter puri. La richiesta era "internazionalizza
-  le schermate", non il contenuto dei file generati, e localizzarli
-  avrebbe richiesto passare `Context`/risorse Android dentro `domain/export`,
-  rompendo la sua natura di Kotlin puro testabile in JVM (vedi Fase 2). Il
-  file che l'utente esporta e magari incolla su Reddit resta quindi in
-  italiano indipendentemente dalla lingua scelta per l'app — comportamento
-  intenzionale, non un'incoerenza dimenticata.
-- **`ReviewStatus.label()` (in `domain/model`) non è stato toccato** per lo
-  stesso motivo: lo usa anche `ReviewMarkdownFormatter`/`PdfReviewRenderer`
-  in `domain`/`data/export`. Per la UI esiste invece
-  `ReviewStatus.displayName()` in `ui/common/ReviewStatusDisplay.kt`, un
-  `@Composable` che risolve la string resource giusta — le schermate usano
-  sempre `displayName()`, mai `label()`.
-- I messaggi costruiti nei ViewModel (esiti di export/backup, errori di
-  validazione form) non possono usare `stringResource()` (non è
-  `@Composable`): i ViewModel che li generano iniettano
-  `@ApplicationContext Context` via Hilt e chiamano `context.getString(...)`
-  — pattern già adottato in `LibraryViewModel`, `DetailViewModel`,
+- All screen strings (phases 1-4) have been extracted into
+  string resources: `res/values/strings.xml` is Italian (the project's
+  default language), `res/values-en/strings.xml` the English
+  translation. The two key lists are kept aligned 1:1 — if you add
+  a string in one, add it to the other too.
+- **`domain/export` is not touched by this phase**: the labels used
+  in exported files (Markdown/CSV/JSON/PDF) remain fixed in Italian,
+  hand-written in the pure formatters. The request was to "internationalize
+  the screens", not the content of generated files, and localizing them
+  would have required passing `Context`/Android resources into `domain/export`,
+  breaking its nature as pure Kotlin testable in the JVM (see Phase 2). The
+  file the user exports and perhaps pastes on Reddit therefore stays in
+  Italian regardless of the language chosen for the app — intentional
+  behavior, not a forgotten inconsistency.
+- **`ReviewStatus.label()` (in `domain/model`) was not touched** for the
+  same reason: it is also used by `ReviewMarkdownFormatter`/`PdfReviewRenderer`
+  in `domain`/`data/export`. For the UI there is instead
+  `ReviewStatus.displayName()` in `ui/common/ReviewStatusDisplay.kt`, a
+  `@Composable` that resolves the correct string resource — the screens always use
+  `displayName()`, never `label()`.
+- Messages built in the ViewModels (export/backup outcomes, form
+  validation errors) cannot use `stringResource()` (it is not
+  `@Composable`): the ViewModels that generate them inject
+  `@ApplicationContext Context` via Hilt and call `context.getString(...)`
+  — a pattern already adopted in `LibraryViewModel`, `DetailViewModel`,
   `ReviewFormViewModel`, `SettingsViewModel`.
-- **Selettore lingua in-app**: `AppCompatDelegate.setApplicationLocales()`
-  (API AndroidX per-app language, backport funzionante da API 26, non solo
-  da API 33+), tre opzioni in Impostazioni — Sistema/Italiano/English
-  (`ui/settings/AppLanguage.kt`). La persistenza è automatica grazie ad
-  `autoStoreLocales` (vedi sotto), nessuno storage custom.
-- **`autoStoreLocales`**: attivato aggiungendo in `AndroidManifest.xml` il
+- **In-app language selector**: `AppCompatDelegate.setApplicationLocales()`
+  (the AndroidX per-app language API, working as a backport from API 26, not only
+  from API 33+), three options in Settings — System/Italian/English
+  (`ui/settings/AppLanguage.kt`). Persistence is automatic thanks to
+  `autoStoreLocales` (see below), no custom storage.
+- **`autoStoreLocales`**: enabled by adding to `AndroidManifest.xml` the
   `<service android:name="androidx.appcompat.app.AppLocalesMetadataHolderService">`
-  con `<meta-data android:name="autoStoreLocales" android:value="true" />`
-  — è il meccanismo documentato da AndroidX per persistere la scelta senza
-  scrivere `SharedPreferences`/DataStore a mano. `android:localeConfig="@xml/locales_config"`
-  sull'`<application>` (con `res/xml/locales_config.xml` che elenca `it`/`en`)
-  è il complemento lato piattaforma per l'integrazione con Impostazioni >
-  Lingue dell'app di sistema su API 33+.
-- **`MainActivity` estende `AppCompatActivity`, non `ComponentActivity`**:
-  richiesto esplicitamente dalla documentazione ufficiale per usare
-  `AppCompatDelegate.setApplicationLocales()` con Compose — *"If you're using
+  with `<meta-data android:name="autoStoreLocales" android:value="true" />`
+  — this is the documented AndroidX mechanism to persist the choice without
+  writing `SharedPreferences`/DataStore by hand. `android:localeConfig="@xml/locales_config"`
+  on the `<application>` tag (with `res/xml/locales_config.xml` listing `it`/`en`)
+  is the platform-side complement for integration with system
+  Settings > App languages on API 33+.
+- **`MainActivity` extends `AppCompatActivity`, not `ComponentActivity`**:
+  explicitly required by the official documentation to use
+  `AppCompatDelegate.setApplicationLocales()` with Compose — *"If you're using
   Compose with setApplicationLocales, you must extend your activity from
-  AppCompatActivity. Otherwise, setting the app locale won't work."* Con
-  `ComponentActivity` il cambio lingua non genera nessun errore, viene solo
-  ignorato silenziosamente (bug reale scoperto in verifica manuale su
-  device, vedi `docs/decisioni-implementazione.md` per il resoconto
-  completo, inclusi due tentativi di fix sbagliati prima di questo). Non
-  introduce View/XML: `setContent {}` resta l'unico entry point della UI,
-  `AppCompatActivity` serve solo da hook per il ciclo di vita di
-  `AppCompatDelegate`. Di conseguenza il tema Android sotto
-  `res/values/themes.xml` deve discendere da `Theme.AppCompat` (qui
-  `Theme.AppCompat.DayNight.NoActionBar`) — `AppCompatActivity` lancia
-  un'eccezione a runtime se il tema non è compatibile.
-- Nessuna `recreate()` manuale: con `AppCompatActivity`,
-  `setApplicationLocales()` la innesca già da sé end-to-end (sia su API 33+
-  che sotto). `ui/settings/AppLanguage.kt` si limita a chiamare
+  AppCompatActivity. Otherwise, setting the app locale won't work."* With
+  `ComponentActivity` the language change produces no error at all, it is just
+  silently ignored (a real bug discovered during manual verification on
+  device, see `docs/implementation-decisions.md` for the full
+  account, including two wrong fix attempts before this one). It does not
+  introduce View/XML: `setContent {}` remains the sole UI entry point,
+  `AppCompatActivity` only serves as a hook for `AppCompatDelegate`'s
+  lifecycle. As a consequence the Android theme under
+  `res/values/themes.xml` must descend from `Theme.AppCompat` (here
+  `Theme.AppCompat.DayNight.NoActionBar`) — `AppCompatActivity` throws
+  a runtime exception if the theme is not compatible.
+- No manual `recreate()`: with `AppCompatActivity`,
+  `setApplicationLocales()` already triggers it end-to-end on its own (both on API 33+
+  and below). `ui/settings/AppLanguage.kt` simply calls
   `setApplicationLocales()`.
-- Nuova dipendenza: `androidx.appcompat:appcompat` — necessaria per
+- New dependency: `androidx.appcompat:appcompat` — necessary for
   `AppCompatDelegate`/`AppCompatActivity`/`AppLocalesMetadataHolderService`;
-  non introduce layout XML né altre API della vecchia UI a View.
+  it does not introduce XML layouts nor other APIs from the old View-based UI.
 
-### Tema chiaro/scuro/sistema
+### Light/dark/system theme
 
-- Preferenza a tre stati (`domain/model/ThemeMode.kt`: `SISTEMA` di default,
-  `CHIARO`, `SCURO`) persistita con **Preferences DataStore**
-  (`data/settings/ThemePreferences.kt`) — a differenza di
-  `BackupPreferences` (Fase 4, `SharedPreferences`, motivato lì da "solo tre
-  flag semplici"), qui la richiesta esplicita era DataStore.
-- `ui/theme/ThemeViewModel.kt` espone `themeMode` come `StateFlow` letto da
+- A three-state preference (`domain/model/ThemeMode.kt`: `SISTEMA` by default,
+  `CHIARO`, `SCURO`) persisted with **Preferences DataStore**
+  (`data/settings/ThemePreferences.kt`) — unlike
+  `BackupPreferences` (Phase 4, `SharedPreferences`, justified there by "just three
+  simple flags"), here the explicit request was DataStore.
+- `ui/theme/ThemeViewModel.kt` exposes `themeMode` as a `StateFlow` read from
   `ThemePreferences.themeMode` (`Flow`, single source of truth) via
-  `stateIn`. Due punti di consumo indipendenti, entrambi tramite
-  `hiltViewModel()`: la root `ThePatientGamerHelperApp` in `MainActivity.kt` (decide
-  se applicare `darkTheme = true/false` a `ThePatientGamerHelperTheme`, rispettando
-  `isSystemInDarkTheme()` quando il modo è `SISTEMA`) e `SettingsScreen`
-  (per mostrare/cambiare la selezione). Sono due istanze `ViewModel`
-  diverse ma leggono lo stesso `DataStore`, quindi restano sincronizzate
-  senza bisogno di uno scope condiviso — stesso principio "Room/DataStore
-  come single source of truth via Flow" già in uso per il resto dell'app.
-- `ThePatientGamerHelperTheme` (`ui/theme/Theme.kt`) non è cambiato nella firma:
-  accetta già `darkTheme: Boolean`, è solo il chiamante in `MainActivity`
-  che ora lo calcola da `ThemeMode` invece di usare sempre il default
+  `stateIn`. Two independent consumption points, both via
+  `hiltViewModel()`: the root `ThePatientGamerHelperApp` in `MainActivity.kt` (decides
+  whether to apply `darkTheme = true/false` to `ThePatientGamerHelperTheme`, respecting
+  `isSystemInDarkTheme()` when the mode is `SISTEMA`) and `SettingsScreen`
+  (to show/change the selection). They are two different `ViewModel`
+  instances but read the same `DataStore`, so they stay synchronized
+  without needing a shared scope — same "Room/DataStore
+  as single source of truth via Flow" principle already in use across the rest of the app.
+- `ThePatientGamerHelperTheme` (`ui/theme/Theme.kt`) did not change signature:
+  it already accepts `darkTheme: Boolean`, it is only the caller in `MainActivity`
+  that now computes it from `ThemeMode` instead of always using the default
   `isSystemInDarkTheme()`.
-- Nuova dipendenza: `androidx.datastore:datastore-preferences`.
+- New dependency: `androidx.datastore:datastore-preferences`.
 
-### Riorganizzazione documentazione
+### Documentation reorganization
 
-- La specifica funzionale, prima `spec-app-recensioni-videogiochi.md` nella
-  root, è stata spostata in `docs/spec.md` (roadmap aggiornata per
-  riflettere il completamento della Fase 5).
-- `docs/en/` è la traduzione inglese di `docs/spec.md`,
-  `docs/decisioni-implementazione.md` e di `README.md` (come
-  `docs/en/README.md`) — l'italiano resta la fonte di verità, ogni file
-  tradotto porta una nota in cima che segnala il rischio di disallineamento
-  nel tempo. `CLAUDE.md` resta solo in italiano: è operativo per l'agente,
-  non documentazione rivolta a chi legge il repository.
+- The functional spec, previously `spec-app-recensioni-videogiochi.md` at the
+  root, was moved to `docs/spec.md` (roadmap updated to
+  reflect the completion of Phase 5).
+- **Note on this very translation pass**: `CLAUDE.md` used to remain
+  Italian-only at this point in the project's history, on the reasoning that
+  it is operational for the agent, not documentation aimed at repository
+  readers — unlike a since-removed `docs/en/` translation tree that existed
+  for a while alongside the Italian-first docs. That reasoning has since been
+  reversed by explicit user request: this file, along with the rest of the
+  documentation, code comments, and other agent-facing files, is now
+  English-only, eliminating the separate translation tree entirely. The
+  app's own UI is unaffected by this and keeps its dual Italian (default)/
+  English string resources (`values/strings.xml`/`values-en/strings.xml`) as
+  described throughout this document.
 
-## Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)
+## Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)
 
-Due tappe, sviluppate in sequenza (Tappa 1 verificata prima di iniziare la
-Tappa 2, come da richiesta).
+Two stages, developed in sequence (Stage 1 verified before starting
+Stage 2, as requested).
 
-### Tappa 1 — Backlog tracciabile
+### Stage 1 — Trackable backlog
 
-- **Modello dati**: `BacklogListEntity` (liste create/rinominate/eliminate/
-  riordinate dall'utente), `BacklogItemEntity` (titolo, stato, posizione,
-  date, `reviewId` opzionale, `abandonNote`, `releaseYear`/`developer` —
-  questi ultimi due popolati solo dalla Tappa 2, vedi sotto),
-  `BacklogCommentEntity`, `BacklogHistoryEntryEntity`. Piattaforma/genere/tag
-  dell'item sono many-to-many **sulle stesse tabelle di lookup** già usate
-  dalle recensioni (`platforms`/`genres`/`tags`, nuove cross-ref
-  `backlog_item_*_cross_ref`) — stesso pool di autocomplete tra backlog e
-  recensioni, coerente col resto del modello dati.
-- **Migration additiva, non distruttiva**: `ThePatientGamerHelperDatabase` passa da
-  `version = 1` a `version = 2`. **Non** è stato usato
-  `fallbackToDestructiveMigration()`: l'app è già in uso reale (vedi intro di
-  questo file), un `fallbackToDestructiveMigration()` avrebbe cancellato le
-  recensioni esistenti al primo avvio dopo l'aggiornamento. `MIGRATION_1_2`
-  in `data/local/Migrations.kt` crea solo le nuove tabelle/indici via SQL
-  raw, non tocca `reviews`/`platforms`/`genres`/`tags`.
-- **Storico automatico**: generato interamente da `BacklogRepositoryImpl`,
-  non da input manuale — `CREATO` alla creazione item, `CAMBIO_STATO` solo
-  quando lo stato cambia davvero (non ad ogni scrittura di `abandonNote`),
-  `CAMBIO_LISTA` quando l'item viene spostato (`moveItem`), `COMMENTO` ad
-  ogni commento aggiunto, `RECENSIONE_COLLEGATA` quando l'item viene
-  collegato a una recensione. Il campo `detail` porta un payload
-  interpretabile dalla UI in base al tipo (es. il nome dello stato per
-  `CAMBIO_STATO`, il nome della lista di destinazione per `CAMBIO_LISTA`) —
-  vedi `ui/backlog/BacklogHistoryDisplay.kt`.
-- **`dataInizio`/`dataCompletamento` auto-popolate, nessun editor manuale**:
-  la spec elenca questi due campi come opzionali sull'item ma non chiede un
-  controllo UI per impostarli a mano (a differenza della recensione, che ha
-  `DatePickerField` espliciti). L'unico modo sensato per valorizzarli è
-  quindi automaticamente alla transizione di stato:
-  `BacklogRepository.updateStatus()` imposta `startDate` la prima volta che
-  lo stato passa a `IN_CORSO` (se non già impostata) e `completedDate` la
-  prima volta che passa a `COMPLETATO`, senza mai sovrascrivere un valore
-  già presente (così un item che torna "in corso" dopo essere stato
-  completato non perde la data di completamento originale).
-- **`updateStatus()` distinto da `saveItem()`**: la spec elenca "cambio
-  stato tramite selettore" come funzionalità separata dal CRUD item. Il form
-  di creazione/modifica (`BacklogItemFormScreen`) non tocca mai lo stato;
-  solo `BacklogItemDetailScreen` lo fa, tramite un selettore dedicato che
-  chiama `updateStatus()` — un solo punto che genera storico e date
-  automatiche, invece di duplicare quella logica anche nel form.
-- **Riordino**: le liste (tipicamente poche) si riordinano con frecce
-  su/giù su `BacklogScreen` — niente drag-and-drop per un elenco di
-  quell'ordine di grandezza. Gli item dentro una lista (potenzialmente
-  numerosi, "utile per prioritizzare" da spec) hanno invece drag-to-reorder
-  vero, implementato a mano in `BacklogListDetailScreen.kt` con
-  `Modifier.pointerInput` + `detectDragGestures` su un'icona "maniglia"
-  dedicata (non sull'intera riga, per evitare conflitti tra il gesto di
-  drag e il click che apre il dettaglio) — **nessuna libreria di reorder
-  aggiunta**, coerente con la sezione "non introdurre dipendenze senza
-  necessità" più sotto. L'ordine finale viene scritto una sola volta a fine
-  gesto (`onDragEnd`), non ad ogni frame.
-- **Ricerca/filtro unificata**: `BacklogScreen` mostra normalmente l'elenco
-  delle liste (con conteggio item e vista aggregata leggera per
-  stato/lista); non appena una ricerca testuale o un filtro (lista, stato,
-  piattaforma, genere) è attivo, la stessa schermata passa a un elenco
-  piatto di risultati cross-lista (ogni riga mostra a quale lista
-  appartiene) — stessa struttura search+filtro della libreria recensioni
-  (`domain/filter/BacklogFilters.kt`/`BacklogFiltering.kt`, pure function,
-  stesso pattern di `LibraryFilters`/`LibraryFiltering`), ma senza
-  introdurre una schermata separata solo per la ricerca.
-- **Trigger "vuoi scrivere una recensione?"**: quando `updateStatus()`
-  imposta `COMPLETATO` e l'item non ha ancora `reviewId`,
-  `BacklogItemDetailViewModel` espone un evento one-shot che la UI
-  intercetta per mostrare il dialog di conferma. Alla conferma, naviga a
-  `Destination.Form(backlogItemId = itemId)` — `Destination.Form` ha ora un
-  secondo parametro opzionale, usato solo in creazione (ignorato se
-  `reviewId` è già impostato). `ReviewFormViewModel` precompila il draft da
-  `BacklogItem` (titolo/piattaforme/generi/date/copertina) e, al salvataggio
-  riuscito, chiama `BacklogRepository.linkReview()` per richiudere il
-  cerchio (registra anche la voce di storico `RECENSIONE_COLLEGATA`). La
-  copertina **non** viene condivisa per riferimento tra backlog item e
-  recensione: `ImageStorage.duplicate()` (nuovo metodo) copia il file su un
-  nome nuovo, così cancellare la recensione in seguito non fa sparire la
-  copertina mostrata nel backlog (o viceversa) — due file indipendenti sullo
-  stesso contenuto iniziale.
+- **Data model**: `BacklogListEntity` (lists created/renamed/deleted/
+  reordered by the user), `BacklogItemEntity` (title, status, position,
+  dates, optional `reviewId`, `abandonNote`, `releaseYear`/`developer` —
+  the latter two populated only from Stage 2, see below),
+  `BacklogCommentEntity`, `BacklogHistoryEntryEntity`. The item's platform/genre/tag
+  are many-to-many **on the same lookup tables** already used
+  by reviews (`platforms`/`genres`/`tags`, new cross-refs
+  `backlog_item_*_cross_ref`) — the same autocomplete pool shared between backlog and
+  reviews, consistent with the rest of the data model.
+- **Additive migration, not destructive**: `ThePatientGamerHelperDatabase` goes from
+  `version = 1` to `version = 2`. `fallbackToDestructiveMigration()` was
+  **not** used: the app is already in real use (see this file's intro),
+  a `fallbackToDestructiveMigration()` would have wiped existing
+  reviews on the first launch after the update. `MIGRATION_1_2`
+  in `data/local/Migrations.kt` only creates the new tables/indices via raw
+  SQL, it does not touch `reviews`/`platforms`/`genres`/`tags`.
+- **Automatic history**: entirely generated by `BacklogRepositoryImpl`,
+  not from manual input — `CREATO` on item creation, `CAMBIO_STATO` only
+  when the status actually changes (not on every write of `abandonNote`),
+  `CAMBIO_LISTA` when the item is moved (`moveItem`), `COMMENTO` on
+  every comment added, `RECENSIONE_COLLEGATA` when the item is
+  linked to a review. The `detail` field carries a payload
+  interpretable by the UI depending on the type (e.g. the status name for
+  `CAMBIO_STATO`, the destination list's name for `CAMBIO_LISTA`) —
+  see `ui/backlog/BacklogHistoryDisplay.kt`.
+- **`dataInizio`/`dataCompletamento` auto-populated, no manual editor**:
+  the spec lists these two fields as optional on the item but does not ask for a
+  UI control to set them by hand (unlike the review, which has
+  explicit `DatePickerField`s). The only sensible way to set them is
+  therefore automatically on the status transition:
+  `BacklogRepository.updateStatus()` sets `startDate` the first time
+  the status moves to `IN_CORSO` (if not already set) and `completedDate` the
+  first time it moves to `COMPLETATO`, never overwriting a value
+  already present (so an item that goes back to "in progress" after being
+  completed does not lose its original completion date).
+- **`updateStatus()` distinct from `saveItem()`**: the spec lists "status
+  change via selector" as a feature separate from item CRUD. The
+  create/edit form (`BacklogItemFormScreen`) never touches the status;
+  only `BacklogItemDetailScreen` does, via a dedicated selector that
+  calls `updateStatus()` — a single point that generates history and automatic
+  dates, instead of duplicating that logic in the form too.
+- **Reordering**: lists (typically few) are reordered with up/down
+  arrows on `BacklogScreen` — no drag-and-drop for a list of
+  that order of magnitude. Items inside a list (potentially
+  numerous, "useful for prioritizing" per the spec) instead have real
+  drag-to-reorder, hand-implemented in `BacklogListDetailScreen.kt` with
+  `Modifier.pointerInput` + `detectDragGestures` on a dedicated "handle"
+  icon (not on the whole row, to avoid conflicts between the drag
+  gesture and the click that opens the detail view) — **no reorder
+  library added**, consistent with the "do not introduce dependencies without
+  need" section further below. The final order is written only once at the end of the
+  gesture (`onDragEnd`), not on every frame.
+- **Unified search/filter**: `BacklogScreen` normally shows the list of
+  lists (with item count and a lightweight aggregate view by
+  status/list); as soon as a text search or a filter (list, status,
+  platform, genre) is active, the same screen switches to a flat
+  cross-list results list (each row shows which list it
+  belongs to) — the same search+filter structure as the review library
+  (`domain/filter/BacklogFilters.kt`/`BacklogFiltering.kt`, pure functions,
+  same pattern as `LibraryFilters`/`LibraryFiltering`), but without
+  introducing a separate screen just for search.
+- **"Want to write a review?" trigger**: when `updateStatus()`
+  sets `COMPLETATO` and the item does not yet have a `reviewId`,
+  `BacklogItemDetailViewModel` exposes a one-shot event that the UI
+  intercepts to show the confirmation dialog. On confirmation, it navigates to
+  `Destination.Form(backlogItemId = itemId)` — `Destination.Form` now has a
+  second optional parameter, used only on creation (ignored if
+  `reviewId` is already set). `ReviewFormViewModel` prefills the draft from
+  the `BacklogItem` (title/platforms/genres/dates/cover) and, on a successful
+  save, calls `BacklogRepository.linkReview()` to close the
+  loop (it also records the `RECENSIONE_COLLEGATA` history entry). The
+  cover image is **not** shared by reference between the backlog item and
+  the review: `ImageStorage.duplicate()` (a new method) copies the file to a
+  new name, so deleting the review afterwards does not make the
+  cover shown in the backlog disappear (or vice versa) — two independent files with the
+  same initial content.
 
-### Tappa 2 — Fetch automatico copertina e metadati (TheGamesDB)
+### Stage 2 — Automatic cover and metadata fetch (TheGamesDB)
 
-- **La API key è sempre richiesta, non è stata una scelta**: prima di
-  implementare, ho verificato online (come richiesto) i limiti/requisiti
-  attuali dell'API pubblica di TheGamesDB. Risultato, diverso
-  dall'assunzione di partenza ("non dovrebbe servire, per ES-DE non
-  serve"): **dal 17/02/2026 TheGamesDB ha cambiato policy e richiede una
-  `apikey` su ogni richiesta**, pubblica o privata che sia — non esiste più
-  accesso anonimo. ES-DE/Skyscraper non chiedono una chiave *personale*
-  perché ne incorporano una propria (pubblica, condivisa, rate-limited) nel
-  loro codice sorgente, ma quella chiave esiste comunque. Non avendo un modo
-  affidabile di recuperarne il valore letterale attuale, ho chiesto
-  esplicitamente all'utente come procedere invece di indovinare o incollare
-  una chiave trovata online senza certezza.
-- **Configurazione runtime, non un placeholder di build**: a differenza del
-  client ID OAuth di Drive (Fase 4, `res/values/drive_config.xml`,
-  `[DA_COMPLETARE]` sostituito prima della build), la API key TheGamesDB è
-  un campo che l'utente compila **dentro l'app** (nuova sezione in
-  Impostazioni, `TheGamesDbPreferences`, `SharedPreferences` — stesso
-  pattern minimale di `BackupPreferences`, non DataStore). Nessuna build
-  contiene una chiave, reale o placeholder: finché il campo è vuoto, il
-  pulsante "Cerca online" fa scattare `GameMetadataSearchCoordinator`, che
-  restituisce un messaggio informativo invece di chiamare l'API — mai un
-  crash, mai una build che smette di compilare per una chiave mancante.
-- **Client REST scritto a mano, non Retrofit/Ktor**: la richiesta originale
-  citava Retrofit/Ktor come esempio ("se non già presente"), ma il progetto
-  ha già risolto lo stesso problema in Fase 4 (`DriveApiClient`) con un
-  client minimale `HttpURLConnection` + `kotlinx.serialization`. Ho seguito
-  lo stesso pattern per `TheGamesDbApiClient` invece di introdurre una nuova
-  dipendenza HTTP: quattro soli endpoint GET (ricerca +
-  Platforms/Genres/Developers) non giustificano un client HTTP completo,
-  coerente con "non introdurre dipendenze senza necessità" già applicato tre
-  volte prima (Drive, PDF, charting statistiche). **Nessuna nuova
-  dipendenza aggiunta in Fase 6.**
-- **Cache in-memory dei lookup, non persistita**: `TheGamesDbApiClient`
-  tiene in memoria (per la durata del processo) le mappe id→nome di
-  Platforms/Genres/Developers, popolate al primo utilizzo e riusate per le
-  ricerche successive nella stessa sessione app. Con un rate limit
-  pubblico nell'ordine delle migliaia di richieste al mese, evitare tre
-  chiamate di lookup extra ad ogni singola ricerca è stata una scelta
-  deliberata, non un'ottimizzazione prematura.
-- **Risultati multipli, nessuna auto-selezione**: `Games/ByGameName`
-  (opzionalmente filtrato per piattaforma, dedotta dal primo tag piattaforma
-  già inserito nel form, per disambiguare remaster/edizioni regionali) può
-  restituire più corrispondenze; `GameSearchDialog` (composable condiviso
-  tra `ReviewFormScreen` e `BacklogItemFormScreen`, `ui/common/`) le elenca
-  tutte con copertina/piattaforma/anno, l'utente sceglie. Alla selezione, la
-  copertina viene scaricata e salvata **localmente** con
-  `ImageStorage.writeBytes()` (stesso storage delle copertine caricate a
-  mano) — mai solo l'URL remoto.
-- **`releaseYear`/`developer` solo su `BacklogItem`, non su `Review`**: la
-  spec chiedeva di salvare "piattaforma, genere, anno, sviluppatore" come
-  metadati utili. Piattaforma e genere sono già campi esistenti su entrambi
-  i modelli; anno e sviluppatore no. Ho scelto di aggiungerli **solo** a
-  `BacklogItemEntity`/`BacklogItem` (utili come dati di catalogazione prima
-  ancora di aver giocato) e di **non** estendere `ReviewEntity`/`Review`:
-  farlo avrebbe richiesto toccare uno schema maturo con cinque fasi di
-  funzionalità già costruite sopra (export JSON/CSV/PDF/Markdown, DTO di
-  backup, statistiche), per due campi bibliografici che non sono mai stati
-  parte del cuore di una recensione (voto/pro/contro/testo). La ricerca
-  online nel form recensione resta quindi limitata a
-  titolo/piattaforma/genere/copertina, come il resto del form.
-- **Fallback silenzioso, mai un crash**: `GameMetadataSearchCoordinator`
-  centralizza la logica condivisa tra i due form — chiave mancante, nessun
-  risultato, errore di rete/HTTP diventano tutti un `Outcome.Message`
-  testuale mostrato nel dialog, mai un'eccezione propagata. Il flusso
-  manuale esistente (digitare i campi a mano) resta sempre disponibile
-  sotto, invariato.
-- **Non testabile in modo significativo via Robolectric**: stesso discorso
-  già fatto per Drive in Fase 4 — chiamate `HttpURLConnection` reali verso
-  `api.thegamesdb.net` richiedono rete vera. Sono invece unit-testate le
-  parti pure aggiunte in Fase 6: `domain/filter/BacklogFilteringTest.kt` e
-  `domain/stats/BacklogStatisticsCalculatorTest.kt`, stesso pattern di
+- **The API key is always required, it was not a choice**: before
+  implementing, I verified online (as requested) the current
+  limits/requirements of TheGamesDB's public API. The result, different
+  from the initial assumption ("shouldn't be needed, ES-DE doesn't
+  need it"): **as of 02/17/2026 TheGamesDB changed its policy and now requires
+  an `apikey` on every request**, public or private — anonymous access no
+  longer exists. ES-DE/Skyscraper don't ask for a *personal* key
+  because they embed their own (public, shared, rate-limited) key in
+  their source code, but that key still exists. Not having a
+  reliable way to retrieve its current literal value, I explicitly asked
+  the user how to proceed instead of guessing or pasting in
+  a key found online without certainty.
+- **Runtime configuration, not a build placeholder**: unlike the
+  Drive OAuth client ID (Phase 4, `res/values/drive_config.xml`,
+  `[TO_COMPLETE]` replaced before the build), the TheGamesDB API key is
+  a field the user fills in **inside the app** (a new section in
+  Settings, `TheGamesDbPreferences`, `SharedPreferences` — the same
+  minimal pattern as `BackupPreferences`, not DataStore). No build
+  contains a key, real or placeholder: as long as the field is empty, the
+  "Search online" button triggers `GameMetadataSearchCoordinator`, which
+  returns an informational message instead of calling the API — never a
+  crash, never a build that fails to compile due to a missing key.
+- **Hand-written REST client, not Retrofit/Ktor**: the original request
+  cited Retrofit/Ktor as an example ("if not already present"), but the project
+  had already solved the same problem in Phase 4 (`DriveApiClient`) with a
+  minimal `HttpURLConnection` + `kotlinx.serialization` client. I followed
+  the same pattern for `TheGamesDbApiClient` instead of introducing a new
+  HTTP dependency: just four GET endpoints (search +
+  Platforms/Genres/Developers) do not justify a full HTTP client,
+  consistent with "do not introduce dependencies without need" already applied three
+  times before (Drive, PDF, statistics charting). **No new
+  dependency added in Phase 6.**
+- **In-memory cache of lookups, not persisted**: `TheGamesDbApiClient`
+  keeps in memory (for the process's lifetime) the id→name maps of
+  Platforms/Genres/Developers, populated on first use and reused for
+  subsequent searches within the same app session. With a public
+  rate limit on the order of a few thousand requests per month, avoiding three
+  extra lookup calls on every single search was a deliberate
+  choice, not a premature optimization.
+- **Multiple results, no auto-selection**: `Games/ByGameName`
+  (optionally filtered by platform, inferred from the first platform tag
+  already entered in the form, to disambiguate remasters/regional editions) can
+  return multiple matches; `GameSearchDialog` (a composable shared
+  between `ReviewFormScreen` and `BacklogItemFormScreen`, `ui/common/`) lists them
+  all with cover/platform/year, the user picks one. On selection, the
+  cover is downloaded and saved **locally** with
+  `ImageStorage.writeBytes()` (the same storage used for manually uploaded
+  covers) — never just the remote URL.
+- **`releaseYear`/`developer` only on `BacklogItem`, not on `Review`**: the
+  spec asked for saving "platform, genre, year, developer" as
+  useful metadata. Platform and genre are already existing fields on both
+  models; year and developer are not. I chose to add them **only** to
+  `BacklogItemEntity`/`BacklogItem` (useful as cataloging data even before
+  actually having played the game) and to **not** extend `ReviewEntity`/`Review`:
+  doing so would have required touching a mature schema with five phases of
+  functionality already built on top of it (JSON/CSV/PDF/Markdown export, backup
+  DTOs, statistics), for two bibliographic fields that were never
+  part of the core of a review (rating/pros/cons/text). The online search
+  in the review form therefore stays limited to
+  title/platform/genre/cover, like the rest of the form.
+- **Silent fallback, never a crash**: `GameMetadataSearchCoordinator`
+  centralizes the logic shared between the two forms — missing key, no
+  results, network/HTTP errors all become an `Outcome.Message`
+  text shown in the dialog, never a propagated exception. The
+  existing manual flow (typing the fields by hand) always remains available
+  below, unchanged.
+- **Cannot be meaningfully tested via Robolectric**: same discussion
+  already made for Drive in Phase 4 — real `HttpURLConnection` calls to
+  `api.thegamesdb.net` require a real network. What is instead unit-tested is the
+  pure parts added in Phase 6: `domain/filter/BacklogFilteringTest.kt` and
+  `domain/stats/BacklogStatisticsCalculatorTest.kt`, same pattern as
   `LibraryFilteringTest`/`LibraryStatisticsCalculatorTest`.
 
-**Stato build**: come per la Fase 5, questa modifica è stata scritta e
-rivista staticamente riga per riga (bilanciamento parentesi, import,
-corrispondenza 1:1 delle chiavi `strings.xml` IT/EN, coerenza delle
-signature Room `@Relation`/`@Junction`/`@ForeignKey`) ma **non ancora
-verificata su CI al momento di scrivere questa nota** — lo stesso sandbox
-isolato senza accesso a `dl.google.com` descritto sotto "Limitazione nota
-dell'ambiente sandbox" era in vigore anche per questa sessione. Controlla lo
-stato dei check sulla relativa PR prima di considerarla verde.
+**Build status**: as with Phase 5, this change was written and
+reviewed statically line by line (parenthesis balance, imports,
+1:1 correspondence of `strings.xml` IT/EN keys, consistency of the
+Room `@Relation`/`@Junction`/`@ForeignKey` signatures) but **not yet
+verified on CI at the time of writing this note** — the same isolated
+sandbox with no access to `dl.google.com` described under "Known
+sandbox environment limitation" was also in effect for this session. Check the
+status of the checks on the relevant PR before considering it green.
 
-## Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB
+## Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix
 
-Tre richieste distinte nella stessa sessione, trattate come un'unica
-modifica coordinata.
+Three distinct requests in the same session, treated as a single
+coordinated change.
 
-### Rebranding ThePatientGamerHelper
+### ThePatientGamerHelper rebranding
 
-- App rinominata **ovunque**, incluso `applicationId`/package Kotlin (non
-  solo il nome visualizzato): `com.marcogn.gamereviewer` →
-  `com.marcogn.thepatientgamerhelper`. Scelta confermata esplicitamente
-  dall'utente dopo aver segnalato le due conseguenze concrete (nessuna
-  migrazione dati per installazioni esistenti — `applicationId` diverso è
-  un'app diversa per Android; il client OAuth Drive andrà ri-registrato per
-  il nuovo `applicationId`+SHA1 quando configurato). Vedi
-  `docs/decisioni-implementazione.md`, sezione Fase 7, per il dettaglio
-  completo del ragionamento e di cosa è rimasto intenzionalmente
-  invariato (nome del repository GitHub, prefisso file di export in
+- App renamed **everywhere**, including `applicationId`/Kotlin package (not
+  just the display name): `com.marcogn.gamereviewer` →
+  `com.marcogn.thepatientgamerhelper`. Choice explicitly confirmed
+  by the user after being informed of the two concrete consequences (no
+  data migration for existing installations — a different `applicationId` is
+  a different app to Android; the Drive OAuth client will need to be re-registered for
+  the new `applicationId`+SHA1 once configured). See
+  `docs/implementation-decisions.md`, Phase 7 section, for the full
+  detail of the reasoning and of what was intentionally
+  left unchanged (the GitHub repository name, the export file prefix in
   `domain/export/ExportFileNaming.kt`).
-- File/classi rinominate: `GameReviewerNavGraph.kt` →
+- Renamed files/classes: `GameReviewerNavGraph.kt` →
   `ThePatientGamerHelperNavGraph.kt`, `GameReviewerApplication.kt` →
   `ThePatientGamerHelperApplication.kt`,
   `data/local/GameReviewerDatabase.kt` →
-  `data/local/ThePatientGamerHelperDatabase.kt` (con
-  `DATABASE_NAME = "the_patient_gamer_helper.db"`, cambiato a mano perché
-  snake_case non intercettato dal `sed` di rename).
-- `app_name` (`values/strings.xml`/`values-en/strings.xml`): ora
-  `"ThePatientGamerHelper"` in entrambe le lingue (prima "Recensioni
+  `data/local/ThePatientGamerHelperDatabase.kt` (with
+  `DATABASE_NAME = "the_patient_gamer_helper.db"`, changed by hand because
+  snake_case was not caught by the rename `sed`).
+- `app_name` (`values/strings.xml`/`values-en/strings.xml`): now
+  `"ThePatientGamerHelper"` in both languages (previously "Recensioni
   Videogiochi"/"Game Reviews").
 
-### Navigazione: Home chooser + drawer hamburger
+### Navigation: Home chooser + hamburger drawer
 
-- Nuova `Destination.Home` (`ui/navigation/Destinations.kt`), ora
-  `startDestination` del grafo — sostituisce `Destination.Library` come
-  prima schermata mostrata. `ui/home/HomeScreen.kt`: top bar con hamburger
-  + testo "cosa vuoi fare?" + tre card (Recensioni/Backlog/Statistiche,
-  ciascuna con icona/titolo/sottotitolo/chevron), nessun dato mock — solo
-  navigazione, nessuna lettura da Room.
-- `ThePatientGamerHelperNavGraph.kt` avvolge l'intero `NavHost` in un
-  `ModalNavigationDrawer` (Material 3), con `drawerState` sollevato al
-  livello del grafo. Le voci del drawer (Recensioni, Backlog, Statistiche,
-  poi un separatore e Impostazioni in fondo) navigano con
+- New `Destination.Home` (`ui/navigation/Destinations.kt`), now the
+  graph's `startDestination` — replacing `Destination.Library` as the
+  first screen shown. `ui/home/HomeScreen.kt`: top bar with a hamburger icon
+  + "what do you want to do?" text + three cards (Reviews/Backlog/Statistics,
+  each with icon/title/subtitle/chevron), no mock data — only
+  navigation, no reading from Room.
+- `ThePatientGamerHelperNavGraph.kt` wraps the entire `NavHost` in a
+  `ModalNavigationDrawer` (Material 3), with `drawerState` hoisted at the
+  graph level. The drawer entries (Reviews, Backlog, Statistics,
+  then a divider and Settings at the bottom) navigate with
   `popUpTo(Destination.Home) { saveState = true }` +
-  `launchSingleTop = true` + `restoreState = true` — pattern standard
-  drawer/bottom-bar, evita di accumulare backstack quando si passa
-  ripetutamente tra le stesse sezioni.
-- Ogni schermata riceve solo una lambda `onMenuClick: () -> Unit` (apre il
-  drawer), mai lo stato del drawer stesso — coerente con UDF (eventi
-  salgono, stato scende) già seguito nel resto dell'app.
-- **`LibraryScreen`**: top bar senza più il nome dell'app (ora
+  `launchSingleTop = true` + `restoreState = true` — the standard
+  drawer/bottom-bar pattern, avoiding backstack accumulation when repeatedly
+  switching between the same sections.
+- Every screen receives only an `onMenuClick: () -> Unit` lambda (opens the
+  drawer), never the drawer state itself — consistent with UDF (events
+  flow up, state flows down) already followed across the rest of the app.
+- **`LibraryScreen`**: top bar without the app name any more (now
   `stringResource(R.string.library_title)`, "Recensioni"/"Reviews"),
-  icona hamburger al posto della freccia indietro, rimossi gli
-  `IconButton` di Backlog/Statistiche/Impostazioni dalla toolbar (ora
-  raggiungibili solo dal drawer). `BacklogScreen`/`StatsScreen`: stesso
-  trattamento (`onBack` → `onMenuClick`, icona freccia → hamburger).
-  `SettingsScreen` **non** ha ricevuto l'hamburger: resta raggiungibile
-  solo dal drawer, con una freccia indietro nella propria top bar — è "in
-  fondo" al drawer, non una delle tre sezioni principali.
+  a hamburger icon instead of the back arrow, the
+  Backlog/Statistics/Settings `IconButton`s removed from the toolbar (now
+  reachable only from the drawer). `BacklogScreen`/`StatsScreen`: same
+  treatment (`onBack` → `onMenuClick`, back arrow icon → hamburger).
+  `SettingsScreen` **did not** receive the hamburger: it remains reachable
+  only from the drawer, with a back arrow in its own top bar — it is "at
+  the bottom" of the drawer, not one of the three main sections.
 
-### Fix ricerca TheGamesDB sempre fallita
+### TheGamesDB search always-failed fix
 
-- **Causa certa e corretta**: `GameMetadataSearchCoordinator.search()`
-  sostituiva qualunque eccezione (rete, HTTP, parsing) con lo stesso
-  messaggio generico fisso, scartando il dettaglio reale. Ora logga
-  l'eccezione (`Log.w`) e **accoda** il suo messaggio (quando presente) al
-  testo generico mostrato nel dialog — un futuro fallimento sarà
-  diagnosticabile dall'utente stesso (es. "HTTP 401: ..." per una chiave
-  non valida) invece di restare un misterioso "non riuscita".
-- **Correzioni difensive aggiuntive** (basate su ricerca, non su
-  riproduzione diretta — questo sandbox non ha accesso di rete a
-  `api.thegamesdb.net`, bloccato esplicitamente dalla policy del proxy):
-  header `Accept: application/json` + timeout connect/read espliciti
-  mancanti sulla connessione; rimosso `"platform"` dai `fields` richiesti a
-  `Games/ByGameName` (non un campo valido per quell'endpoint); sintassi del
-  filtro piattaforma corretta alla forma indicizzata Laravel
-  (`filter[platform][0]=` invece di `filter[platform]=`).
-  Vedi `docs/decisioni-implementazione.md` per il dettaglio completo —
-  incluso perché il primo fix (il messaggio non più generico) è l'unico di
-  cui è garantita la correttezza, indipendentemente da quanto le altre
-  correzioni difensive si rivelino centrate.
+- **Certain and corrected cause**: `GameMetadataSearchCoordinator.search()`
+  replaced any exception (network, HTTP, parsing) with the same
+  fixed generic message, discarding the real detail. It now logs
+  the exception (`Log.w`) and **appends** its message (when present) to the
+  generic text shown in the dialog — a future failure will be
+  diagnosable by the user themselves (e.g. "HTTP 401: ..." for an invalid
+  key) instead of remaining a mysterious "failed".
+- **Additional defensive fixes** (based on research, not on
+  direct reproduction — this sandbox has no network access to
+  `api.thegamesdb.net`, explicitly blocked by the proxy policy):
+  missing `Accept: application/json` header + explicit connect/read
+  timeouts on the connection; removed `"platform"` from the `fields`
+  requested on `Games/ByGameName` (not a valid field for that endpoint); the
+  platform filter syntax corrected to the Laravel indexed form
+  (`filter[platform][0]=` instead of `filter[platform]=`).
+  See `docs/implementation-decisions.md` for the full detail —
+  including why the first fix (the message no longer generic) is the only one
+  whose correctness is guaranteed, regardless of how well-targeted the other
+  defensive fixes turn out to be.
 
-**Stato build**: come per le Fasi 5 e 6, questa modifica è stata scritta e
-rivista staticamente (bilanciamento parentesi su ogni file `.kt` toccato,
-corrispondenza package/percorso directory dopo il rename massivo, validità
-XML su tutte le risorse, parità 1:1 delle chiavi `strings.xml` IT/EN) ma
-**non verificata su CI al momento di scrivere questa nota** — stesso
-sandbox isolato senza accesso a `dl.google.com` (build) né a
-`api.thegamesdb.net` (fix ricerca) descritto sotto "Limitazione nota
-dell'ambiente sandbox". Controlla lo stato dei check sulla relativa PR
-prima di considerarla verde, e verifica manualmente su device/emulatore che
-il fix della ricerca TheGamesDB mostri ora un messaggio d'errore
-utile quando la ricerca fallisce.
+**Build status**: as with Phases 5 and 6, this change was written and
+reviewed statically (parenthesis balance on every touched `.kt` file,
+package/directory path consistency after the mass rename, XML
+validity across all resources, 1:1 parity of `strings.xml` IT/EN keys) but
+**not verified on CI at the time of writing this note** — same
+isolated sandbox with no network access to `dl.google.com` (build) nor to
+`api.thegamesdb.net` (search fix) described under "Known
+sandbox environment limitation". Check the status of the checks on the relevant PR
+before considering it green, and manually verify on device/emulator that
+the TheGamesDB search fix now shows a useful error message
+when the search fails.
 
-## Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste griglia
+## Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid views
 
-Cinque richieste distinte nella stessa sessione, trattate come un'unica
-modifica coordinata: import recensioni da Markdown, export/import backlog,
-tempi stimati HowLongToBeat nel backlog, gli stessi tempi in statistica, e
-vista a griglia per libreria e backlog.
+Five distinct requests in the same session, treated as a single
+coordinated change: review import from Markdown, backlog export/import,
+estimated HowLongToBeat times in the backlog, the same times in statistics, and
+grid view for library and backlog.
 
-### Import recensioni da Markdown
+### Review import from Markdown
 
 - `domain/export/ReviewMarkdownParser.kt`: `parseReviewMarkdown(String):
-  Result<ReviewDraft>`, funzione pura (nessun import Android, unit-testata
-  in JVM puro come il resto di `domain/export`) che è l'esatto reverse di
-  `toRedditMarkdown()` — stesse etichette italiane fisse (`Voto`, `Stato`,
+  Result<ReviewDraft>`, a pure function (no Android import, unit-tested
+  in plain JVM like the rest of `domain/export`) that is the exact reverse of
+  `toRedditMarkdown()` — same fixed Italian labels (`Voto`, `Stato`,
   `Piattaforme`, `Generi`, `Tag`, `Iniziato il`, `Terminato il`, `Ore di
-  gioco`), stessa struttura a bullet list, stesse sezioni `## Pro`/
-  `## Contro` opzionali. Non è un parser Markdown generico: riconosce solo
-  il formato che l'app stessa produce.
-- Severo sui campi che l'exporter scrive sempre (titolo, voto, stato, data
-  di inizio — un file senza uno di questi non è una recensione scritta da
-  questa app), permissivo su tutto il resto (piattaforme/generi/tag/ore/
-  pro/contro/corpo), rispecchiando esattamente cosa `toRedditMarkdown`
-  omette quando vuoto. Ogni fallimento di parsing produce un `Result`
-  fallito con un messaggio puntuale (es. "Voto mancante o non valido"), mai
-  un'eccezione generica.
-- Punto di ingresso: icona upload nella top bar della libreria, apre un
-  file `.md` via SAF (`ActivityResultContracts.OpenDocument`), legge il
-  contenuto con il nuovo `data/export/ImportFileReader.kt` (controparte in
-  lettura di `ExportFileWriter`, riusato anche dall'import backlog sotto),
-  lo passa al parser e — se valido — crea sempre una **nuova** recensione
-  (`ReviewRepository.save(id = null, ...)`), mai un aggiornamento di una
-  esistente. Esito mostrato con uno snackbar (`import_completed`/
-  `import_failed`), stesso pattern di `exportMessage` in `LibraryViewModel`.
+  gioco`), same bullet-list structure, same optional `## Pro`/
+  `## Contro` sections. It is not a generic Markdown parser: it only recognizes
+  the format the app itself produces.
+- Strict on the fields the exporter always writes (title, rating, status, start
+  date — a file missing one of these is not a review written by
+  this app), lenient on everything else (platforms/genres/tags/hours/
+  pros/cons/body), exactly mirroring what `toRedditMarkdown`
+  omits when empty. Every parsing failure produces a failed
+  `Result` with a specific message (e.g. "Voto mancante o non valido"), never
+  a generic exception.
+- Entry point: an upload icon in the library's top bar, opens a
+  `.md` file via SAF (`ActivityResultContracts.OpenDocument`), reads the
+  content with the new `data/export/ImportFileReader.kt` (the read-side
+  counterpart of `ExportFileWriter`, also reused by the backlog import below),
+  passes it to the parser and — if valid — always creates a **new** review
+  (`ReviewRepository.save(id = null, ...)`), never an update of an
+  existing one. Outcome shown with a snackbar (`import_completed`/
+  `import_failed`), the same pattern as `exportMessage` in `LibraryViewModel`.
 
-### Export/import backlog con le sue liste
+### Backlog export/import with its lists
 
-- Formato **deliberatamente separato** da `domain/backup` (Fase 4, backup
-  Drive dell'intera libreria recensioni con restore a sovrascrittura
-  completa): questo è un file che l'utente crea/apre esplicitamente via SAF
-  per condividere o unire il proprio backlog, non un ripristino di
-  sicurezza. `domain/export/BacklogExportDto.kt` (payload puro, JSON via
-  kotlinx.serialization, etichette italiane come `ReviewExportDto`) +
+- Format **deliberately separate** from `domain/backup` (Phase 4, the
+  Drive backup of the entire review library with a full-overwrite
+  restore): this is a file the user explicitly creates/opens via SAF
+  to share or merge their backlog, not a safety
+  restore. `domain/export/BacklogExportDto.kt` (pure payload, JSON via
+  kotlinx.serialization, Italian labels like `ReviewExportDto`) +
   `data/export/BacklogExportArchive.kt` (zip `data.json` + `images/`,
-  stesso schema di `data/backup/BackupArchive.kt` ma scoped solo alle
-  copertine effettivamente referenziate dal backlog, non l'intera
+  the same schema as `data/backup/BackupArchive.kt` but scoped only to the
+  covers actually referenced by the backlog, not the entire
   `ImageStorage`) + `data/export/BacklogExporter.kt`/`BacklogImporter.kt`
-  (orchestrazione I/O, iniettati via Hilt come `ReviewExporter`).
-- **Sempre additivo, mai una sostituzione**: `BacklogRepository.importLists()`
-  crea sempre liste nuove ed item nuovi con id nuovo — anche importando lo
-  stesso file due volte (non è idempotente, scelta accettata per restare
-  semplice: un merge per titolo/somiglianza avrebbe introdotto ambiguità —
-  due giochi con lo stesso nome su piattaforme diverse? — che la richiesta
-  non specificava). `reviewId` viene scartato in import (la recensione
-  collegata appartiene alla libreria che ha esportato il file e potrebbe
-  non esistere su questo device); commenti e storico sono reinseriti
-  verbatim con i timestamp originali, senza aggiungere una voce `CREATO`
-  sintetica (quella originale è già nello storico esportato). Le copertine
-  vengono riscritte con un nome file nuovo (UUID), mai riusando il nome
-  originale — la cartella `covers/` è condivisa con le recensioni, riusare
-  un nome rischierebbe una collisione con un file già presente sul device.
-- Punto di ingresso: icone upload/download nella top bar di
-  `BacklogScreen`. Export sempre sull'intero backlog (stessa regola
-  "sempre tutto, mai filtrato" di JSON/CSV in Fase 2).
+  (I/O orchestration, injected via Hilt like `ReviewExporter`).
+- **Always additive, never a replacement**: `BacklogRepository.importLists()`
+  always creates new lists and new items with new ids — even importing the
+  same file twice (not idempotent, a choice accepted to keep things
+  simple: a merge by title/similarity would have introduced ambiguity —
+  two games with the same name on different platforms? — which the request
+  did not specify). `reviewId` is discarded on import (the linked
+  review belongs to the library that exported the file and might
+  not exist on this device); comments and history are re-inserted
+  verbatim with their original timestamps, without adding a synthetic
+  `CREATO` entry (the original one is already in the exported history). Covers
+  are rewritten with a new file name (UUID), never reusing the
+  original name — the `covers/` folder is shared with reviews, reusing
+  a name would risk a collision with a file already present on the device.
+- Entry point: upload/download icons in `BacklogScreen`'s top bar.
+  Export always over the entire backlog (the same "always everything, never
+  filtered" rule as JSON/CSV in Phase 2).
 
-### Tempi stimati HowLongToBeat nel backlog
+### Estimated HowLongToBeat times in the backlog
 
-- **Nessuna API pubblica esiste**: verificato online prima di implementare
-  (stessa regola già applicata in Fase 6 per la policy apikey di
-  TheGamesDB) — a differenza di TheGamesDB, che almeno richiede una apikey
-  ma resta un endpoint documentato, HowLongToBeat non ha mai avuto un'API
-  pubblica. Ogni integrazione non ufficiale esistente (howlongtobeatpy,
-  ckatzorke/howlongtobeat, ecc.) funziona ri-derivando l'endpoint di
-  ricerca corrente dal bundle JavaScript del frontend di HowLongToBeat a
-  runtime, perché il path cambia ad ogni loro deploy — non esiste un
-  contratto stabile da implementare contro.
-- `data/howlongtobeat/HowLongToBeatApiClient.kt` usa la stessa tecnica
-  reverse-engineered: fetch della homepage, estrazione del bundle
-  `_app-*.js`, regex sull'endpoint POST, con fallback al path storicamente
-  stabile `/api/s/` se l'estrazione fallisce. **Questo è intrinsecamente
-  più fragile di `TheGamesDbApiClient`/`DriveApiClient`**: quelli sono
-  reverse-engineered da endpoint REST documentati o comunque stabili
-  (Fase 4/6), questo è reverse-engineered da un frontend che può cambiare
-  ad ogni deploy senza preavviso. Non è stato possibile eseguirlo contro
-  `howlongtobeat.com` reale da questo sandbox (nessun accesso di rete,
-  stessa limitazione già nota per `dl.google.com`/`api.thegamesdb.net`) —
-  **va considerato non verificato finché non testato su un device reale**.
-- **Fallimento sempre silenzioso**: ogni errore (bundle cambiato, endpoint
-  bloccato, nessuna corrispondenza, schema di risposta diverso) diventa
-  `null` in `GameMetadataSearchCoordinator.searchHowLongToBeat()` — mai
-  un'eccezione propagata, mai un messaggio mostrato all'utente (a
-  differenza di `search()`/TheGamesDB, che mostra un messaggio su
-  fallimento: qui è un arricchimento silenzioso sopra una ricerca
-  TheGamesDB già riuscita, non un'azione a sé). Il flusso "cerca online"
-  esistente non cambia in nessun modo se HowLongToBeat non risponde.
+- **No public API exists**: verified online before implementing
+  (the same rule already applied in Phase 6 for TheGamesDB's apikey
+  policy) — unlike TheGamesDB, which at least requires an apikey
+  but remains a documented endpoint, HowLongToBeat has never had a public
+  API. Every existing unofficial integration (howlongtobeatpy,
+  ckatzorke/howlongtobeat, etc.) works by re-deriving the current
+  search endpoint from HowLongToBeat's frontend JavaScript bundle at
+  runtime, because the path changes with every one of their deploys — there is no
+  stable contract to implement against.
+- `data/howlongtobeat/HowLongToBeatApiClient.kt` uses the same
+  reverse-engineered technique: fetching the homepage, extracting the bundle
+  `_app-*.js`, a regex on the POST endpoint, with a fallback to the historically
+  stable path `/api/s/` if the extraction fails. **This is inherently
+  more fragile than `TheGamesDbApiClient`/`DriveApiClient`**: those are
+  reverse-engineered from documented or otherwise stable REST endpoints
+  (Phase 4/6), this one is reverse-engineered from a frontend that can change
+  with every deploy without notice. It was not possible to run it against
+  the real `howlongtobeat.com` from this sandbox (no network access,
+  same known limitation already noted for `dl.google.com`/`api.thegamesdb.net`) —
+  **it must be considered unverified until tested on a real device**.
+- **Always fails silently**: every error (changed bundle, blocked
+  endpoint, no match, different response schema) becomes
+  `null` in `GameMetadataSearchCoordinator.searchHowLongToBeat()` — never
+  a propagated exception, never a message shown to the user (unlike
+  `search()`/TheGamesDB, which shows a message on
+  failure: here it is a silent enrichment on top of an already-successful
+  TheGamesDB search, not a standalone action). The existing "search online"
+  flow does not change in any way if HowLongToBeat does not respond.
 - `hltbMainStoryHours`/`hltbMainExtraHours`/`hltbCompletionistHours`
-  vivono **solo su `BacklogItemEntity`/`BacklogItem`**, stesso precedente
-  già motivato per `releaseYear`/`developer` in Fase 6: sono metadati di
-  catalogazione, non parte del cuore di una recensione. La ricerca online
-  nel form recensione resta invariata; solo `BacklogItemFormViewModel`
-  chiama `searchHowLongToBeat()`, dopo che l'utente ha scelto un risultato
-  TheGamesDB (usa il titolo esatto del risultato scelto, non il testo
-  digitato, per la massima precisione di corrispondenza).
-- `MIGRATION_2_3` (`data/local/Migrations.kt`) aggiunge le tre colonne
-  `REAL` nullable a `backlog_items`, additiva come `MIGRATION_1_2`.
-  `@Database` passa da `version = 2` a `version = 3`.
-- Visibili nella scheda di dettaglio backlog (`BacklogItemDetailScreen`,
-  card dedicata sotto i metadati, mostrata solo se almeno un campo è
-  valorizzato) — non editabili a mano, stesso principio di
-  anno/sviluppatore.
+  live **only on `BacklogItemEntity`/`BacklogItem`**, the same precedent
+  already justified for `releaseYear`/`developer` in Phase 6: they are cataloging
+  metadata, not part of the core of a review. The online search
+  in the review form remains unchanged; only `BacklogItemFormViewModel`
+  calls `searchHowLongToBeat()`, after the user has chosen a
+  TheGamesDB result (using the exact title of the chosen result, not the
+  typed text, for maximum matching precision).
+- `MIGRATION_2_3` (`data/local/Migrations.kt`) adds the three nullable
+  `REAL` columns to `backlog_items`, additive like `MIGRATION_1_2`.
+  `@Database` goes from `version = 2` to `version = 3`.
+- Visible in the backlog detail card (`BacklogItemDetailScreen`,
+  a dedicated card below the metadata, shown only if at least one field is
+  set) — not editable by hand, same principle as
+  year/developer.
 
-### Statistiche: tempo stimato backlog
+### Statistics: estimated backlog time
 
 - `domain/stats/BacklogStatisticsCalculator.kt`:
-  `computeBacklogTimeEstimateStatistics()` somma le ore stimate
-  (storia principale/storia+extra/completista) su tutti gli item del
-  backlog che hanno **almeno un campo HowLongToBeat valorizzato**,
-  indipendentemente dallo stato — si legge come "quanto tempo richiedono in
-  totale questi giochi", non solo quelli non ancora iniziati. Espone anche
-  `itemsWithEstimate` per mostrare "X elementi con una stima" nella UI.
-  Integrato in `BacklogStatistics` (usato dall'header leggero di
-  `BacklogScreen`) e in un nuovo `StatsUiState.backlogTimeEstimate`
-  (`StatsViewModel` ora combina `ReviewRepository.observeAll()` con
+  `computeBacklogTimeEstimateStatistics()` sums the estimated hours
+  (main story/main+extra story/completionist) across all backlog
+  items that have **at least one HowLongToBeat field set**,
+  regardless of status — reading as "how much total time these
+  games require", not just the ones not yet started. It also exposes
+  `itemsWithEstimate` to show "X items with an estimate" in the UI.
+  Integrated into `BacklogStatistics` (used by `BacklogScreen`'s lightweight
+  header) and into a new `StatsUiState.backlogTimeEstimate`
+  (`StatsViewModel` now combines `ReviewRepository.observeAll()` with
   `BacklogRepository.observeAllItems()`).
-- Nuova sezione in `StatsScreen` ("Tempo stimato backlog (HowLongToBeat)"),
-  mostrata solo se almeno un item ha una stima — indipendente dal numero di
-  recensioni, quindi visibile anche con libreria vuota se il backlog ha
-  dati HowLongToBeat.
+- New section in `StatsScreen` ("Tempo stimato backlog (HowLongToBeat)"),
+  shown only if at least one item has an estimate — independent of the number of
+  reviews, so it is visible even with an empty library if the backlog has
+  HowLongToBeat data.
 
-### Viste lista/griglia per recensioni e backlog
+### List/grid views for reviews and backlog
 
 - `domain/model/ViewMode.kt` (`LIST`/`GRID`) + `data/settings/
-  ViewModePreferences.kt` — due soli flag persistiti (vista libreria, vista
-  backlog), `SharedPreferences` semplice come `BackupPreferences`/
-  `TheGamesDbPreferences`, non `DataStore` (quello resta per `ThemeMode`,
-  dove la richiesta esplicita in Fase 5 era DataStore).
-- `ui/common/GameGridTile.kt` (cover a piena larghezza, proporzione 2:3
-  corretta via `Modifier.aspectRatio` + `ContentScale.Crop`, non la
-  thumbnail quadrata fissa di `CoverThumbnail` usata in vista a lista) e
-  `ui/common/ViewModeToggle.kt` (icona che alterna, condivisi tra
-  `LibraryScreen` e `BacklogListDetailScreen` per non duplicare la stessa
-  UI due volte).
-- **La griglia del backlog non supporta il drag-to-reorder manuale**
-  (Fase 6, Tappa 1, disponibile solo in `BacklogListDetailScreen` vista a
-  lista): estendere il gesto di trascinamento verticale esistente a una
-  griglia 2D avrebbe richiesto una logica di posizionamento sostanzialmente
-  diversa per un beneficio puramente cosmetico. L'utente torna alla vista a
-  lista per riordinare.
-- `BacklogScreen` (la vista "elenco liste"/ricerca cross-lista) **non** ha
-  ricevuto il toggle: la griglia si applica dove si sfogliano i *giochi*
-  (libreria, dettaglio di una lista backlog), non dove si sfogliano le
-  *liste* stesse.
+  ViewModePreferences.kt` — just two persisted flags (library view, backlog
+  view), a simple `SharedPreferences` like `BackupPreferences`/
+  `TheGamesDbPreferences`, not `DataStore` (that remains reserved for `ThemeMode`,
+  where the explicit request in Phase 5 was DataStore).
+- `ui/common/GameGridTile.kt` (full-width cover, 2:3 aspect ratio
+  enforced via `Modifier.aspectRatio` + `ContentScale.Crop`, not the
+  fixed square thumbnail from `CoverThumbnail` used in list view) and
+  `ui/common/ViewModeToggle.kt` (a toggling icon, shared between
+  `LibraryScreen` and `BacklogListDetailScreen` to avoid duplicating the same
+  UI twice).
+- **The backlog grid does not support manual drag-to-reorder**
+  (Phase 6, Stage 1, available only in list-view
+  `BacklogListDetailScreen`): extending the existing vertical drag gesture to a
+  2D grid would have required a substantially different positioning
+  logic for a purely cosmetic benefit. The user goes back to the
+  list view to reorder.
+- `BacklogScreen` (the "list of lists"/cross-list search view) **did not**
+  receive the toggle: the grid applies where *games* are browsed
+  (library, detail of a backlog list), not where *lists* themselves
+  are browsed.
 
-**Stato build**: come per le fasi precedenti, questa modifica è stata
-scritta e rivista staticamente riga per riga (bilanciamento parentesi,
-import, corrispondenza dei nomi di campo tra entità/DTO/mapper/draft,
-parità 1:1 delle chiavi `strings.xml` IT/EN) ma **non verificata su CI al
-momento di scrivere questa nota**. In questa sessione ho anche verificato
-di persona se l'ambiente avesse un accesso di rete più ampio del solito
-sandbox isolato: alcuni host Google rispondono (`maven.google.com`
-restituisce 200), ma lo scaricamento reale degli artefatti dell'Android
-Gradle Plugin resta bloccato dal proxy in uscita (redirect verso un host
-non in allowlist, tunnel CONNECT rifiutato con 403) — stessa limitazione
-già nota, confermata con un test diretto invece che solo assunta. Vedi
-`docs/decisioni-implementazione.md` per il ragionamento completo dietro
-ogni scelta di questa fase. Controlla lo stato dei check sulla PR prima di
-considerarla verde, e verifica manualmente su device/emulatore sia
-l'import Markdown sia — soprattutto — l'integrazione HowLongToBeat, che
-resta la parte a rischio di fragilità più alto di questa modifica.
+**Build status**: as with the previous phases, this change was
+written and reviewed statically line by line (parenthesis balance,
+imports, field-name consistency between entity/DTO/mapper/draft,
+1:1 parity of `strings.xml` IT/EN keys) but **not verified on CI at the
+time of writing this note**. In this session I also personally verified
+whether the environment had broader network access than the usual
+isolated sandbox: some Google hosts do respond (`maven.google.com`
+returns 200), but actually downloading Android Gradle Plugin artifacts
+remains blocked by the outbound proxy (redirect to a host
+not in the allowlist, CONNECT tunnel rejected with 403) — the same known
+limitation, confirmed with a direct test instead of merely assumed. See
+`docs/implementation-decisions.md` for the full reasoning behind
+every choice in this phase. Check the status of the checks on the PR before
+considering it green, and manually verify on device/emulator both
+the Markdown import and — especially — the HowLongToBeat integration, which
+remains the highest-risk-of-fragility part of this change.
 
-### Fix dopo verifica su device reale
+### Fixes after real-device verification
 
-La verifica manuale su device (dopo il merge della PR iniziale) ha trovato
-quattro problemi reali, non visibili dalla sola revisione statica:
+Manual on-device verification (after the initial PR was merged) found
+four real problems, not visible from static review alone:
 
-- **`FilterChip` "Abbandonato" spezzato verticalmente carattere per
-  carattere** nel selettore di stato del dettaglio backlog: un `Row` senza
-  wrap comprimeva l'ultimo chip oltre la larghezza minima del testo. Fix:
-  `FlowRow` (`@OptIn(ExperimentalLayoutApi::class)`, stesso pattern già in
-  uso in `FilterSheet.kt`/`BacklogFilterSheet.kt`/`TagInputField.kt`) così
-  i chip vanno a capo su una nuova riga invece di schiacciarsi.
-- **Titoli delle top bar (`Recensioni`, `Backlog`, ecc.) spezzati su due
-  righe**, sovrapposti all'icona hamburger: troppe icone azione affiancate
-  al titolo (fino a 5 nella libreria dopo la Fase 8) lasciavano troppo poco
-  spazio. Fix: `maxLines = 1` + `overflow = TextOverflow.Ellipsis` su
-  **tutti** i titoli di `TopAppBar` dell'app (non solo libreria/backlog,
-  per coerenza e per prevenire lo stesso bug altrove — es. titolo lungo di
-  una lista backlog o di una recensione). Se il titolo tronca troppo su
-  schermi stretti, il prossimo passo è ridurre il numero di icone
-  consolidandole in un menu overflow, non ancora fatto.
-- **Ricerca TheGamesDB che falliva con un errore JSON illeggibile**
+- **"Abbandonato" `FilterChip` splitting vertically character by
+  character** in the backlog detail's status selector: a `Row` without
+  wrapping compressed the last chip beyond the text's minimum width. Fix:
+  `FlowRow` (`@OptIn(ExperimentalLayoutApi::class)`, the same pattern already in
+  use in `FilterSheet.kt`/`BacklogFilterSheet.kt`/`TagInputField.kt`) so
+  the chips wrap onto a new row instead of getting squeezed.
+- **Top bar titles (`Recensioni`, `Backlog`, etc.) breaking onto two
+  lines**, overlapping the hamburger icon: too many action icons next
+  to the title (up to 5 in the library after Phase 8) left too little
+  room. Fix: `maxLines = 1` + `overflow = TextOverflow.Ellipsis` on
+  **all** `TopAppBar` titles across the app (not just library/backlog,
+  for consistency and to prevent the same bug elsewhere — e.g. a long title
+  of a backlog list or of a review). If the title truncates too much on
+  narrow screens, the next step is to reduce the number of icons by
+  consolidating them into an overflow menu, not yet done.
+- **TheGamesDB search failing with an unreadable JSON error**
   (`Expected JsonArray, but had JsonNull ... element: $.developers`),
-  indipendentemente da piattaforma/titolo: TheGamesDB restituisce `null`
-  (non semplicemente omette la chiave) per `genres`/`developers` sui giochi
-  senza quei dati catalogati — un valore di default in
-  `kotlinx.serialization` copre solo la chiave *assente*, non un `null`
-  esplicito, quindi ogni gioco con `developers: null` nella risposta faceva
-  fallire l'intera ricerca. Fix: `genres`/`developers` resi `List<Long>?`
-  in `GameDto` (`TheGamesDbApiClient.kt`) invece di avere solo un default,
-  più `coerceInputValues = true` sul `Json` come rete di sicurezza
-  aggiuntiva per altri campi che dovessero comportarsi allo stesso modo in
-  futuro.
-- **HowLongToBeat assente ovunque** (né nella scheda backlog né nelle
-  statistiche): la prima versione del client implementava solo la POST di
-  ricerca "nuda", senza gli header `x-auth-token`/`x-hp-key`/`x-hp-val`
-  che le librerie non ufficiali attualmente mantenute (es.
-  ScrappyCocco/HowLongToBeat-PythonAPI) documentano come necessari — vanno
-  ottenuti con una `GET <path>init` prima della ricerca vera e propria.
-  `HowLongToBeatApiClient` ora implementa l'intero flusso (homepage → bundle
-  `_app-*.js` → endpoint → `init` → ricerca con gli header), usa uno
-  User-Agent desktop realistico invece di uno che si identifica come app
-  (molti siti con protezioni anti-scraping scartano UA non-browser a
-  priori), e logga un warning ad ogni passo che fallisce (tag
-  `HowLongToBeatClient`, controllabile con `adb logcat -s
-  HowLongToBeatClient`) — la fase precedente falliva in silenzio assoluto,
-  impossibile da diagnosticare da remoto. **Resta comunque la parte più a
-  rischio di questa fase**: se il sito è dietro protezioni anti-bot più
-  sofisticate di un controllo su header/User-Agent (es. una challenge
-  Cloudflare che richiede l'esecuzione di JavaScript), nessun client
-  `HttpURLConnection` può superarla — in quel caso l'unica strada
-  praticabile sarebbe una `WebView` nascosta che carica la pagina reale e
-  intercetta le chiamate di rete, un cambiamento molto più invasivo non
-  ancora fatto. Se dopo questo fix le stime restano sempre assenti,
-  controllare i log con quel tag prima di ipotizzare altre cause.
+  regardless of platform/title: TheGamesDB returns `null`
+  (not simply omitting the key) for `genres`/`developers` on games
+  without that data cataloged — a default value in
+  `kotlinx.serialization` only covers the *missing* key, not an explicit
+  `null`, so every game with `developers: null` in the response caused
+  the entire search to fail. Fix: `genres`/`developers` made `List<Long>?`
+  in `GameDto` (`TheGamesDbApiClient.kt`) instead of only having a default,
+  plus `coerceInputValues = true` on the `Json` instance as an additional
+  safety net for other fields that might behave the same way in the
+  future.
+- **HowLongToBeat missing everywhere** (neither in the backlog card nor in the
+  statistics): the first version of the client only implemented the "bare"
+  search POST, without the `x-auth-token`/`x-hp-key`/`x-hp-val`
+  headers that the currently maintained unofficial libraries (e.g.
+  ScrappyCocco/HowLongToBeat-PythonAPI) document as necessary — they need to be
+  obtained with a `GET <path>init` before the actual search.
+  `HowLongToBeatApiClient` now implements the entire flow (homepage → bundle
+  `_app-*.js` → endpoint → `init` → search with the headers), uses a
+  realistic desktop User-Agent instead of one that identifies as an app
+  (many sites with anti-scraping protections discard non-browser UAs
+  outright), and logs a warning at every step that fails (tag
+  `HowLongToBeatClient`, checkable with `adb logcat -s
+  HowLongToBeatClient`) — the previous phase failed in absolute
+  silence, impossible to diagnose remotely. **This remains the highest-
+  risk part of this phase**: if the site is behind anti-bot protections more
+  sophisticated than a header/User-Agent check (e.g. a Cloudflare
+  challenge requiring JavaScript execution), no `HttpURLConnection`
+  client can get past it — in that case the only viable path
+  would be a hidden `WebView` that loads the real page and
+  intercepts network calls, a much more invasive change not yet
+  made. If the estimates remain always absent after this fix,
+  check the logs with that tag before assuming other causes.
 
-### Seconda verifica su device: diagnostica HowLongToBeat, flusso backlog→recensione, griglia dinamica
+### Second device verification: HowLongToBeat diagnostics, backlog→review flow, dynamic grid
 
-Tre ulteriori richieste dopo aver riprovato il primo giro di fix sopra —
-HowLongToBeat era ancora completamente assente e senza `adb` a
-disposizione non c'era modo di sapere perché, il flusso "completa item →
-scrivi recensione" risultava macchinoso, e le copertine in griglia con
-proporzioni diverse (quadrate vs verticali) sprecavano spazio.
+Three further requests after retrying the first round of fixes above —
+HowLongToBeat was still completely absent and without `adb`
+available there was no way to know why, the "complete item →
+write review" flow felt clunky, and covers in the grid with
+different aspect ratios (square vs. vertical) wasted space.
 
-- **Diagnostica HowLongToBeat spostata dentro l'app, non più solo `Log.w`**:
-  senza un modo per l'utente di leggere `adb logcat`, un fallimento silenzioso
-  restava un buco nero. `GameMetadataSearchCoordinator.searchHowLongToBeat()`
-  ora restituisce un `HltbOutcome` (`Found`/`NotFound`/`Error(message)`)
-  invece di un `HowLongToBeatEstimate?` nudo — `BacklogItemFormViewModel`
-  lo trasforma in `BacklogItemFormUiState.hltbMessage`, una riga di testo
-  mostrata nel form subito dopo aver scelto un risultato "Cerca online"
-  (es. "HowLongToBeat: ricerca non riuscita — HTTP 403: ..."). Stesso
-  principio già applicato al fix del messaggio generico di TheGamesDB in
-  Fase 7: il messaggio reale, anche se tecnico, batte un fallimento muto —
-  ora un eventuale nuovo fallimento è leggibile direttamente sullo schermo
-  e riportabile senza strumenti di debug.
-- **Flusso "completa → scrivi recensione" reso esplicito invece che
-  immediato**: prima, toccare il chip "Completato" applicava subito lo
-  stato *e* faceva comparire il dialog "vuoi scrivere una recensione?" ad
-  ogni singolo tap, anche solo per esplorare le opzioni. `StatusEditor`
-  (`BacklogItemDetailScreen.kt`) ora tiene la selezione (stato + nota
-  abbandono) come stato locale non committato; un pulsante "Salva" compare
-  solo quando la selezione differisce da quella salvata, e solo alla
-  pressione di quel pulsante `BacklogItemDetailViewModel.onSaveStatus()`
-  scrive lo stato e — solo se lo stato è davvero cambiato in COMPLETATO —
-  fa scattare il prompt. Sostituisce i precedenti `onStatusChange`/
-  `onAbandonNoteChange` (che scrivevano ad ogni tap/carattere).
-- **Il form di recensione precompilato ora si apre già "Completato"**:
-  `ReviewFormViewModel` non impostava lo `status` nel draft precompilato da
-  un backlog item (restava sull'`IN_CORSO` di default), nonostante l'unico
-  modo di arrivarci sia proprio il prompt post-completamento — ora imposta
-  esplicitamente `ReviewStatus.COMPLETATO` (e usa `LocalDate.now()` come
-  `dataFine` di fallback se il backlog item non ne aveva ancora una).
-- **Il tasto indietro dal form precompilato non torna più nel backlog**:
-  prima faceva semplicemente `popBackStack()`, tornando alla scheda
-  backlog e scartando qualunque dato digitato. `ReviewFormViewModel.onBackPressed()`
-  salva la recensione come "bozza" (se c'è almeno un titolo, senza le
-  validazioni della Save esplicita — un back non è una conferma
-  deliberata) e la collega comunque al backlog item; `ThePatientGamerHelperNavGraph`
-  distingue il caso "form aperto dal backlog" (`Destination.Form.backlogItemId != null`)
-  e in quel caso naviga verso `Destination.Library` (stesso pattern
-  `popUpTo(Home){saveState=true}` già usato dal drawer) invece di fare un
-  semplice pop — un cancel da un form aperto normalmente dalla libreria
-  resta un pop invariato.
-- **Griglia dinamica invece di righe a altezza uniforme**: `GameGridTile`
-  non forza più un `aspectRatio` fisso sulla cover quando esiste
-  un'immagine (`ContentScale.FillWidth` senza vincolo di altezza, l'altezza
-  segue le proporzioni reali del file); `LibraryScreen`/`BacklogListDetailScreen`
-  passano da `LazyVerticalGrid` (righe uniformi, ogni riga alta quanto la
-  tile più alta) a `LazyVerticalStaggeredGrid` (`StaggeredGridCells.Adaptive`,
-  richiede `@OptIn(ExperimentalFoundationApi::class)` su questo BOM) così
-  copertine quadrate e verticali stanno affiancate senza spazio sprecato
-  sopra/sotto le più corte — resta solo un piccolo offset costante
-  (`verticalItemSpacing`/`horizontalArrangement`, 12dp) tra le tile. Il
-  placeholder "nessuna copertina" resta a proporzione fissa 2:3, l'unico
-  caso senza una dimensione intrinseca da cui derivare la forma.
+- **HowLongToBeat diagnostics moved into the app, no longer just `Log.w`**:
+  with no way for the user to read `adb logcat`, a silent failure
+  remained a black box. `GameMetadataSearchCoordinator.searchHowLongToBeat()`
+  now returns an `HltbOutcome` (`Found`/`NotFound`/`Error(message)`)
+  instead of a bare `HowLongToBeatEstimate?` — `BacklogItemFormViewModel`
+  turns it into `BacklogItemFormUiState.hltbMessage`, a line of text
+  shown in the form right after picking a "Search online" result
+  (e.g. "HowLongToBeat: search failed — HTTP 403: ..."). The same
+  principle already applied to the TheGamesDB generic-message fix in
+  Phase 7: a real message, even if technical, beats a silent failure —
+  now any future failure is readable directly on screen
+  and reportable without debugging tools.
+- **"Complete → write review" flow made explicit instead of
+  immediate**: previously, tapping the "Completed" chip immediately applied the
+  status *and* brought up the "want to write a review?" dialog on
+  every single tap, even just while exploring the options. `StatusEditor`
+  (`BacklogItemDetailScreen.kt`) now keeps the selection (status +
+  abandonment note) as uncommitted local state; a "Save" button appears
+  only when the selection differs from the saved one, and only on pressing
+  that button does `BacklogItemDetailViewModel.onSaveStatus()`
+  write the status and — only if the status actually changed to COMPLETATO —
+  trigger the prompt. It replaces the previous `onStatusChange`/
+  `onAbandonNoteChange` (which wrote on every tap/keystroke).
+- **The prefilled review form now opens already set to "Completed"**:
+  `ReviewFormViewModel` did not set the `status` in the draft prefilled from
+  a backlog item (it stayed at the default `IN_CORSO`), even though the only
+  way to reach it is precisely the post-completion prompt — it now explicitly
+  sets `ReviewStatus.COMPLETATO` (and uses `LocalDate.now()` as a
+  fallback `dataFine` if the backlog item did not have one yet).
+- **The back button from the prefilled form no longer goes back into the backlog**:
+  previously it simply did a `popBackStack()`, returning to the
+  backlog card and discarding any typed data. `ReviewFormViewModel.onBackPressed()`
+  now saves the review as a "draft" (if there is at least a title, without the
+  validations of an explicit Save — a back is not a deliberate
+  confirmation) and links it to the backlog item regardless;
+  `ThePatientGamerHelperNavGraph` distinguishes the "form opened from the backlog"
+  case (`Destination.Form.backlogItemId != null`)
+  and in that case navigates to `Destination.Library` (the same
+  `popUpTo(Home){saveState=true}` pattern already used by the drawer) instead of doing a
+  plain pop — a cancel from a form opened normally from the library
+  remains an unchanged pop.
+- **Dynamic grid instead of uniform-height rows**: `GameGridTile`
+  no longer forces a fixed `aspectRatio` on the cover when an
+  image exists (`ContentScale.FillWidth` with no height constraint, the height
+  follows the file's real proportions); `LibraryScreen`/`BacklogListDetailScreen`
+  switch from `LazyVerticalGrid` (uniform rows, each row as tall as the
+  tallest tile) to `LazyVerticalStaggeredGrid` (`StaggeredGridCells.Adaptive`,
+  requires `@OptIn(ExperimentalFoundationApi::class)` on this BOM) so
+  square and vertical covers sit side by side without wasted space
+  above/below the shorter ones — only a small constant offset
+  (`verticalItemSpacing`/`horizontalArrangement`, 12dp) remains between the tiles. The
+  "no cover" placeholder stays at a fixed 2:3 ratio, the only
+  case with no intrinsic dimension to derive the shape from.
 
-**Stato build**: stesso discorso delle note precedenti — scritto e rivisto
-staticamente, non eseguibile in questo sandbox (`dl.google.com` bloccato,
-riconfermato anche in questa sessione). La parte a più alto rischio resta
-la stessa: se HowLongToBeat continua a non restituire nulla, il messaggio
-ora visibile nel form (`hltb_status_error` con il dettaglio tecnico) è il
-primo posto da controllare — riportalo così com'è, invece di ipotizzare.
+**Build status**: same discussion as the previous notes — written and
+reviewed statically, not runnable in this sandbox (`dl.google.com` blocked,
+reconfirmed in this session too). The highest-risk part remains
+the same: if HowLongToBeat keeps returning nothing, the message
+now visible in the form (`hltb_status_error` with the technical detail) is the
+first place to check — report it verbatim instead of guessing.
 
-### Terza verifica su device: la diagnostica ha dato frutti, fix del redirect HTTP 308
+### Third device verification: diagnostics paid off, HTTP 308 redirect fix
 
-La diagnostica aggiunta nel giro precedente ha funzionato esattamente come
-previsto: invece di restare un buco nero, l'utente ha potuto riportare il
-messaggio esatto mostrato nel form — **"ricerca non riuscita — HTTP 308"**,
-identico per qualunque titolo cercato. Causa reale, non più ipotesi:
-`HttpURLConnection` con `followRedirects` di default **non segue in modo
-affidabile i redirect su richieste POST**, e ha lacune note specificamente
-sul codice 308 (Permanent Redirect, che a differenza di 301/302 impone di
-preservare metodo e body — introdotto da RFC 7538, più recente del resto
-della gestione redirect storica della classe). La POST di ricerca (o una
-delle GET del flusso homepage→bundle→init) veniva quindi rediretta dal
-server e la libreria restituiva il 308 nudo invece di seguirlo.
+The diagnostics added in the previous round worked exactly as
+intended: instead of remaining a black box, the user was able to report the
+exact message shown in the form — **"search failed — HTTP 308"**,
+identical for any title searched. The real cause, no longer a guess:
+`HttpURLConnection` with default `followRedirects` **does not reliably
+follow redirects on POST requests**, and has known gaps specifically
+around code 308 (Permanent Redirect, which unlike 301/302 requires
+preserving the method and body — introduced by RFC 7538, more recent than the rest
+of the class's historical redirect handling). The search POST (or one
+of the homepage→bundle→init flow's GETs) was therefore being redirected by the
+server, and the library returned the bare 308 instead of following it.
 
-Fix: `HowLongToBeatApiClient.request()` disabilita `instanceFollowRedirects`
-e segue i redirect **manualmente** (fino a `MAX_REDIRECTS = 5`), rilanciando
-la richiesta con lo stesso metodo, header e body verso l'URL risolto da
-`Location` — comportamento corretto per 307/308 (che lo richiedono) e la
-scelta più sicura anche per 301/302/303 in questo contesto (ci si aspetta
-comunque una risposta JSON). Tutte e quattro le chiamate del client (le tre
-GET del flusso di autenticazione più la POST di ricerca) passano ora da
-questo unico punto invece di un `openConnection()` che si affidava al
-comportamento di default. Ogni redirect seguito viene loggato (tag
-`HowLongToBeatClient`) per restare diagnosticabile se il nuovo comportamento
-rivelasse un ulteriore problema a valle.
+Fix: `HowLongToBeatApiClient.request()` disables `instanceFollowRedirects`
+and follows redirects **manually** (up to `MAX_REDIRECTS = 5`), re-issuing
+the request with the same method, headers, and body toward the URL resolved from
+`Location` — the correct behavior for 307/308 (which require it) and the
+safest choice for 301/302/303 too in this context (a JSON response is
+expected regardless). All four of the client's calls (the three
+GETs of the authentication flow plus the search POST) now go through
+this single point instead of an `openConnection()` that relied on the
+default behavior. Every redirect followed is logged (tag
+`HowLongToBeatClient`) to remain diagnosable if the new behavior
+reveals a further downstream issue.
 
-### Quarta verifica su device: recensioni duplicate dal flusso backlog, HowLongToBeat ancora 308
+### Fourth device verification: duplicate reviews from the backlog flow, HowLongToBeat still 308
 
-Due ulteriori segnalazioni dopo il fix del redirect HTTP 308: le recensioni
-create dal flusso "completa item → scrivi recensione" si duplicavano ad ogni
-nuovo tentativo, e HowLongToBeat continuava a restituire lo stesso errore
-"HTTP 308" nonostante il fix del redirect manuale.
+Two further reports after the HTTP 308 redirect fix: reviews
+created from the "complete item → write review" flow were being duplicated on every
+new attempt, and HowLongToBeat kept returning the same
+"HTTP 308" error despite the manual redirect fix.
 
-- **Recensioni duplicate — causa reale**: una volta collegata una recensione
-  a un backlog item (`BacklogItem.reviewId` valorizzato), l'unico modo per
-  "rientrarci" era di nuovo `onWriteReview` →
-  `Destination.Form(backlogItemId = itemId)`, che crea **sempre** una
-  recensione vuota nuova (`reviewId = null` nella route), ignorando che una
-  recensione era già collegata. L'unica traccia visibile del collegamento
-  era una scritta inerte ("Recensione collegata"), non cliccabile — nessun
-  modo di riaprire *quella* recensione, quindi ogni volta che l'utente
-  ripassava dal flusso (es. per verificare/continuare la recensione) finiva
-  per generarne un'altra bozza. Il guard `current.reviewId == null` in
-  `BacklogItemDetailViewModel.onSaveStatus()` impedisce già correttamente un
-  secondo prompt "vuoi scrivere una recensione?" per lo stesso item — il
-  problema non era lì, ma nell'assenza totale di un percorso per
-  raggiungere di nuovo una recensione già esistente.
-- **Fix**: "Recensione collegata" (`BacklogItemDetailScreen.kt`) è ora un
-  testo cliccabile (sottolineato, stesso colore primario di prima) che apre
-  direttamente `Destination.Detail(reviewId)` — la normale schermata di
-  dettaglio recensione, con i suoi percorsi di modifica/cancellazione già
-  esistenti e sicuri (nessun rischio di duplicazione: modificare una
-  recensione esistente passa sempre da `editingId != null`, mai dal ramo di
-  precompilazione da backlog). Aggiunto anche `onOpenReview: (String) -> Unit`
-  come nuovo parametro di `BacklogItemDetailScreen`, cablato in
-  `ThePatientGamerHelperNavGraph.kt`. Come protezione difensiva aggiuntiva
-  contro un doppio tap sul pulsante "Sì" del dialog (che potrebbe accodare
-  due navigazioni identiche prima che il dialog si chiuda), la navigazione
-  di `onWriteReview` ora passa anche `launchSingleTop = true`.
-- **Pulsante "Salva" dello stato poco visibile**: `StatusEditor` usava un
-  semplice `TextButton` — poco distinguibile dal resto del testo quando
-  compare. Cambiato in `Button` (pieno, colore primario) per renderlo
-  immediatamente riconoscibile come azione da compiere.
-- **Recensioni bozza già duplicate sul device dell'utente**: questo fix
-  previene nuove duplicazioni, ma **non tocca i dati già presenti** — le
-  bozze doppie/triple create prima del fix restano nel database locale e
-  vanno cancellate a mano dall'utente (icona cestino nel dettaglio di ogni
-  recensione di troppo). Non è stato scritto un passo di migrazione
-  automatica per deduplicare: non c'è un modo affidabile di distinguere
-  "recensione duplicata da questo bug" da "due recensioni identiche per
-  titolo ma volute dall'utente" senza rischiare di cancellare dati reali.
-- **HowLongToBeat ancora "HTTP 308" dopo il fix del redirect manuale**: il
-  fix della sessione precedente (seguire i redirect a mano, vedi sopra) era
-  una correzione motivata da un errore reale riportato dall'utente, ma il
-  nuovo test riporta lo stesso identico errore, non uno diverso — quindi
-  **non è stato risolto**, o almeno non è ancora possibile dirlo con
-  certezza. Senza accesso di rete a `howlongtobeat.com` da questo sandbox
-  (stessa limitazione nota, invariata), non è possibile riprodurre e
-  verificare oltre quello che l'utente può riportare da un device reale.
-  Invece di tentare un altro fix "alla cieca" sullo stesso codice già
-  corretto una volta senza successo, `ensureSuccessful()` e il messaggio di
-  troppi-redirect in `HowLongToBeatApiClient.request()` ora includono anche
-  l'URL che ha effettivamente fallito (`HTTP $responseCode @ $url`, e per i
-  troppi-redirect sia l'URL di partenza che l'ultimo raggiunto) — prima il
-  messaggio era solo "HTTP 308" senza dire *quale* chiamata delle quattro
-  del flusso (homepage, bundle JS, init, ricerca) lo avesse prodotto, né se
-  fosse il path derivato dal bundle o il fallback `/api/s/`. Un prossimo
-  report con l'URL incluso permetterà una diagnosi mirata invece di un
-  ulteriore tentativo speculativo. **Resta la parte meno affidabile di
-  questa fase**, come già segnalato — non dare per risolto finché l'utente
-  non conferma che le stime compaiono davvero.
+- **Duplicate reviews — real cause**: once a review was linked
+  to a backlog item (`BacklogItem.reviewId` set), the only way to
+  "get back to it" was again `onWriteReview` →
+  `Destination.Form(backlogItemId = itemId)`, which **always** creates a
+  new empty review (`reviewId = null` in the route), ignoring that a
+  review was already linked. The only visible trace of the link
+  was an inert label ("Recensione collegata"), not clickable — no
+  way to reopen *that* review, so every time the user
+  went back through the flow (e.g. to check on/continue the review) they ended up
+  generating yet another draft. The guard `current.reviewId == null` in
+  `BacklogItemDetailViewModel.onSaveStatus()` already correctly prevents a
+  second "want to write a review?" prompt for the same item — the
+  problem wasn't there, but in the total absence of a path to
+  reach an already-existing review again.
+- **Fix**: "Recensione collegata" (`BacklogItemDetailScreen.kt`) is now a
+  clickable text (underlined, same primary color as before) that directly opens
+  `Destination.Detail(reviewId)` — the normal review detail
+  screen, with its existing, safe edit/delete paths
+  (no risk of duplication: editing an existing review always goes through
+  `editingId != null`, never through the backlog-prefill branch). Also added
+  `onOpenReview: (String) -> Unit` as a new parameter of
+  `BacklogItemDetailScreen`, wired in `ThePatientGamerHelperNavGraph.kt`. As an
+  additional defensive protection against a double tap on the dialog's "Yes"
+  button (which could queue two identical navigations before the
+  dialog closes), `onWriteReview`'s navigation now also passes
+  `launchSingleTop = true`.
+- **Poorly visible status "Save" button**: `StatusEditor` used a
+  plain `TextButton` — hard to distinguish from the rest of the text when
+  it appears. Changed to `Button` (filled, primary color) to make it
+  immediately recognizable as an action to take.
+- **Draft reviews already duplicated on the user's device**: this fix
+  prevents new duplication, but **does not touch data already present** — the
+  double/triple drafts created before the fix remain in the local database and
+  must be deleted by hand by the user (trash icon in the detail view of each
+  extra review). No automatic deduplication migration step was written: there is no
+  reliable way to distinguish "review duplicated by this bug" from
+  "two identical reviews by title but intended by the user" without risking
+  deleting real data.
+- **HowLongToBeat still "HTTP 308" after the manual redirect fix**: the
+  previous session's fix (following redirects by hand, see above) was
+  a correction motivated by a real error reported by the user, but the
+  new test reports the exact same error, not a different one — so it
+  **has not been resolved**, or at least it is not yet possible to say so with
+  certainty. Without network access to `howlongtobeat.com` from this sandbox
+  (the same known limitation, unchanged), it is not possible to reproduce and
+  verify further beyond what the user can report from a real device.
+  Instead of attempting another "blind" fix on the same code already
+  corrected once without success, `ensureSuccessful()` and the too-many-redirects
+  message in `HowLongToBeatApiClient.request()` now also include
+  the URL that actually failed (`HTTP $responseCode @ $url`, and for
+  too-many-redirects both the starting URL and the last one reached) — previously the
+  message was just "HTTP 308" without saying *which* of the flow's four
+  calls (homepage, JS bundle, init, search) had produced it, nor whether
+  it was the path derived from the bundle or the `/api/s/` fallback. A next
+  report with the URL included will allow a targeted diagnosis instead of a
+  further speculative attempt. **This remains the least reliable part of
+  this phase**, as already noted — do not assume it resolved until the user
+  confirms the estimates actually appear.
 
-### Spostamento automatico in liste "Completati con/senza recensione"
+### Fifth device verification: missing BackHandler in the review form, HowLongToBeat finally reaches the real site (but 404)
 
-Richiesta esplicita: una volta completato un item del backlog, dovrebbe
-"sparire" automaticamente in una di due liste dedicate a seconda che
-l'utente abbia scritto la recensione o meno, con un avviso prima dello
-spostamento (non uno spostamento silenzioso).
+Two reports: the review duplication from the backlog flow
+kept occurring *every time* for the same game despite the previous
+round's fix, and HowLongToBeat now returns a real 404 page
+from howlongtobeat.com instead of a network error.
 
-- **Due liste gestite dall'app, identificate da un tag stabile, non dal
-  nome**: `BacklogListEntity.systemKind` (colonna nullable, `MIGRATION_3_4`
-  additiva) porta `domain/model/BacklogListKind` (`COMPLETED_WITH_REVIEW`/
-  `COMPLETED_AWAITING_REVIEW`) — vedi la sottosezione dedicata più sotto
-  ("Nomi delle due liste...") per il ragionamento completo, incluso perché
-  la primissima versione usava invece un nome fisso non localizzato e
-  perché è stata rivista dopo il feedback dell'utente.
-- **`BacklogRepository.getOrCreateSystemList(kind, displayName)`** (nuovo,
-  in `BacklogRepositoryImpl`) risolve per `systemKind` esatto
-  (`backlog_lists WHERE systemKind = :kind`) o crea la lista in coda con
-  quel tag e `displayName` come nome iniziale se non esiste — poi riusa
-  `moveItem()` già esistente (stessa history `CAMBIO_LISTA` del riordino
-  manuale). Il chiamante (ViewModel) risolve `displayName` da
-  `context.getString()` nella lingua corrente dell'app.
-- **Trigger "No" (non scrivere recensione)**: `BacklogItemDetailViewModel`
-  — il pulsante "No" del prompt "vuoi scrivere una recensione?" ora chiama
-  `onReviewDeclined()` invece di limitarsi a chiudere il dialog, che espone
-  un secondo one-shot `pendingMove: StateFlow<PendingListMove?>`
-  consumato da un nuovo `AlertDialog` in `BacklogItemDetailScreen`
-  ("Sposta"/"Non spostare") — è **questo** dialog il punto in cui l'utente
-  viene avvisato prima dello spostamento vero, non il primo prompt.
-  Chiudere il primo dialog toccando fuori (`onDismissRequest`, invariato,
-  → `onReviewPromptConsumed()`) resta un vero e proprio "decido dopo": non
-  offre lo spostamento, l'item resta dov'è.
-- **Trigger "Sì" (scrivi recensione)**: lo spostamento non può avvenire al
-  tap su "Sì" (l'utente potrebbe non arrivare mai a salvare), quindi vive
-  in `ReviewFormViewModel`, agganciato al **primo** salvataggio riuscito di
-  una recensione creata dal backlog — sia il tasto ✓ esplicito (`save()`)
-  sia il salvataggio implicito di bozza premendo indietro
-  (`onBackPressed()`, Fase 8 precedente). Entrambi condividono
-  `offerMoveToCompletedWithReview()`: popola lo stesso `pendingMove`
-  one-shot e **rimanda** la callback di navigazione (`onSaved`/`onDone`)
-  finché l'utente non risponde al dialog — chi tocca "Sposta" o "Non
-  spostare" fa proseguire la navigazione, mai prima. Guardia esplicita
-  `editingId == null`: modificare in un secondo momento una recensione già
-  collegata (aperta ora anche tramite il link "Recensione collegata", vedi
-  sopra) **non** ripropone l'offerta ad ogni salvataggio — solo alla
-  creazione originale.
-- **Icona "sposta in lista" (freccia su cartella) che "non faceva
-  niente"**: causa reale, non un bug di rendering — con una sola lista nel
-  backlog il menu a tendina non aveva alcuna voce da mostrare (il filtro
-  esclude la lista corrente), quindi il tap apriva un `DropdownMenu` vuoto,
-  visivamente indistinguibile dal "niente è successo". Fix:
-  `IconButton` disabilitato (`enabled = otherLists.isNotEmpty()`) quando
-  non c'è nessun'altra lista verso cui spostare — un'icona visibilmente
-  spenta invece di un tap silenzioso. Con l'auto-creazione delle due liste
-  sopra, dopo il primo completamento l'icona torna comunque utile (c'è
-  sempre almeno un'altra lista tra cui scegliere).
-- **Nessun modo di scrivere una recensione più tardi, da "Completati in
-  attesa di recensione"**: l'unico innesco del flusso "vuoi scrivere una
-  recensione?" era il momento esatto del cambio di stato a Completato —
-  rispondere "No" (e quindi finire nella lista "in attesa") non lasciava
-  nessun altro punto d'ingresso, a parte il trucco di cambiare stato e
-  rimetterlo su Completato per far riscattare il guard `reviewId == null`
-  in `onSaveStatus()`. Fix: nello stesso punto dove compare "Recensione
-  collegata" (quando l'item ha già una recensione), ora compare un link
-  cliccabile "Scrivi una recensione" ogni volta che l'item è Completato
-  *senza* una recensione collegata — persistente, funziona da qualunque
-  lista si trovi l'item, e riusa `onWriteReview(item.id)` esistente.
-- **Nomi delle due liste: da costanti fisse a un tag di identità stabile
-  con etichetta localizzata**: la prima versione usava due stringhe fisse
-  in italiano (`BacklogSystemLists`, non `stringResource`) per evitare che
-  un cambio di lingua dell'app facesse ricreare una seconda lista parallela
-  al prossimo trigger (il lookup era per nome esatto). L'utente ha fatto
-  notare, correttamente, che così un utente che usa l'app in inglese
-  vedrebbe comunque nomi di lista in italiano — un compromesso peggiore del
-  necessario. Soluzione adottata: `BacklogListEntity.systemKind` (colonna
-  nuova, nullable, `MIGRATION_3_4` additiva — `NULL` per ogni lista
-  esistente/normale) porta un identificatore stabile e non localizzato
-  (`domain/model/BacklogListKind`, enum `COMPLETED_WITH_REVIEW`/
-  `COMPLETED_AWAITING_REVIEW`), usato per il lookup in
-  `BacklogRepository.getOrCreateSystemList(kind, displayName)` **al posto**
-  del nome. Il nome vero e proprio (`displayName`, risolto dal chiamante
-  via `context.getString(R.string.backlog_list_completed_...)`, quindi
-  nella lingua corrente dell'app) viene scritto solo al momento della
-  *creazione* della lista — esattamente come un nome di lista digitato a
-  mano da un utente, non segue retroattivamente un cambio lingua successivo
-  (stesso comportamento di qualunque altro dato testuale salvato
-  nell'app). Il vantaggio pratico: la lista non si duplica mai più al
-  cambio lingua (il match è sempre per `systemKind`), e chi la crea per la
-  prima volta la vede nella propria lingua — senza dover toccare ogni punto
-  della UI che mostra un nome di lista (sarebbe stato necessario solo con
-  un'alternativa "nome sempre risolto al volo dal kind ad ogni render", non
-  scelta per non introdurre quella complessità aggiuntiva).
+- **Real cause of the duplication, not resolved by the previous fix**: the
+  previous round's fix (clickable "Recensione collegata" link +
+  `editingId != null` as a guard) assumed the only way out of
+  the review form was the top-left arrow, whose
+  `onClick` calls `viewModel.onBackPressed { onCancel() }` (implicit
+  draft save + linking to the backlog item + offer to move
+  list). **The system back gesture (swipe/hardware button)
+  does not go through there**: Compose Navigation registers its own
+  `OnBackPressedCallback` that by default does a bare `popBackStack()`,
+  completely bypassing the screen's custom logic unless it is
+  explicitly intercepted with a `BackHandler`. Observed result:
+  the user exits with the system gesture instead of tapping the arrow, nothing
+  is saved or linked, the item returns to the backlog detail
+  screen with `reviewId` still `null` — which, being the item's "honest"
+  state, correctly brings back (not a bug in itself) the "write
+  a review" link/prompt, and every subsequent attempt generates another
+  independent review. Fix: `BackHandler` added in
+  `ReviewFormScreen.kt` that invokes the same `onBackPressed()` — now
+  the system gesture and the top arrow behave identically.
+  No other screen in the app has custom back logic that
+  diverges from the plain default pop, so it is the only spot that
+  needed this fix.
+- **HowLongToBeat: the (third-round) 308 redirect fix really did work** —
+  concrete proof, no longer just theory: the error now reported
+  is a **HTTP 404 with a real HTML body** ("HowLongToBeat - 404",
+  coming from `https://howlongtobeat.com/api/s...`), no longer a bare 308
+  or a connection error. This confirms that the client correctly follows
+  redirects and talks to the real site. The current problem is therefore
+  different and more specific: the search path used
+  (derived from the JS bundle or from the historical `/api/s/` fallback) no longer exists
+  on howlongtobeat.com. No new "guessed" fix on the
+  path value was attempted (guessing another string with no way to
+  verify it would have the same success rate as the previous attempt)
+  — instead, `HltbAuth` now carries a `source` field that indicates whether the
+  path used comes from the bundle extraction (with the exact value
+  extracted) or from the static fallback (with the reason: bundle not found,
+  regex with no match, or the entire extraction failed), included in the
+  error message shown in-app. A future report will say with certainty whether the
+  problem is "the historical fallback is now dead" (needs a fresh search
+  for the current path, impossible from this sandbox without network
+  access) or "the bundle regex is grabbing the wrong `fetch()`"
+  (fixable by tightening the regex, but only with proof that this is really
+  the case).
 
-### Quinta verifica su device: BackHandler mancante nel form recensione, HowLongToBeat raggiunge finalmente il sito reale (ma 404)
+### Fix of the bundle regex: porting from an actively maintained library instead of another blind attempt
 
-Due segnalazioni: la duplicazione di recensioni dal flusso backlog
-continuava a verificarsi *sempre* per lo stesso gioco nonostante il fix
-del giro precedente, e HowLongToBeat ora restituisce una pagina 404 reale
-di howlongtobeat.com invece di un errore di rete.
+On the user's explicit suggestion ("can't you use this repo... or
+this in python?"), instead of continuing to guess, I fetched via
+`WebFetch` the real source of two third-party unofficial
+HowLongToBeat integrations:
+`ScrappyCocco/HowLongToBeat-PythonAPI` (Python, version 1.0.22, updated
+in mid-2026 — so verifiably active and recent) and
+`ckatzorke/howlongtobeat` (actually TypeScript, not Java as initially
+assumed by the user — no problem, the code matters more than the
+language).
 
-- **Causa reale della duplicazione, non risolta dal fix precedente**: il
-  fix del giro scorso (link cliccabile "Recensione collegata" +
-  `editingId != null` come guardia) presumeva che l'unico modo di uscire
-  dal form recensione fosse la freccia in alto a sinistra, la cui
-  `onClick` chiama `viewModel.onBackPressed { onCancel() }` (salvataggio
-  implicito della bozza + collegamento al backlog item + offerta di
-  spostamento lista). **Il gesto di back di sistema (swipe/tasto hardware)
-  non passa da lì**: Compose Navigation registra un proprio
-  `OnBackPressedCallback` che di default fa un `popBackStack()` nudo,
-  bypassando completamente la logica custom della schermata a meno di non
-  intercettarlo esplicitamente con un `BackHandler`. Risultato osservato:
-  l'utente esce col gesto di sistema invece di toccare la freccia, nulla
-  viene salvato né collegato, l'item torna alla schermata di dettaglio
-  backlog con `reviewId` ancora `null` — che essendo lo stato "onesto"
-  dell'item, ripropone correttamente (non è un bug in sé) il link "Scrivi
-  una recensione"/il prompt, e ogni tentativo successivo genera un'altra
-  recensione indipendente. Fix: `BackHandler` aggiunto in
-  `ReviewFormScreen.kt` che richiama la stessa `onBackPressed()` — ora
-  gesto di sistema e freccia in alto si comportano identicamente.
-  Nessun'altra schermata dell'app ha logica di back personalizzata che
-  diverge dal semplice pop di default, quindi è l'unico punto che
-  necessitava di questo fix.
-- **HowLongToBeat: il fix del redirect 308 (terzo giro) ha funzionato
-  davvero** — prova concreta, non più solo teoria: l'errore ora riportato
-  è un **HTTP 404 con corpo HTML reale** ("HowLongToBeat - 404",
-  proveniente da `https://howlongtobeat.com/api/s...`), non più un 308
-  nudo o un errore di connessione. Questo conferma che il client segue
-  correttamente i redirect e dialoga con il sito vero. Il problema attuale
-  è quindi diverso e più specifico: il percorso di ricerca usato
-  (derivato dal bundle JS o dal fallback storico `/api/s/`) non esiste più
-  su howlongtobeat.com. Non è stato tentato un nuovo fix "a naso" sul
-  valore del percorso (indovinare un'altra stringa senza poterla
-  verificare avrebbe lo stesso tasso di successo del tentativo precedente)
-  — invece, `HltbAuth` porta ora un campo `source` che distingue se il
-  percorso usato viene dall'estrazione dal bundle (con il valore esatto
-  estratto) o dal fallback statico (con il motivo: bundle non trovato,
-  regex senza match, o l'intera estrazione fallita), incluso nel messaggio
-  d'errore mostrato in-app. Un prossimo report dirà con certezza se il
-  problema è "il fallback storico è ormai morto" (serve una nuova ricerca
-  sul percorso corrente, impossibile da questo sandbox senza accesso di
-  rete) oppure "la regex sul bundle intercetta il `fetch()` sbagliato"
-  (fixabile stringendo la regex, ma solo con la prova che sia davvero
-  quello il caso).
-
-### Fix della regex del bundle: porting da una libreria attivamente mantenuta invece di un altro tentativo alla cieca
-
-Su suggerimento esplicito dell'utente ("non puoi usare questo repo... o
-questo in python?"), invece di continuare a ipotizzare, ho recuperato via
-`WebFetch` il sorgente reale di due integrazioni HowLongToBeat non
-ufficiali di terze parti:
-`ScrappyCocco/HowLongToBeat-PythonAPI` (Python, versione 1.0.22, aggiornata
-a metà 2026 — quindi verificabilmente attiva e recente) e
-`ckatzorke/howlongtobeat` (in realtà TypeScript, non Java come ipotizzato
-inizialmente dall'utente — nessun problema, il codice conta più del
-linguaggio).
-
-- **Causa concreta del 404 del giro precedente, confermata dal confronto**:
-  la regex di questo client che estrae il percorso di ricerca dal bundle
-  `_app-*.js` (`fetchAuth()` in `HowLongToBeatApiClient.kt`) non
-  richiedeva che il `fetch(...)` trovato fosse specificamente una
-  chiamata `POST` — poteva quindi agganciarsi al primo `fetch("/api/...")`
-  qualunque nel bundle (es. una chiamata GET di analytics/telemetria
-  scorrelata), producendo un percorso plausibile ma sbagliato, da cui il
-  404. La libreria Python (`HTMLRequests.py`) usa invece
+- **Concrete cause of the previous round's 404, confirmed by comparison**:
+  this client's regex that extracts the search path from the bundle
+  `_app-*.js` (`fetchAuth()` in `HowLongToBeatApiClient.kt`) did not
+  require that the matched `fetch(...)` specifically be a
+  `POST` call — it could therefore latch onto the first `fetch("/api/...")`
+  found anywhere in the bundle (e.g. an unrelated analytics/telemetry
+  GET call), producing a plausible but wrong path, hence the
+  404. The Python library (`HTMLRequests.py`) instead uses
   `r'fetch\s*\(\s*["\']/api/([a-zA-Z0-9_/]+)[^"\']*["\']\s*,\s*{[^}]*method:\s*["\']POST["\'][^}]*}'`
-  — richiede esplicitamente `method: "POST"` nello stesso blocco di
-  opzioni del `fetch()`. Portata 1:1 in Kotlin come
-  `SEARCH_ENDPOINT_REGEX`, non una riscrittura a naso: la libreria Python
-  è la fonte più recente/attiva reperita (altre integrazioni note come
-  quella TypeScript risultano meno recentemente mantenute e usano un
-  endpoint statico diverso, `/api/search`, senza alcun header di
-  autenticazione — approccio strutturalmente diverso dal flusso con
-  auth-token già implementato qui, non integrato per non mescolare due
-  strategie senza prova che siano compatibili).
-- **Ancora non eseguibile da questo sandbox** (nessun accesso di rete a
-  `howlongtobeat.com`, limitazione invariata) — la correzione è motivata
-  da una fonte esterna verificabile e recente, non da una nuova ipotesi,
-  ma resta comunque da confermare sul device reale. Se il 404 persiste
-  anche con questa regex più stretta, il campo `source` nel messaggio
-  d'errore (vedi sopra) dirà se il fallback statico è quello ormai
-  scaduto — a quel punto andrebbe aggiornato anche
-  `FALLBACK_SEARCH_PATH`, ma solo con un valore verificato allo stesso
-  modo (fonte esterna reale), non indovinato.
+  — explicitly requiring `method: "POST"` in the same options block
+  of the `fetch()`. Ported 1:1 into Kotlin as
+  `SEARCH_ENDPOINT_REGEX`, not a freehand rewrite: the Python library
+  is the most recent/active source found (other known integrations such as
+  the TypeScript one are less recently maintained and use a
+  different static endpoint, `/api/search`, with no authentication
+  header — a structurally different approach from the auth-token flow
+  already implemented here, not integrated so as not to mix two
+  strategies without proof they are compatible).
+- **Still not runnable from this sandbox** (no network access to
+  `howlongtobeat.com`, unchanged limitation) — the fix is motivated
+  by a verifiable and recent external source, not by a new guess,
+  but still needs to be confirmed on a real device. If the 404 persists
+  even with this tighter regex, the `source` field in the error
+  message (see above) will tell whether the static fallback is the one now
+  dead — at that point `FALLBACK_SEARCH_PATH` would also need updating,
+  but only with a value verified the same way
+  (a real external source), not guessed.
 
-### TheGamesDB: 403 "Invalid API key" con chiave rigenerata e quota residua
+### TheGamesDB: 403 "Invalid API key" with a regenerated key and remaining quota
 
-Segnalazione separata da HowLongToBeat: la ricerca online da backlog/form
-recensione falliva con `HTTP 403: {"code":403,"status":"Invalid API key
+A report separate from HowLongToBeat: the online search from backlog/review
+form was failing with `HTTP 403: {"code":403,"status":"Invalid API key
 was provided.","remaining_monthly_allowance":0,"allowance_refresh_timer":0}`
-anche con una chiave **appena rigenerata** dal pannello di TheGamesDB, che
-mostrava quota residua reale (923/1000) — i due zero nel corpo dell'errore
-sono quindi valori segnaposto per una chiave non riconosciuta, non un
-riflesso della quota vera.
+even with a key **just regenerated** from the TheGamesDB panel, which
+showed a real remaining quota (923/1000) — the two zeros in the error body
+are therefore placeholder values for an unrecognized key, not a
+reflection of the real quota.
 
-- **Verificato: non è una regressione di questa sessione**. `git log` sui
-  file di `data/thegamesdb/` mostra l'ultimo tocco al giro "Fix UI e
-  robustezza dopo verifica su device reale" (Fase 8), ben prima di tutti i
-  round HowLongToBeat/navigazione di questa sessione — nessuna modifica
-  recente al modo in cui la `apikey` viene inviata.
-- **Formato della richiesta confermato corretto per confronto esterno**:
-  via `WebFetch` su `raw.githubusercontent.com` (stesso approccio usato
-  per il fix HowLongToBeat), recuperato `src/thegamesdb.cpp` di
-  `muldjord/skyscraper` — scraper C++ attivamente mantenuto, uno dei
-  consumer noti dell'API TheGamesDB citati anche nella Fase 6 di questo
-  stesso file. Usa lo stesso base URL (`https://api.thegamesdb.net/v1`),
-  lo stesso endpoint (`/Games/ByGameName`) e lo stesso parametro
-  `&apikey=...` in query string — struttura della richiesta identica alla
-  nostra, quindi non è quello il problema.
-- **`TheGamesDbPreferences.apiKey` fa già `trim()`** sul valore prima di
-  salvarlo (`set(value) = ... putString(KEY_API_KEY, value.trim())`),
-  quindi uno spazio/a-capo residuo da un copia-incolla non dovrebbe essere
-  la causa.
-- **Diagnostica aggiunta, stesso principio di HowLongToBeat**:
-  `TheGamesDbApiClient.ensureSuccessful()` ora include l'URL della
-  richiesta fallita nel messaggio d'errore — `search()` chiama quattro
-  endpoint per ricerca (`Platforms`/`Genres`/`Developers` come lookup, poi
-  `Games/ByGameName`), e senza l'URL non era possibile sapere quale dei
-  quattro stesse fallendo.
-- **Sospetto principale, da confermare dall'utente**: dato che il formato
-  della richiesta è verificato corretto e la chiave risulta valida sul
-  pannello TheGamesDB, il problema più probabile è lato server
-  (propagazione della chiave rigenerata non ancora avvenuta, o un bug nel
-  loro sistema di validazione) — non risolvibile lato client. Suggerito
-  all'utente un test diretto e conclusivo: aprire da browser mobile
-  `https://api.thegamesdb.net/v1/Games/ByGameName?apikey=<CHIAVE>&name=mario`
-  (stesso trucco già usato per controllare il pannello quota) — se anche
-  lì la stessa chiave risulta "invalid", è inequivocabilmente un problema
-  lato TheGamesDB, non dell'app (la loro stessa pagina di errore invita a
-  contattare support@thegamesdb.net o Discord in quel caso).
-- **Confermato dall'utente, causa isolata**: la stessa identica URL (con
-  la stessa chiave "invalid") testata a mano da browser mobile **funziona**
-  — la chiave è quindi valida e l'endpoint è corretto, la differenza è
-  tutta negli header della richiesta. Sospetto principale ora:
-  `USER_AGENT` era una stringa che identifica esplicitamente l'app
-  (`"ThePatientGamerHelper/1.0 (Android; ...)"`, con in più il vecchio
-  nome del repository `GameReviewer`) invece di un User-Agent da browser —
-  TheGamesDB ha inasprito l'anti-bot nello stesso cambio di policy del
-  17/02/2026 che ha reso obbligatoria la apikey, e un "invalid key"
-  fuorviante invece di un blocco esplicito è un pattern comune per quel
-  tipo di filtro. Fix: stesso `USER_AGENT` desktop Chrome già usato per
-  `HowLongToBeatApiClient` (stessa causa, stesso fix, stessa fonte di
-  ragionamento — non una nuova ipotesi isolata). Da confermare sul device
-  reale: se il 403 persiste anche con lo User-Agent da browser, il
-  prossimo sospetto è l'header `Accept: application/json` (assente da un
-  browser che naviga l'URL direttamente).
+- **Verified: not a regression from this session**. `git log` on the
+  files in `data/thegamesdb/` shows the last touch during the "UI and
+  robustness fixes after real-device verification" round (Phase 8), well before all
+  the HowLongToBeat/navigation rounds of this session — no
+  recent change to how the `apikey` is sent.
+- **Request format confirmed correct by external comparison**: via
+  `WebFetch` on `raw.githubusercontent.com` (the same approach used
+  for the HowLongToBeat fix), fetched `src/thegamesdb.cpp` from
+  `muldjord/skyscraper` — an actively maintained C++ scraper, one of
+  the known TheGamesDB API consumers also cited in Phase 6 of this
+  same file. It uses the same base URL (`https://api.thegamesdb.net/v1`),
+  the same endpoint (`/Games/ByGameName`) and the same
+  `&apikey=...` query-string parameter — a request structure identical to
+  ours, so that is not the problem.
+- **`TheGamesDbPreferences.apiKey` already does `trim()`** on the value before
+  saving it (`set(value) = ... putString(KEY_API_KEY, value.trim())`),
+  so a leftover space/newline from a copy-paste should not be
+  the cause.
+- **Diagnostics added, same principle as HowLongToBeat**:
+  `TheGamesDbApiClient.ensureSuccessful()` now includes the URL of the
+  failed request in the error message — `search()` calls four
+  endpoints per search (`Platforms`/`Genres`/`Developers` as lookups, then
+  `Games/ByGameName`), and without the URL it was not possible to know which of the
+  four was failing.
+- **Main suspicion, to be confirmed by the user**: given that the request
+  format is verified correct and the key shows as valid in the
+  TheGamesDB panel, the most likely problem is server-side
+  (the regenerated key not yet propagated, or a bug in their
+  validation system) — not fixable client-side. Suggested to the user
+  a direct, conclusive test: opening from a mobile browser
+  `https://api.thegamesdb.net/v1/Games/ByGameName?apikey=<KEY>&name=mario`
+  (the same trick already used to check the quota panel) — if even
+  there the same key shows as "invalid", it is unambiguously a
+  TheGamesDB-side problem, not the app's (their own error page invites
+  contacting support@thegamesdb.net or Discord in that case).
+- **Confirmed by the user, cause isolated**: the exact same URL (with
+  the same "invalid" key) tested by hand from a mobile browser **works**
+  — the key is therefore valid and the endpoint is correct, the difference is
+  entirely in the request headers. Main suspicion now:
+  `USER_AGENT` was a string that explicitly identifies the app
+  (`"ThePatientGamerHelper/1.0 (Android; ...)"`, plus the old
+  repository name `GameReviewer`) instead of a browser User-Agent —
+  TheGamesDB tightened its anti-bot measures in the same 02/17/2026
+  policy change that made the apikey mandatory, and a misleading "invalid key"
+  instead of an explicit block is a common pattern for that
+  kind of filter. Fix: the same desktop Chrome `USER_AGENT` already used for
+  `HowLongToBeatApiClient` (same cause, same fix, same source of
+  reasoning — not a new isolated guess). To be confirmed on a real
+  device: if the 403 persists even with the browser User-Agent, the
+  next suspect is the `Accept: application/json` header (absent from a
+  browser navigating the URL directly).
 
-## Export DOCX — perché non è stato implementato
+## DOCX export — why it was not implemented
 
-Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
-spec, sezione 5, già segnalava che non esiste un writer DOCX leggero e
-maturo per Android — Apache POI dipende da `java.awt` (non disponibile su
-Android) e appesantisce l'APK, e i wrapper Kotlin in giro (es. DocxKtm) sono
-comunque costruiti sopra docx4j con lo stesso tipo di dipendenze pesanti.
-L'alternativa via ZIP di XML OOXML scritto a mano resta un'opzione futura,
-ma con Markdown (condivisione leggibile) e JSON/CSV (dato grezzo portabile)
-già coperti, non c'è un caso d'uso che lo renda prioritario. Non
-riconsiderare senza una richiesta esplicita e un motivo concreto.
+Explicitly removed from the roadmap (not "postponed" or "optional"): the
+spec, section 5, already noted that no lightweight, mature DOCX writer
+exists for Android — Apache POI depends on `java.awt` (not available on
+Android) and bloats the APK, and the Kotlin wrappers out there (e.g. DocxKtm) are
+still built on top of docx4j with the same kind of heavy dependencies.
+The alternative of hand-writing OOXML XML via a ZIP remains a future
+option, but with Markdown (readable sharing) and JSON/CSV (portable raw data)
+already covered, there is no use case that makes it a priority. Do not
+reconsider without an explicit request and a concrete reason.
 
-## Comandi di build/test
+## Build/test commands
 
 ```bash
-./gradlew assembleDebug       # build APK debug
-./gradlew testDebugUnitTest   # unit test JVM (domain + repository logic)
-./gradlew connectedDebugAndroidTest  # test strumentali (richiede device/emulatore)
+./gradlew assembleDebug       # debug APK build
+./gradlew testDebugUnitTest   # JVM unit tests (domain + repository logic)
+./gradlew connectedDebugAndroidTest  # instrumented tests (requires device/emulator)
 ./gradlew lint                # Android Lint
 ```
 
-### ⚠️ Limitazione nota dell'ambiente sandbox
+### ⚠️ Known sandbox environment limitation
 
-L'ambiente in cui questo progetto è stato scaffoldato **non ha accesso di
-rete a `dl.google.com`** (bloccato dalla policy del proxy in uscita), quindi
-**non è possibile eseguire una build Gradle completa da questo sandbox**
-(l'Android Gradle Plugin e le librerie AndroidX/Compose/Room/Hilt sono
-ospitate sul repository Maven di Google). La verifica reale della build
-avviene tramite la GitHub Actions workflow in
-`.github/workflows/android-ci.yml`, che gira su runner con accesso di rete
-completo. **Se lavori di nuovo in un sandbox isolato, verifica prima con
-`curl` se `dl.google.com` è raggiungibile prima di assumere che `./gradlew`
-funzioni.**
+The environment this project was scaffolded in **has no network access to
+`dl.google.com`** (blocked by the outbound proxy policy), so
+**a full Gradle build cannot be run from this sandbox**
+(the Android Gradle Plugin and the AndroidX/Compose/Room/Hilt libraries are
+hosted on Google's Maven repository). Real build verification
+happens via the GitHub Actions workflow in
+`.github/workflows/android-ci.yml`, which runs on a runner with full
+network access. **If you're working again in an isolated sandbox, check
+first with `curl` whether `dl.google.com` is reachable before assuming
+`./gradlew` will work.**
 
-**Stato build: verde su CI** (`lintDebug`, `testDebugUnitTest`,
-`assembleDebug` passano tutti su GitHub Actions — vedi PR #1 per la Fase 1,
-PR #2 per la Fase 2, PR #3 per la Fase 3, PR #4 per la Fase 4). La Fase 5
-(questa modifica) è stata scritta con revisione statica riga per riga ma
-**non ancora verificata su CI al momento di scrivere questa nota** —
-controlla lo stato dei check sulla relativa PR prima di considerarla verde;
-se emergono errori di compilazione, le nuove dipendenze
-(`androidx.datastore:datastore-preferences`, `androidx.appcompat`) e il
-nuovo manifest (`android:localeConfig`, il service `AppLocalesMetadataHolderService`)
-sono il primo posto dove guardare — attenzione anche a `lint` sulle due
-`strings.xml`: se le chiavi IT/EN divergono, `MissingTranslation` la segnala.
-Il repository ha anche un secondo workflow, `build-apk.yml`, aggiunto
-manualmente fuori da queste sessioni: non toccarlo a meno che non serva, ma
-tienilo a mente quando controlli lo stato CI di una PR (di solito compaiono
-più check `build-and-test` insieme a un check `build`).
+**Build status: green on CI** (`lintDebug`, `testDebugUnitTest`,
+`assembleDebug` all pass on GitHub Actions — see PR #1 for Phase 1,
+PR #2 for Phase 2, PR #3 for Phase 3, PR #4 for Phase 4). Phase 5
+(this change) was written with a line-by-line static review but
+**not yet verified on CI at the time of writing this note** —
+check the status of the checks on the relevant PR before considering it green;
+if compilation errors turn up, the new dependencies
+(`androidx.datastore:datastore-preferences`, `androidx.appcompat`) and the
+new manifest entries (`android:localeConfig`, the `AppLocalesMetadataHolderService`
+service) are the first place to look — also watch out for `lint` on the two
+`strings.xml` files: if the IT/EN keys diverge, `MissingTranslation` flags it.
+The repository also has a second workflow, `build-apk.yml`, added
+manually outside of these sessions: do not touch it unless needed, but
+keep it in mind when checking a PR's CI status (usually several
+`build-and-test` checks show up alongside a `build` check).
 
-(Nota: questo paragrafo racconta lo stato al momento della Fase 5; Fasi 6-8
-sono state scritte con lo stesso approccio — revisione statica, nessuna
-build locale possibile — ognuna con la propria nota "Stato build" nella
-rispettiva sezione qui sotto. Controlla sempre i check della PR più
-recente, non fidarti solo di questo paragrafo per lo stato attuale.)
+(Note: this paragraph describes the state as of Phase 5; Phases 6-8
+were written with the same approach — static review, no
+local build possible — each with its own "Build status" note in the
+respective section below. Always check the checks on the most recent
+PR, don't rely solely on this paragraph for the current state.)
 
-Bug reali trovati solo grazie alla CI (nessuno di questi era visibile con
-una revisione statica):
-- `FlowRow` (Compose Foundation) richiede `@OptIn(ExperimentalLayoutApi::class)`
-  esplicito su questa versione del BOM — il modulo tratta i mancati opt-in
-  come **errori**, non warning. Se aggiungi altre API Compose sperimentali,
-  ricordalo.
-- `Json.encodeToString(value)` **senza** `import kotlinx.serialization.encodeToString`
-  risolve all'overload a due argomenti (`serializer`, `value`) invece
-  dell'estensione reified a un argomento, e fallisce con un errore di tipo
-  fuorviante ("No value passed for parameter 'value'"). Importa sempre
-  esplicitamente `kotlinx.serialization.encodeToString` quando usi
-  `Json.encodeToString(x)` in forma breve.
-- `PdfDocument` sotto Robolectric lancia `IllegalStateException` nel suo
-  ciclo di vita delle pagine (vedi sezione Fase 2 sopra) — non è un bug del
-  codice applicativo, è una limitazione dello shadow Robolectric.
-- Lint (`RemoveWorkManagerInitializer`) blocca la build se
-  `Application` implementa `androidx.work.Configuration.Provider` (Fase 4)
-  senza rimuovere esplicitamente `androidx.startup.InitializationProvider`
-  dal manifest — a differenza di quanto suggerisce parte della
-  documentazione WorkManager, che la implica automatica. Serve un
-  `<provider ... tools:node="remove">` esplicito in
-  `AndroidManifest.xml` (richiede `xmlns:tools`).
+Real bugs found only thanks to CI (none of these were visible with
+a static review):
+- `FlowRow` (Compose Foundation) requires an explicit
+  `@OptIn(ExperimentalLayoutApi::class)` on this BOM version — the module treats missing
+  opt-ins as **errors**, not warnings. If you add other experimental Compose
+  APIs, keep this in mind.
+- `Json.encodeToString(value)` **without** `import kotlinx.serialization.encodeToString`
+  resolves to the two-argument overload (`serializer`, `value`) instead of
+  the reified one-argument extension, and fails with a misleading
+  type error ("No value passed for parameter 'value'"). Always import
+  `kotlinx.serialization.encodeToString` explicitly when using
+  `Json.encodeToString(x)` in its short form.
+- `PdfDocument` under Robolectric throws `IllegalStateException` in its
+  page lifecycle (see the Phase 2 section above) — not a bug in the
+  application code, it is a limitation of the Robolectric shadow.
+- Lint (`RemoveWorkManagerInitializer`) blocks the build if
+  `Application` implements `androidx.work.Configuration.Provider` (Phase 4)
+  without explicitly removing `androidx.startup.InitializationProvider`
+  from the manifest — unlike what part of the WorkManager
+  documentation suggests, which implies it is automatic. An explicit
+  `<provider ... tools:node="remove">` is needed in
+  `AndroidManifest.xml` (requires `xmlns:tools`).
 
-Cosa è stato verificato:
-- Revisione statica riga per riga di tutti i file Kotlin (import, coerenza
-  package/directory, firme Room @Relation/@Junction, copertura dei
-  TypeConverter, wiring Hilt) via un sub-agent di review dedicato (Fase 1).
-- Unit test JVM puri (`domain/filter`, `domain/model`, `domain/export`) più
-  test Room DAO via **Robolectric** (`data/local/ReviewDaoTest.kt`, gira come
-  unit test JVM senza bisogno di emulatore) — eseguiti con successo in CI.
-- Build `assembleDebug`, `lintDebug` e `testDebugUnitTest` completate con
-  successo in CI per entrambe le fasi, un formato di export alla volta
-  (JSON/CSV → Markdown → PDF), ognuno verificato prima di passare al
-  successivo.
+What has been verified:
+- Line-by-line static review of all Kotlin files (imports, package/directory
+  consistency, Room @Relation/@Junction signatures, TypeConverter
+  coverage, Hilt wiring) via a dedicated review sub-agent (Phase 1).
+- Pure JVM unit tests (`domain/filter`, `domain/model`, `domain/export`) plus
+  Room DAO tests via **Robolectric** (`data/local/ReviewDaoTest.kt`, runs as a
+  JVM unit test with no need for an emulator) — run successfully in CI.
+- `assembleDebug`, `lintDebug`, and `testDebugUnitTest` builds completed
+  successfully in CI for both phases, one export format at a time
+  (JSON/CSV → Markdown → PDF), each verified before moving on to the
+  next.
 
-## Convenzioni di codice
+## Code conventions
 
-- Nessun dato mock nella UI finale: tutti gli screen leggono da Room tramite
-  repository. Il seed di dati demo esiste solo in `data/debug/DebugSeeder.kt`
-  ed è attivo solo se `BuildConfig.SEED_DEBUG_DATA == true` (solo build
-  `debug`).
-- Date: `java.time.LocalDate` / `java.time.Instant` nativi (disponibili senza
-  desugaring da API 26, che è già il nostro `minSdk`).
-- ID recensioni/entità di lookup: `String` (UUID) per le recensioni; le
-  tabelle di lookup (Platform/Genre/Tag) usano `Long` autogenerato con
-  vincolo `UNIQUE` sul nome normalizzato (trim + lowercase per il confronto).
-- Non introdurre nuove dipendenze senza che sia esplicitamente richiesto o
-  che servano davvero: se emergono necessità relative, segnalale invece di
-  implementarle. Applicato in Fase 3 (nessuna libreria di charting aggiunta)
-  e in Fase 4 (client Drive scritto a mano invece del client Java ufficiale
-  di Google, vedi sezione dedicata sopra) — le uniche dipendenze aggiunte in
-  Fase 4 sono quelle esplicitamente richieste (Credential Manager,
-  AuthorizationClient, WorkManager) più `googleid` e `androidx.hilt:hilt-work`,
-  necessarie di conseguenza e documentate lì. In Fase 5 idem: solo
-  `androidx.datastore:datastore-preferences` (tema) e `androidx.appcompat`
-  (lingua per-app), entrambe esplicitamente richieste. In Fase 6 **nessuna
-  dipendenza aggiunta**: client TheGamesDB scritto a mano come Drive (niente
-  Retrofit/Ktor nonostante fossero citati come esempio nella richiesta),
-  drag-to-reorder del backlog implementato con Compose Foundation puro
-  (niente libreria di reorder). In Fase 8 idem: **nessuna dipendenza
-  aggiunta** — client HowLongToBeat scritto a mano come TheGamesDB/Drive,
-  vista a griglia con `LazyVerticalGrid`/`GridCells` (già parte di Compose
-  Foundation, stesso artefatto di `LazyColumn`) e icone da
-  `material-icons-extended` (già dipendenza esistente dalla Fase 1).
-- Export PDF: solo `android.graphics.pdf.PdfDocument` nativo. Niente
-  Apache PDFBox né iText7 (iText7 è AGPL, esplicitamente escluso).
-- Nessuna stringa hardcoded nelle schermate: ogni testo visibile in `ui/`
-  passa da `stringResource()` (Compose) o `context.getString()` (ViewModel,
-  via `@ApplicationContext Context` iniettato con Hilt), con voce
-  corrispondente in `values/strings.xml` **e** `values-en/strings.xml`. Le
-  due liste di chiavi vanno tenute allineate: se aggiungi una stringa in
-  una lingua, aggiungila subito anche nell'altra invece di lasciare un
-  fallback silenzioso sull'italiano.
+- No mock data in the final UI: all screens read from Room via
+  repositories. The demo data seed only exists in `data/debug/DebugSeeder.kt`
+  and is only active if `BuildConfig.SEED_DEBUG_DATA == true` (`debug`
+  build only).
+- Dates: native `java.time.LocalDate` / `java.time.Instant` (available without
+  desugaring from API 26, which is already our `minSdk`).
+- Review/lookup entity IDs: `String` (UUID) for reviews; the
+  lookup tables (Platform/Genre/Tag) use auto-generated `Long` with a
+  `UNIQUE` constraint on the normalized name (trim + lowercase for comparison).
+- Do not introduce new dependencies without an explicit request or a
+  genuine need: if related needs come up, flag them instead of
+  implementing them. Applied in Phase 3 (no charting library added)
+  and in Phase 4 (hand-written Drive client instead of Google's official
+  Java client, see dedicated section above) — the only dependencies added in
+  Phase 4 are the explicitly requested ones (Credential Manager,
+  AuthorizationClient, WorkManager) plus `googleid` and `androidx.hilt:hilt-work`,
+  needed as a consequence and documented there. In Phase 5 likewise: only
+  `androidx.datastore:datastore-preferences` (theme) and `androidx.appcompat`
+  (per-app language), both explicitly requested. In Phase 6 **no
+  dependency added**: TheGamesDB client hand-written like Drive (no
+  Retrofit/Ktor despite being cited as an example in the request),
+  backlog drag-to-reorder implemented with pure Compose Foundation
+  (no reorder library). In Phase 8 likewise: **no dependency
+  added** — HowLongToBeat client hand-written like TheGamesDB/Drive,
+  grid view with `LazyVerticalGrid`/`GridCells` (already part of Compose
+  Foundation, the same artifact as `LazyColumn`) and icons from
+  `material-icons-extended` (already an existing dependency since Phase 1).
+- PDF export: only native `android.graphics.pdf.PdfDocument`. No
+  Apache PDFBox nor iText7 (iText7 is AGPL, explicitly excluded).
+- No hardcoded strings in the screens: every visible text in `ui/`
+  goes through `stringResource()` (Compose) or `context.getString()` (ViewModel,
+  via `@ApplicationContext Context` injected with Hilt), with a corresponding
+  entry in `values/strings.xml` **and** `values-en/strings.xml`. The
+  two key lists must be kept aligned: if you add a string in
+  one language, add it right away to the other too instead of leaving a
+  silent fallback to Italian.
 
-## Cosa NON fare finché non richiesto esplicitamente
+## What NOT to do until explicitly requested
 
-Export DOCX: **permanentemente fuori scope** (decisione presa, non solo
-rimandata — vedi sezione dedicata sopra), non riconsiderare senza una
-richiesta esplicita. Autenticazione utente/multi-account: fuori scope, la
-Fase 4 usa OAuth solo per l'autorizzazione verso Drive, non introduce un
-concetto di account applicativo.
+DOCX export: **permanently out of scope** (a decision made, not merely
+postponed — see dedicated section above), do not reconsider without an
+explicit request. User authentication/multi-account: out of scope, Phase 4
+uses OAuth only for Drive authorization, it does not introduce an
+application-level account concept.
