@@ -35,6 +35,13 @@ class GameMetadataSearchCoordinator @Inject constructor(
         data class Message(val text: String) : Outcome
     }
 
+    /** Unlike [Outcome], this is surfaced to the UI even on success — see [searchHowLongToBeat]. */
+    sealed interface HltbOutcome {
+        data class Found(val estimate: HowLongToBeatEstimate) : HltbOutcome
+        data object NotFound : HltbOutcome
+        data class Error(val message: String) : HltbOutcome
+    }
+
     suspend fun search(title: String, platformHint: String?): Outcome {
         val apiKey = preferences.apiKey
         if (apiKey.isNullOrBlank()) {
@@ -67,17 +74,19 @@ class GameMetadataSearchCoordinator @Inject constructor(
 
     /**
      * Best-effort HowLongToBeat lookup (Fase 8), backlog-only (see `BacklogItemFormViewModel`) —
-     * unlike [search], this never surfaces a message on failure: it's a silent enrichment on top
-     * of an already-successful TheGamesDB pick, not a user-initiated action of its own. Every
-     * failure mode (network, unofficial-endpoint drift, no match) just yields null; see
-     * [HowLongToBeatApiClient] for why this is inherently more fragile than the TheGamesDB search.
+     * never blocks or crashes the "cerca online" flow it rides on top of a TheGamesDB pick. Unlike
+     * [search] it never *surfaces a dialog*, but the [HltbOutcome] it returns is still shown to the
+     * user as a small status line in the form (see `BacklogItemFormUiState.hltbMessage`): the first
+     * cut of this integration failed completely on real devices and swallowed every error into a
+     * `Log.w` the user had no way to read without `adb logcat` — same lesson as [search]'s own
+     * "generic message swallowed the real error" fix, applied here too.
      */
-    suspend fun searchHowLongToBeat(title: String): HowLongToBeatEstimate? =
+    suspend fun searchHowLongToBeat(title: String): HltbOutcome =
         runCatching { howLongToBeatApiClient.search(title) }.fold(
-            onSuccess = { it },
+            onSuccess = { estimate -> if (estimate != null) HltbOutcome.Found(estimate) else HltbOutcome.NotFound },
             onFailure = { throwable ->
                 Log.w(LOG_TAG, "HowLongToBeat search failed for \"$title\"", throwable)
-                null
+                HltbOutcome.Error(throwable.message?.takeIf { it.isNotBlank() } ?: throwable::class.simpleName ?: "?")
             },
         )
 }

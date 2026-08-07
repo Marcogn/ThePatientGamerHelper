@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogHistoryEntry
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.ui.common.CoverThumbnail
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
@@ -160,17 +162,7 @@ fun BacklogItemDetailScreen(
                 completionistHours = item.hltbCompletionistHours,
             )
 
-            StatusSelector(status = item.status, onStatusChange = viewModel::onStatusChange)
-
-            if (item.status == BacklogItemStatus.ABBANDONATO) {
-                OutlinedTextField(
-                    value = item.abandonNote.orEmpty(),
-                    onValueChange = viewModel::onAbandonNoteChange,
-                    label = { Text(stringResource(R.string.backlog_abandon_note_label)) },
-                    minLines = 2,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            StatusEditor(item = item, onSave = viewModel::onSaveStatus)
 
             HorizontalDivider()
 
@@ -237,19 +229,62 @@ private fun HowLongToBeatSection(mainStoryHours: Double?, mainExtraHours: Double
     }
 }
 
+/**
+ * Status is edited as a local, uncommitted selection (chip taps only move [pendingStatus] around)
+ * and only reaches the repository — and, if it lands on COMPLETATO, triggers the "vuoi scrivere
+ * una recensione?" prompt — when the user explicitly presses "Salva". Tapping through chips while
+ * deciding no longer fires that prompt on every intermediate tap.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StatusSelector(status: BacklogItemStatus, onStatusChange: (BacklogItemStatus) -> Unit) {
+private fun StatusEditor(item: BacklogItem, onSave: (BacklogItemStatus, String?) -> Unit) {
+    var pendingStatus by remember(item.id) { mutableStateOf(item.status) }
+    var abandonNoteDraft by remember(item.id) { mutableStateOf(item.abandonNote.orEmpty()) }
+
+    // Resyncs after a save round-trips back through Room — a no-op otherwise, since these only
+    // change value (and thus re-trigger this effect) right after onSave() actually commits.
+    LaunchedEffect(item.status, item.abandonNote) {
+        pendingStatus = item.status
+        abandonNoteDraft = item.abandonNote.orEmpty()
+    }
+
+    val hasChanges = pendingStatus != item.status ||
+        (pendingStatus == BacklogItemStatus.ABBANDONATO && abandonNoteDraft != item.abandonNote.orEmpty())
+
     Column {
-        Text(text = stringResource(R.string.label_status), style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.label_status),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (hasChanges) {
+                TextButton(onClick = {
+                    onSave(pendingStatus, if (pendingStatus == BacklogItemStatus.ABBANDONATO) abandonNoteDraft else null)
+                }) {
+                    Text(stringResource(R.string.action_save))
+                }
+            }
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             BacklogItemStatus.entries.forEach { candidate ->
                 FilterChip(
-                    selected = status == candidate,
-                    onClick = { onStatusChange(candidate) },
+                    selected = pendingStatus == candidate,
+                    onClick = { pendingStatus = candidate },
                     label = { Text(candidate.displayName(), maxLines = 1) },
                 )
             }
+        }
+        if (pendingStatus == BacklogItemStatus.ABBANDONATO) {
+            OutlinedTextField(
+                value = abandonNoteDraft,
+                onValueChange = { abandonNoteDraft = it },
+                label = { Text(stringResource(R.string.backlog_abandon_note_label)) },
+                minLines = 2,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            )
         }
     }
 }

@@ -229,6 +229,9 @@
     <string name="backlog_hltb_main_story_short">Storia: %1$.1f h</string>
     <string name="backlog_hltb_main_extra_short">Storia+extra: %1$.1f h</string>
     <string name="backlog_hltb_completionist_short">Completista: %1$.1f h</string>
+    <string name="hltb_status_found">HowLongToBeat: stima trovata</string>
+    <string name="hltb_status_not_found">HowLongToBeat: nessuna corrispondenza trovata</string>
+    <string name="hltb_status_error">HowLongToBeat: ricerca non riuscita — %1$s</string>
 
     <string name="backlog_status_to_start">Da iniziare</string>
     <string name="backlog_status_in_progress">In corso</string>

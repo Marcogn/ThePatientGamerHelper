@@ -113,6 +113,10 @@ fun BacklogItemFormScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            uiState.hltbMessage?.let { message ->
+                Text(text = message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
             TagInputField(
                 label = stringResource(R.string.label_platforms),
                 selected = uiState.draft.platformNames,

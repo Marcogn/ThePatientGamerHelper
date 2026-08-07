@@ -16,4 +16,6 @@ data class BacklogItemFormUiState(
     val isSearchingOnline: Boolean = false,
     val searchResults: List<GameMetadataSearchResult> = emptyList(),
     val searchMessage: String? = null,
+    /** Outcome of the HowLongToBeat lookup that follows picking a "cerca online" result (Fase 8) — shown in the form so it's visible without `adb logcat`. */
+    val hltbMessage: String? = null,
 )

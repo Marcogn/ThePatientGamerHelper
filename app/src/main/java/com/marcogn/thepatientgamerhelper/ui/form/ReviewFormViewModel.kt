@@ -91,12 +91,16 @@ class ReviewFormViewModel @Inject constructor(
             viewModelScope.launch {
                 val backlogItem = backlogRepository.observeItem(backlogItemId).first()
                 if (backlogItem != null) {
+                    // Reaching this screen at all only ever happens right after the backlog item was
+                    // marked COMPLETATO (see BacklogItemDetailScreen's review prompt) — the review
+                    // should open already reflecting that, not the form's default IN_CORSO.
                     draft.value = ReviewDraft.empty(startDate = backlogItem.startDate ?: LocalDate.now()).copy(
                         title = backlogItem.title,
                         platformNames = backlogItem.platforms.map { it.name },
                         genreNames = backlogItem.genres.map { it.name },
                         tagNames = backlogItem.tags.map { it.name },
-                        endDate = backlogItem.completedDate,
+                        endDate = backlogItem.completedDate ?: LocalDate.now(),
+                        status = ReviewStatus.COMPLETATO,
                         coverImagePath = backlogItem.coverImagePath?.let { imageStorage.duplicate(it) },
                     )
                 }
@@ -202,6 +206,31 @@ class ReviewFormViewModel @Inject constructor(
 
     fun onSearchDialogDismissed() {
         search.update { it.copy(results = emptyList(), message = null) }
+    }
+
+    /**
+     * Back/cancel handler. For a brand new review pre-filled from a backlog item, treat it as a
+     * draft worth keeping (matches the caller's expectation that leaving mid-write doesn't lose
+     * the game/platform/cover data already pulled in) — silently saves whatever's there as long as
+     * there's at least a title, then links it back to the backlog item exactly like a normal save.
+     * No validation is enforced here: this is an implicit save-on-exit, not a deliberate confirm,
+     * so an incomplete-but-titled draft is still worth keeping rather than blocking navigation.
+     * Every other case (editing an existing review, or a brand new review started from the
+     * library) is an ordinary cancel — nothing is saved.
+     */
+    fun onBackPressed(onDone: (savedReviewId: String?) -> Unit) {
+        val backlogItemId = prefillBacklogItemId
+        if (editingId != null || backlogItemId == null || draft.value.title.isBlank()) {
+            onDone(null)
+            return
+        }
+        viewModelScope.launch {
+            isSaving.value = true
+            val id = reviewRepository.save(id = null, draft = draft.value)
+            backlogRepository.linkReview(backlogItemId, id)
+            isSaving.value = false
+            onDone(id)
+        }
     }
 
     fun save(onSaved: (String) -> Unit) {

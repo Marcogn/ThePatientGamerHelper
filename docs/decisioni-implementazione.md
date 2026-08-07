@@ -138,6 +138,22 @@ perché). Resta il rischio, esplicitamente non escluso, che il sito sia
 dietro protezioni anti-bot che nessun client `HttpURLConnection` può
 superare — vedi CLAUDE.md per il dettaglio.
 
+### Seconda verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+HowLongToBeat era ancora assente dopo il primo fix, senza un modo per
+l'utente di leggerne la causa: `searchHowLongToBeat()` ora restituisce un
+esito tipizzato (trovato/nessuna corrispondenza/errore con messaggio)
+mostrato direttamente nel form invece di solo loggato — diagnosticabile
+senza `adb`. Il flusso "completa item → scrivi recensione" applicava stato
+e prompt ad ogni singolo tap sul chip; ora lo stato è una selezione locale
+non committata con un pulsante "Salva" esplicito, e il form di recensione
+precompilato si apre già a "Completato" invece del default "In corso". Il
+tasto indietro da quel form salva la bozza (se ha almeno un titolo) e
+naviga verso Recensioni invece che tornare nel backlog. La vista a griglia
+usa `LazyVerticalStaggeredGrid` invece di `LazyVerticalGrid`, e le
+copertine non hanno più un `aspectRatio` forzato: proporzioni reali,
+niente spazio sprecato tra cover quadrate e verticali.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

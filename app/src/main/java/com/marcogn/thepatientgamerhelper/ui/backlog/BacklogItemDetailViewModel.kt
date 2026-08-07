@@ -45,18 +45,21 @@ class BacklogItemDetailViewModel @Inject constructor(
     private val _showReviewPrompt = MutableStateFlow(false)
     val showReviewPrompt: StateFlow<Boolean> = _showReviewPrompt.asStateFlow()
 
-    fun onStatusChange(status: BacklogItemStatus) {
+    /**
+     * Commits a status change (and, only for ABBANDONATO, its note) picked in the UI's pending
+     * selector — status edits are staged locally in the screen and only reach here on an explicit
+     * "Salva", so the "vuoi scrivere una recensione?" prompt fires once, right when the user
+     * confirms COMPLETATO, not on every chip tap while still deciding.
+     */
+    fun onSaveStatus(status: BacklogItemStatus, abandonNote: String?) {
         viewModelScope.launch {
             val current = backlogRepository.observeItem(itemId).first() ?: return@launch
-            backlogRepository.updateStatus(itemId, status, current.abandonNote)
-            if (status == BacklogItemStatus.COMPLETATO && current.reviewId == null) {
+            val statusChanged = current.status != status
+            backlogRepository.updateStatus(itemId, status, abandonNote)
+            if (statusChanged && status == BacklogItemStatus.COMPLETATO && current.reviewId == null) {
                 _showReviewPrompt.value = true
             }
         }
-    }
-
-    fun onAbandonNoteChange(note: String) {
-        viewModelScope.launch { backlogRepository.updateStatus(itemId, BacklogItemStatus.ABBANDONATO, note) }
     }
 
     fun onCommentTextChange(text: String) {

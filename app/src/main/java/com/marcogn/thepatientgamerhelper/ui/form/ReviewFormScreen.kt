@@ -3,6 +3,8 @@ package com.marcogn.thepatientgamerhelper.ui.form
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,7 +74,7 @@ fun ReviewFormScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onCancel) {
+                    IconButton(onClick = { viewModel.onBackPressed { onCancel() } }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_cancel))
                     }
                 },
@@ -247,16 +249,17 @@ private fun RatingField(rating: Double, onRatingChange: (Double) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatusSelector(status: ReviewStatus, onStatusChange: (ReviewStatus) -> Unit) {
     Column {
         Text(text = stringResource(R.string.label_status), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ReviewStatus.entries.forEach { candidate ->
                 FilterChip(
                     selected = status == candidate,
                     onClick = { onStatusChange(candidate) },
-                    label = { Text(candidate.displayName()) },
+                    label = { Text(candidate.displayName(), maxLines = 1) },
                 )
             }
         }

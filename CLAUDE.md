@@ -948,6 +948,74 @@ quattro problemi reali, non visibili dalla sola revisione statica:
   ancora fatto. Se dopo questo fix le stime restano sempre assenti,
   controllare i log con quel tag prima di ipotizzare altre cause.
 
+### Seconda verifica su device: diagnostica HowLongToBeat, flusso backlog→recensione, griglia dinamica
+
+Tre ulteriori richieste dopo aver riprovato il primo giro di fix sopra —
+HowLongToBeat era ancora completamente assente e senza `adb` a
+disposizione non c'era modo di sapere perché, il flusso "completa item →
+scrivi recensione" risultava macchinoso, e le copertine in griglia con
+proporzioni diverse (quadrate vs verticali) sprecavano spazio.
+
+- **Diagnostica HowLongToBeat spostata dentro l'app, non più solo `Log.w`**:
+  senza un modo per l'utente di leggere `adb logcat`, un fallimento silenzioso
+  restava un buco nero. `GameMetadataSearchCoordinator.searchHowLongToBeat()`
+  ora restituisce un `HltbOutcome` (`Found`/`NotFound`/`Error(message)`)
+  invece di un `HowLongToBeatEstimate?` nudo — `BacklogItemFormViewModel`
+  lo trasforma in `BacklogItemFormUiState.hltbMessage`, una riga di testo
+  mostrata nel form subito dopo aver scelto un risultato "Cerca online"
+  (es. "HowLongToBeat: ricerca non riuscita — HTTP 403: ..."). Stesso
+  principio già applicato al fix del messaggio generico di TheGamesDB in
+  Fase 7: il messaggio reale, anche se tecnico, batte un fallimento muto —
+  ora un eventuale nuovo fallimento è leggibile direttamente sullo schermo
+  e riportabile senza strumenti di debug.
+- **Flusso "completa → scrivi recensione" reso esplicito invece che
+  immediato**: prima, toccare il chip "Completato" applicava subito lo
+  stato *e* faceva comparire il dialog "vuoi scrivere una recensione?" ad
+  ogni singolo tap, anche solo per esplorare le opzioni. `StatusEditor`
+  (`BacklogItemDetailScreen.kt`) ora tiene la selezione (stato + nota
+  abbandono) come stato locale non committato; un pulsante "Salva" compare
+  solo quando la selezione differisce da quella salvata, e solo alla
+  pressione di quel pulsante `BacklogItemDetailViewModel.onSaveStatus()`
+  scrive lo stato e — solo se lo stato è davvero cambiato in COMPLETATO —
+  fa scattare il prompt. Sostituisce i precedenti `onStatusChange`/
+  `onAbandonNoteChange` (che scrivevano ad ogni tap/carattere).
+- **Il form di recensione precompilato ora si apre già "Completato"**:
+  `ReviewFormViewModel` non impostava lo `status` nel draft precompilato da
+  un backlog item (restava sull'`IN_CORSO` di default), nonostante l'unico
+  modo di arrivarci sia proprio il prompt post-completamento — ora imposta
+  esplicitamente `ReviewStatus.COMPLETATO` (e usa `LocalDate.now()` come
+  `dataFine` di fallback se il backlog item non ne aveva ancora una).
+- **Il tasto indietro dal form precompilato non torna più nel backlog**:
+  prima faceva semplicemente `popBackStack()`, tornando alla scheda
+  backlog e scartando qualunque dato digitato. `ReviewFormViewModel.onBackPressed()`
+  salva la recensione come "bozza" (se c'è almeno un titolo, senza le
+  validazioni della Save esplicita — un back non è una conferma
+  deliberata) e la collega comunque al backlog item; `ThePatientGamerHelperNavGraph`
+  distingue il caso "form aperto dal backlog" (`Destination.Form.backlogItemId != null`)
+  e in quel caso naviga verso `Destination.Library` (stesso pattern
+  `popUpTo(Home){saveState=true}` già usato dal drawer) invece di fare un
+  semplice pop — un cancel da un form aperto normalmente dalla libreria
+  resta un pop invariato.
+- **Griglia dinamica invece di righe a altezza uniforme**: `GameGridTile`
+  non forza più un `aspectRatio` fisso sulla cover quando esiste
+  un'immagine (`ContentScale.FillWidth` senza vincolo di altezza, l'altezza
+  segue le proporzioni reali del file); `LibraryScreen`/`BacklogListDetailScreen`
+  passano da `LazyVerticalGrid` (righe uniformi, ogni riga alta quanto la
+  tile più alta) a `LazyVerticalStaggeredGrid` (`StaggeredGridCells.Adaptive`,
+  richiede `@OptIn(ExperimentalFoundationApi::class)` su questo BOM) così
+  copertine quadrate e verticali stanno affiancate senza spazio sprecato
+  sopra/sotto le più corte — resta solo un piccolo offset costante
+  (`verticalItemSpacing`/`horizontalArrangement`, 12dp) tra le tile. Il
+  placeholder "nessuna copertina" resta a proporzione fissa 2:3, l'unico
+  caso senza una dimensione intrinseca da cui derivare la forma.
+
+**Stato build**: stesso discorso delle note precedenti — scritto e rivisto
+staticamente, non eseguibile in questo sandbox (`dl.google.com` bloccato,
+riconfermato anche in questa sessione). La parte a più alto rischio resta
+la stessa: se HowLongToBeat continua a non restituire nulla, il messaggio
+ora visibile nel form (`hltb_status_error` con il dettaglio tecnico) è il
+primo posto da controllare — riportalo così com'è, invece di ipotizzare.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
