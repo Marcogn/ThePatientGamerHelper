@@ -84,7 +84,15 @@ class HowLongToBeatApiClient @Inject constructor() {
 
         val connection = request("$BASE_URL${auth.searchPath}", method = "POST", body = body, headers = headers)
         val responseText = connection.readTextBody()
-        connection.ensureSuccessful(responseText)
+        try {
+            connection.ensureSuccessful(responseText)
+        } catch (e: IllegalStateException) {
+            // Which of the two paths produced the failing URL matters: "fallback" means the
+            // historically-stable default itself is now stale (needs fresh research, not a blind
+            // retry); "bundle" means extraction found *a* path but it's wrong — possibly because the
+            // regex grabbed an unrelated /api/... fetch() call out of the bundle, not the search one.
+            throw IllegalStateException("${e.message} [origine percorso: ${auth.source}]", e)
+        }
         parseBestMatch(responseText, title)
     }
 
@@ -93,7 +101,7 @@ class HowLongToBeatApiClient @Inject constructor() {
         cachedAuth?.let { return@withLock it }
         val resolved = runCatching { fetchAuth() }.getOrElse { throwable ->
             Log.w(LOG_TAG, "Endpoint/auth extraction failed, falling back to $FALLBACK_SEARCH_PATH with no auth headers", throwable)
-            HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null)
+            HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (homepage/bundle fetch fallita)")
         }
         cachedAuth = resolved
         resolved
@@ -104,20 +112,25 @@ class HowLongToBeatApiClient @Inject constructor() {
         val scriptSrc = Regex("""/_next/static/[^"'\s]*?_app-[a-zA-Z0-9]+\.js""").find(homepage)?.value
         if (scriptSrc == null) {
             Log.w(LOG_TAG, "Could not find the _app-*.js bundle reference in the homepage HTML")
-            return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null)
+            return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (bundle _app-*.js non trovato)")
         }
 
         val script = request("$BASE_URL$scriptSrc", method = "GET").readTextBody()
         val rawPath = Regex("""fetch\([^)]*?["'](/api/[a-zA-Z0-9_/]+)["']""").find(script)?.groupValues?.get(1)
         val searchPath = (rawPath ?: FALLBACK_SEARCH_PATH).let { if (it.endsWith("/")) it else "$it/" }
-        if (rawPath == null) Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
+        val source = if (rawPath == null) {
+            Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
+            "fallback (nessun /api/... trovato nel bundle)"
+        } else {
+            "bundle ($searchPath)"
+        }
 
         val initBody = runCatching { request("$BASE_URL${searchPath}init", method = "GET").readTextBody() }
             .onFailure { Log.w(LOG_TAG, "GET ${searchPath}init failed", it) }
             .getOrNull()
         val auth = initBody?.let(::extractAuthFields) ?: AuthFields(null, null, null)
 
-        return HltbAuth(searchPath = searchPath, token = auth.token, hpKey = auth.hpKey, hpVal = auth.hpVal)
+        return HltbAuth(searchPath = searchPath, token = auth.token, hpKey = auth.hpKey, hpVal = auth.hpVal, source = source)
     }
 
     private fun extractAuthFields(json: String): AuthFields = runCatching {
@@ -207,7 +220,7 @@ class HowLongToBeatApiClient @Inject constructor() {
     }
 }
 
-private data class HltbAuth(val searchPath: String, val token: String?, val hpKey: String?, val hpVal: String?)
+private data class HltbAuth(val searchPath: String, val token: String?, val hpKey: String?, val hpVal: String?, val source: String)
 private data class AuthFields(val token: String?, val hpKey: String?, val hpVal: String?)
 
 @Serializable

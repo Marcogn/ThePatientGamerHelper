@@ -198,6 +198,18 @@ mostrato viene risolto dalla lingua corrente dell'app al momento della
 creazione, senza frammentare la lista né mostrare sempre e solo
 l'italiano.
 
+### Quinta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+La duplicazione di recensioni persisteva sempre per lo stesso gioco: causa
+reale, il gesto di back di sistema (swipe/tasto hardware) bypassava
+completamente `onBackPressed()` — solo la freccia in alto a sinistra la
+richiamava. Fix: `BackHandler` in `ReviewFormScreen`. HowLongToBeat ora
+restituisce un HTTP 404 reale da howlongtobeat.com (prova che il fix del
+redirect 308 ha funzionato) invece di un errore di rete — il percorso di
+ricerca usato è però sbagliato/obsoleto. Aggiunta diagnostica (`source` su
+`HltbAuth`) per distinguere se il percorso viene dal bundle JS o dal
+fallback statico, invece di un ulteriore tentativo alla cieca.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

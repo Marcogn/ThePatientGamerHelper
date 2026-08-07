@@ -1200,6 +1200,57 @@ spostamento (non uno spostamento silenzioso).
   un'alternativa "nome sempre risolto al volo dal kind ad ogni render", non
   scelta per non introdurre quella complessità aggiuntiva).
 
+### Quinta verifica su device: BackHandler mancante nel form recensione, HowLongToBeat raggiunge finalmente il sito reale (ma 404)
+
+Due segnalazioni: la duplicazione di recensioni dal flusso backlog
+continuava a verificarsi *sempre* per lo stesso gioco nonostante il fix
+del giro precedente, e HowLongToBeat ora restituisce una pagina 404 reale
+di howlongtobeat.com invece di un errore di rete.
+
+- **Causa reale della duplicazione, non risolta dal fix precedente**: il
+  fix del giro scorso (link cliccabile "Recensione collegata" +
+  `editingId != null` come guardia) presumeva che l'unico modo di uscire
+  dal form recensione fosse la freccia in alto a sinistra, la cui
+  `onClick` chiama `viewModel.onBackPressed { onCancel() }` (salvataggio
+  implicito della bozza + collegamento al backlog item + offerta di
+  spostamento lista). **Il gesto di back di sistema (swipe/tasto hardware)
+  non passa da lì**: Compose Navigation registra un proprio
+  `OnBackPressedCallback` che di default fa un `popBackStack()` nudo,
+  bypassando completamente la logica custom della schermata a meno di non
+  intercettarlo esplicitamente con un `BackHandler`. Risultato osservato:
+  l'utente esce col gesto di sistema invece di toccare la freccia, nulla
+  viene salvato né collegato, l'item torna alla schermata di dettaglio
+  backlog con `reviewId` ancora `null` — che essendo lo stato "onesto"
+  dell'item, ripropone correttamente (non è un bug in sé) il link "Scrivi
+  una recensione"/il prompt, e ogni tentativo successivo genera un'altra
+  recensione indipendente. Fix: `BackHandler` aggiunto in
+  `ReviewFormScreen.kt` che richiama la stessa `onBackPressed()` — ora
+  gesto di sistema e freccia in alto si comportano identicamente.
+  Nessun'altra schermata dell'app ha logica di back personalizzata che
+  diverge dal semplice pop di default, quindi è l'unico punto che
+  necessitava di questo fix.
+- **HowLongToBeat: il fix del redirect 308 (terzo giro) ha funzionato
+  davvero** — prova concreta, non più solo teoria: l'errore ora riportato
+  è un **HTTP 404 con corpo HTML reale** ("HowLongToBeat - 404",
+  proveniente da `https://howlongtobeat.com/api/s...`), non più un 308
+  nudo o un errore di connessione. Questo conferma che il client segue
+  correttamente i redirect e dialoga con il sito vero. Il problema attuale
+  è quindi diverso e più specifico: il percorso di ricerca usato
+  (derivato dal bundle JS o dal fallback storico `/api/s/`) non esiste più
+  su howlongtobeat.com. Non è stato tentato un nuovo fix "a naso" sul
+  valore del percorso (indovinare un'altra stringa senza poterla
+  verificare avrebbe lo stesso tasso di successo del tentativo precedente)
+  — invece, `HltbAuth` porta ora un campo `source` che distingue se il
+  percorso usato viene dall'estrazione dal bundle (con il valore esatto
+  estratto) o dal fallback statico (con il motivo: bundle non trovato,
+  regex senza match, o l'intera estrazione fallita), incluso nel messaggio
+  d'errore mostrato in-app. Un prossimo report dirà con certezza se il
+  problema è "il fallback storico è ormai morto" (serve una nuova ricerca
+  sul percorso corrente, impossibile da questo sandbox senza accesso di
+  rete) oppure "la regex sul bundle intercetta il `fetch()` sbagliato"
+  (fixabile stringendo la regex, ma solo con la prova che sia davvero
+  quello il caso).
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

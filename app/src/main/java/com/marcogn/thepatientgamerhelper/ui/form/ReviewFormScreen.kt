@@ -1,5 +1,6 @@
 package com.marcogn.thepatientgamerhelper.ui.form
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +62,13 @@ fun ReviewFormScreen(
     val uiState by viewModel.uiState.collectAsState()
     val pendingMove by viewModel.pendingMove.collectAsState()
     var showSearchDialog by remember { mutableStateOf(false) }
+
+    // The toolbar arrow's onClick only fires on a tap — the system back gesture/button bypasses it
+    // entirely and defaults to a bare popBackStack(), skipping the draft-save-and-link and the
+    // "move to list?" offer below. Without this, a swipe-back on a backlog-originated review loses
+    // the draft silently and leaves the backlog item's reviewId null, so reopening it re-offers the
+    // "vuoi scrivere una recensione?" prompt — the exact duplication reported on a real device.
+    BackHandler { viewModel.onBackPressed { onCancel() } }
 
     Scaffold(
         topBar = {
