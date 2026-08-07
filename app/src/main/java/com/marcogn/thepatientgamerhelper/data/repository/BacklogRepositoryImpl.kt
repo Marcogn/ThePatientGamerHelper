@@ -69,6 +69,13 @@ class BacklogRepositoryImpl @Inject constructor(
         backlogDao.reorderLists(orderedIds)
     }
 
+    override suspend fun getOrCreateListByName(name: String): Long = database.withTransaction {
+        val trimmed = name.trim()
+        backlogDao.getListByName(trimmed)?.let { return@withTransaction it.id }
+        val position = backlogDao.maxListPosition() + 1
+        backlogDao.insertList(BacklogListEntity(name = trimmed, position = position, createdAt = Instant.now()))
+    }
+
     override suspend fun saveItem(id: String?, listId: Long, draft: BacklogItemDraft): String = database.withTransaction {
         val now = Instant.now()
         val itemId = id ?: UUID.randomUUID().toString()

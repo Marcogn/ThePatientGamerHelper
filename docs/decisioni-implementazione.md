@@ -176,6 +176,19 @@ manuale del giro precedente — non risolto, non è stato tentato un secondo
 fix "alla cieca": invece i messaggi di errore ora includono l'URL che ha
 fallito, per una diagnosi mirata al prossimo report.
 
+### Spostamento automatico in liste "Completati con/senza recensione" (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Un item completato ora "sparisce" automaticamente (con avviso prima dello
+spostamento) in una di due liste gestite dall'app — "Completati con
+recensione" se si scrive la recensione, "Completati in attesa di
+recensione" se si risponde "No" al prompt. I nomi di queste due liste sono
+costanti Kotlin fisse, non string resource: sono dato persistito (serve
+fare match esatto per non duplicare la lista ad ogni trigger), non testo
+di UI — localizzarli avrebbe frammentato la lista in due al cambio lingua
+dell'app. Approfittato anche per disabilitare l'icona "sposta in lista"
+quando non c'è nessun'altra lista tra cui scegliere (prima il tap apriva
+silenziosamente un menu vuoto, sembrava non fare nulla).
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

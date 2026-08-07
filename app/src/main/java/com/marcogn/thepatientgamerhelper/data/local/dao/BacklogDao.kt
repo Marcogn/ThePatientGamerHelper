@@ -38,6 +38,9 @@ interface BacklogDao {
     @Query("SELECT * FROM backlog_lists WHERE id = :id")
     suspend fun getList(id: Long): BacklogListEntity?
 
+    @Query("SELECT * FROM backlog_lists WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun getListByName(name: String): BacklogListEntity?
+
     @Query("DELETE FROM backlog_lists WHERE id = :id")
     suspend fun deleteList(id: Long)
 

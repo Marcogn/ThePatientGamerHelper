@@ -220,6 +220,10 @@
     <string name="backlog_delete_item_confirm_title">Delete this item?</string>
     <string name="backlog_write_review_prompt_title">Write a review?</string>
     <string name="backlog_write_review_prompt_message">Do you want to write a review for \"%1$s\"?</string>
+    <string name="backlog_move_confirm_title">Move to list?</string>
+    <string name="backlog_move_confirm_message">\"%1$s\" will be moved to the \"%2$s\" list.</string>
+    <string name="action_move">Move</string>
+    <string name="action_dont_move">Don\'t move</string>
 
     <string name="cd_export_backlog">Export backlog</string>
     <string name="cd_import_backlog">Import backlog</string>

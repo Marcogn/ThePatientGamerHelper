@@ -19,6 +19,9 @@ interface BacklogRepository {
     suspend fun deleteList(listId: Long)
     suspend fun reorderLists(orderedIds: List<Long>)
 
+    /** Finds a list by exact (case-insensitive) name, creating it at the end if none matches yet. */
+    suspend fun getOrCreateListByName(name: String): Long
+
     /** Creates a new item when [id] is null, otherwise updates title/platforms/genres/tags/cover only. */
     suspend fun saveItem(id: String?, listId: Long, draft: BacklogItemDraft): String
 

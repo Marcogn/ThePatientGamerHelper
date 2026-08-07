@@ -1108,6 +1108,68 @@ nuovo tentativo, e HowLongToBeat continuava a restituire lo stesso errore
   questa fase**, come già segnalato — non dare per risolto finché l'utente
   non conferma che le stime compaiono davvero.
 
+### Spostamento automatico in liste "Completati con/senza recensione"
+
+Richiesta esplicita: una volta completato un item del backlog, dovrebbe
+"sparire" automaticamente in una di due liste dedicate a seconda che
+l'utente abbia scritto la recensione o meno, con un avviso prima dello
+spostamento (non uno spostamento silenzioso).
+
+- **Due liste gestite dall'app, nome fisso non localizzato**:
+  `BacklogSystemLists` (`domain/model/BacklogSystemLists.kt`) definisce
+  `"Completati con recensione"` e `"Completati in attesa di recensione"`
+  come costanti Kotlin, non come string resource. Scelta deliberata,
+  stesso precedente già motivato in Fase 5 per `ReviewStatus.label()` /
+  `domain/export`: il nome di queste liste è **dato persistito** (usato per
+  fare match ed evitare di creare duplicati ad ogni trigger), non testo di
+  UI — se seguisse `stringResource()` e la lingua dell'app venisse
+  cambiata, il prossimo trigger creerebbe una lista "Completed with
+  review" separata invece di riusare quella italiana già esistente,
+  frammentando silenziosamente la categorizzazione. Il testo del dialog di
+  conferma resta invece pienamente localizzato (IT/EN) — solo il *nome
+  della lista* è fisso.
+- **`BacklogRepository.getOrCreateListByName(name)`** (nuovo, in
+  `BacklogRepositoryImpl`) risolve per nome esatto case-insensitive
+  (`backlog_lists WHERE name = :name COLLATE NOCASE`, nessuna nuova colonna
+  né migration: a differenza di Platform/Genre/Tag non serve un indice
+  `UNIQUE` dedicato, il volume di liste è minimo) o crea la lista in coda
+  se non esiste — poi riusa `moveItem()` già esistente (stessa history
+  `CAMBIO_LISTA` del riordino manuale).
+- **Trigger "No" (non scrivere recensione)**: `BacklogItemDetailViewModel`
+  — il pulsante "No" del prompt "vuoi scrivere una recensione?" ora chiama
+  `onReviewDeclined()` invece di limitarsi a chiudere il dialog, che espone
+  un secondo one-shot `pendingMove: StateFlow<PendingListMove?>`
+  consumato da un nuovo `AlertDialog` in `BacklogItemDetailScreen`
+  ("Sposta"/"Non spostare") — è **questo** dialog il punto in cui l'utente
+  viene avvisato prima dello spostamento vero, non il primo prompt.
+  Chiudere il primo dialog toccando fuori (`onDismissRequest`, invariato,
+  → `onReviewPromptConsumed()`) resta un vero e proprio "decido dopo": non
+  offre lo spostamento, l'item resta dov'è.
+- **Trigger "Sì" (scrivi recensione)**: lo spostamento non può avvenire al
+  tap su "Sì" (l'utente potrebbe non arrivare mai a salvare), quindi vive
+  in `ReviewFormViewModel`, agganciato al **primo** salvataggio riuscito di
+  una recensione creata dal backlog — sia il tasto ✓ esplicito (`save()`)
+  sia il salvataggio implicito di bozza premendo indietro
+  (`onBackPressed()`, Fase 8 precedente). Entrambi condividono
+  `offerMoveToCompletedWithReview()`: popola lo stesso `pendingMove`
+  one-shot e **rimanda** la callback di navigazione (`onSaved`/`onDone`)
+  finché l'utente non risponde al dialog — chi tocca "Sposta" o "Non
+  spostare" fa proseguire la navigazione, mai prima. Guardia esplicita
+  `editingId == null`: modificare in un secondo momento una recensione già
+  collegata (aperta ora anche tramite il link "Recensione collegata", vedi
+  sopra) **non** ripropone l'offerta ad ogni salvataggio — solo alla
+  creazione originale.
+- **Icona "sposta in lista" (freccia su cartella) che "non faceva
+  niente"**: causa reale, non un bug di rendering — con una sola lista nel
+  backlog il menu a tendina non aveva alcuna voce da mostrare (il filtro
+  esclude la lista corrente), quindi il tap apriva un `DropdownMenu` vuoto,
+  visivamente indistinguibile dal "niente è successo". Fix:
+  `IconButton` disabilitato (`enabled = otherLists.isNotEmpty()`) quando
+  non c'è nessun'altra lista verso cui spostare — un'icona visibilmente
+  spenta invece di un tap silenzioso. Con l'auto-creazione delle due liste
+  sopra, dopo il primo completamento l'icona torna comunque utile (c'è
+  sempre almeno un'altra lista tra cui scegliere).
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

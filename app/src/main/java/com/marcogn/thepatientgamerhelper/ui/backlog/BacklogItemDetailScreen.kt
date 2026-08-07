@@ -89,12 +89,13 @@ fun BacklogItemDetailScreen(
                 },
                 actions = {
                     item?.let {
+                        val otherLists = uiState.lists.filter { list -> list.id != it.listId }
                         Box {
-                            IconButton(onClick = { showMoveMenu = true }) {
+                            IconButton(onClick = { showMoveMenu = true }, enabled = otherLists.isNotEmpty()) {
                                 Icon(Icons.Filled.DriveFileMove, contentDescription = stringResource(R.string.backlog_move_to_list))
                             }
                             DropdownMenu(expanded = showMoveMenu, onDismissRequest = { showMoveMenu = false }) {
-                                uiState.lists.filter { list -> list.id != it.listId }.forEach { list ->
+                                otherLists.forEach { list ->
                                     DropdownMenuItem(
                                         text = { Text(list.name) },
                                         onClick = {
@@ -197,7 +198,22 @@ fun BacklogItemDetailScreen(
                 }) { Text(stringResource(R.string.action_yes)) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::onReviewPromptConsumed) { Text(stringResource(R.string.action_no)) }
+                TextButton(onClick = viewModel::onReviewDeclined) { Text(stringResource(R.string.action_no)) }
+            },
+        )
+    }
+
+    val pendingMove by viewModel.pendingMove.collectAsState()
+    pendingMove?.let { move ->
+        AlertDialog(
+            onDismissRequest = viewModel::onDeclineMove,
+            title = { Text(stringResource(R.string.backlog_move_confirm_title)) },
+            text = { Text(stringResource(R.string.backlog_move_confirm_message, move.itemTitle, move.targetListName)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::onConfirmMove) { Text(stringResource(R.string.action_move)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDeclineMove) { Text(stringResource(R.string.action_dont_move)) }
             },
         )
     }

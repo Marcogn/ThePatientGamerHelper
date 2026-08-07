@@ -9,9 +9,11 @@ import androidx.navigation.toRoute
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogSystemLists
 import com.marcogn.thepatientgamerhelper.domain.model.GameMetadataSearchResult
 import com.marcogn.thepatientgamerhelper.domain.model.Genre
 import com.marcogn.thepatientgamerhelper.domain.model.Platform
+import com.marcogn.thepatientgamerhelper.domain.model.PendingListMove
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewDraft
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
 import com.marcogn.thepatientgamerhelper.domain.model.Tag
@@ -27,6 +29,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -67,6 +70,17 @@ class ReviewFormViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val search = MutableStateFlow(SearchState())
+
+    /**
+     * One-shot "vuoi spostarlo in 'Completati con recensione'?" confirmation, offered right after
+     * the *first* save of a review created from the backlog flow (explicit checkmark or the
+     * implicit draft-save-on-back, see [onBackPressed]) — never on a later edit of an already-linked
+     * review, which would re-ask on every single edit. The actual navigation callback the screen
+     * passed in is deferred until the user answers, so "vuoi spostarlo?" is asked *before* leaving.
+     */
+    private val _pendingMove = MutableStateFlow<PendingListMove?>(null)
+    val pendingMove: StateFlow<PendingListMove?> = _pendingMove.asStateFlow()
+    private var pendingMoveContinuation: (() -> Unit)? = null
 
     private val lookupNames = combine(
         lookupRepository.observePlatforms().map { it.map(Platform::name) },
@@ -216,7 +230,10 @@ class ReviewFormViewModel @Inject constructor(
      * No validation is enforced here: this is an implicit save-on-exit, not a deliberate confirm,
      * so an incomplete-but-titled draft is still worth keeping rather than blocking navigation.
      * Every other case (editing an existing review, or a brand new review started from the
-     * library) is an ordinary cancel — nothing is saved.
+     * library) is an ordinary cancel — nothing is saved. Like [save], the very first successful
+     * save of a backlog-originated review also offers to move the backlog item into
+     * [BacklogSystemLists.COMPLETED_WITH_REVIEW] (see [offerMoveToCompletedWithReview]) — [onDone]
+     * only fires once that offer has been answered.
      */
     fun onBackPressed(onDone: (savedReviewId: String?) -> Unit) {
         val backlogItemId = prefillBacklogItemId
@@ -229,7 +246,7 @@ class ReviewFormViewModel @Inject constructor(
             val id = reviewRepository.save(id = null, draft = draft.value)
             backlogRepository.linkReview(backlogItemId, id)
             isSaving.value = false
-            onDone(id)
+            offerMoveToCompletedWithReview(backlogItemId) { onDone(id) }
         }
     }
 
@@ -243,12 +260,45 @@ class ReviewFormViewModel @Inject constructor(
         viewModelScope.launch {
             isSaving.value = true
             val id = reviewRepository.save(editingId, current)
-            if (editingId == null) {
-                prefillBacklogItemId?.let { backlogRepository.linkReview(it, id) }
+            val backlogItemId = prefillBacklogItemId
+            if (editingId == null && backlogItemId != null) {
+                backlogRepository.linkReview(backlogItemId, id)
+                isSaving.value = false
+                offerMoveToCompletedWithReview(backlogItemId) { onSaved(id) }
+            } else {
+                isSaving.value = false
+                onSaved(id)
             }
-            isSaving.value = false
-            onSaved(id)
         }
+    }
+
+    /** Offers to move [backlogItemId] into [BacklogSystemLists.COMPLETED_WITH_REVIEW]; [onDone] fires either way, after the user answers. */
+    private suspend fun offerMoveToCompletedWithReview(backlogItemId: String, onDone: () -> Unit) {
+        val item = backlogRepository.observeItem(backlogItemId).first()
+        if (item == null) {
+            onDone()
+            return
+        }
+        pendingMoveContinuation = onDone
+        _pendingMove.value = PendingListMove(item.title, BacklogSystemLists.COMPLETED_WITH_REVIEW)
+    }
+
+    fun onConfirmMove() {
+        val backlogItemId = prefillBacklogItemId ?: return
+        val target = _pendingMove.value ?: return
+        viewModelScope.launch {
+            val listId = backlogRepository.getOrCreateListByName(target.targetListName)
+            backlogRepository.moveItem(backlogItemId, listId)
+            _pendingMove.value = null
+            pendingMoveContinuation?.invoke()
+            pendingMoveContinuation = null
+        }
+    }
+
+    fun onDeclineMove() {
+        _pendingMove.value = null
+        pendingMoveContinuation?.invoke()
+        pendingMoveContinuation = null
     }
 
     private fun validate(draft: ReviewDraft): String? = when {
