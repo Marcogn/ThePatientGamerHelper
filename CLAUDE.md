@@ -1251,6 +1251,46 @@ di howlongtobeat.com invece di un errore di rete.
   (fixabile stringendo la regex, ma solo con la prova che sia davvero
   quello il caso).
 
+### Fix della regex del bundle: porting da una libreria attivamente mantenuta invece di un altro tentativo alla cieca
+
+Su suggerimento esplicito dell'utente ("non puoi usare questo repo... o
+questo in python?"), invece di continuare a ipotizzare, ho recuperato via
+`WebFetch` il sorgente reale di due integrazioni HowLongToBeat non
+ufficiali di terze parti:
+`ScrappyCocco/HowLongToBeat-PythonAPI` (Python, versione 1.0.22, aggiornata
+a metà 2026 — quindi verificabilmente attiva e recente) e
+`ckatzorke/howlongtobeat` (in realtà TypeScript, non Java come ipotizzato
+inizialmente dall'utente — nessun problema, il codice conta più del
+linguaggio).
+
+- **Causa concreta del 404 del giro precedente, confermata dal confronto**:
+  la regex di questo client che estrae il percorso di ricerca dal bundle
+  `_app-*.js` (`fetchAuth()` in `HowLongToBeatApiClient.kt`) non
+  richiedeva che il `fetch(...)` trovato fosse specificamente una
+  chiamata `POST` — poteva quindi agganciarsi al primo `fetch("/api/...")`
+  qualunque nel bundle (es. una chiamata GET di analytics/telemetria
+  scorrelata), producendo un percorso plausibile ma sbagliato, da cui il
+  404. La libreria Python (`HTMLRequests.py`) usa invece
+  `r'fetch\s*\(\s*["\']/api/([a-zA-Z0-9_/]+)[^"\']*["\']\s*,\s*{[^}]*method:\s*["\']POST["\'][^}]*}'`
+  — richiede esplicitamente `method: "POST"` nello stesso blocco di
+  opzioni del `fetch()`. Portata 1:1 in Kotlin come
+  `SEARCH_ENDPOINT_REGEX`, non una riscrittura a naso: la libreria Python
+  è la fonte più recente/attiva reperita (altre integrazioni note come
+  quella TypeScript risultano meno recentemente mantenute e usano un
+  endpoint statico diverso, `/api/search`, senza alcun header di
+  autenticazione — approccio strutturalmente diverso dal flusso con
+  auth-token già implementato qui, non integrato per non mescolare due
+  strategie senza prova che siano compatibili).
+- **Ancora non eseguibile da questo sandbox** (nessun accesso di rete a
+  `howlongtobeat.com`, limitazione invariata) — la correzione è motivata
+  da una fonte esterna verificabile e recente, non da una nuova ipotesi,
+  ma resta comunque da confermare sul device reale. Se il 404 persiste
+  anche con questa regex più stretta, il campo `source` nel messaggio
+  d'errore (vedi sopra) dirà se il fallback statico è quello ormai
+  scaduto — a quel punto andrebbe aggiornato anche
+  `FALLBACK_SEARCH_PATH`, ma solo con un valore verificato allo stesso
+  modo (fonte esterna reale), non indovinato.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

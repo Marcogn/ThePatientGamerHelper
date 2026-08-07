@@ -210,6 +210,17 @@ ricerca usato è però sbagliato/obsoleto. Aggiunta diagnostica (`source` su
 `HltbAuth`) per distinguere se il percorso viene dal bundle JS o dal
 fallback statico, invece di un ulteriore tentativo alla cieca.
 
+### Fix regex bundle HowLongToBeat: porting da libreria esterna mantenuta (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Su suggerimento dell'utente, recuperato via `WebFetch` il sorgente reale
+di `ScrappyCocco/HowLongToBeat-PythonAPI` (attivamente mantenuta, versione
+recente) e `ckatzorke/howlongtobeat` (TypeScript). La regex Python che
+estrae il percorso di ricerca dal bundle richiede esplicitamente
+`method: "POST"` nello stesso blocco `fetch(...)` — la mia non lo
+richiedeva, quindi poteva agganciarsi al `fetch()` sbagliato nel bundle,
+spiegando il 404 del giro precedente. Portata 1:1 in Kotlin, non una
+riscrittura a naso.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

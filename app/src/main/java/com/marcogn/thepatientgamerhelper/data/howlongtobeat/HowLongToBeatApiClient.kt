@@ -30,6 +30,11 @@ private const val CONNECT_TIMEOUT_MS = 8_000
 private const val READ_TIMEOUT_MS = 12_000
 private const val MAX_REDIRECTS = 5
 private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
+// Ported from ScrappyCocco/HowLongToBeat-PythonAPI's HTMLRequests.py (actively maintained, checked
+// as recently as mid-2026): requiring `method: "POST"` in the same fetch(...) call is the part a
+// looser regex (this client's previous version) is missing — see the call site for why that matters.
+private val SEARCH_ENDPOINT_REGEX =
+    Regex("""fetch\s*\(\s*["'](/api/[a-zA-Z0-9_/]+)[^"']*["']\s*,\s*\{[^}]*method:\s*["']POST["'][^}]*\}""")
 
 private val hltbJson = Json { ignoreUnknownKeys = true }
 
@@ -116,7 +121,13 @@ class HowLongToBeatApiClient @Inject constructor() {
         }
 
         val script = request("$BASE_URL$scriptSrc", method = "GET").readTextBody()
-        val rawPath = Regex("""fetch\([^)]*?["'](/api/[a-zA-Z0-9_/]+)["']""").find(script)?.groupValues?.get(1)
+        // Requiring `method: "POST"` inside the same fetch(...) call is load-bearing, not cosmetic:
+        // without it this regex can (and, on a real device, did — see CLAUDE.md, Fase 8) latch onto
+        // an unrelated GET fetch() elsewhere in the bundle, silently resolving to a nonexistent path
+        // and 404ing the search on every title. Ported from the actively-maintained
+        // ScrappyCocco/HowLongToBeat-PythonAPI (HTMLRequests.py), whose broader regex this is a
+        // direct translation of — not a fresh guess.
+        val rawPath = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1)
         val searchPath = (rawPath ?: FALLBACK_SEARCH_PATH).let { if (it.endsWith("/")) it else "$it/" }
         val source = if (rawPath == null) {
             Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
