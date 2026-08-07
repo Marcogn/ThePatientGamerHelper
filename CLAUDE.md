@@ -1,7 +1,12 @@
 # CLAUDE.md
 
 Guida per agenti Claude che lavorano su questo repository. Leggi anche
-`docs/spec.md` per la specifica funzionale completa.
+`docs/spec.md` per la specifica funzionale completa e
+`docs/piano-di-test.md` per il piano di test manuale (interazione
+uomo/applicazione) completo di ogni funzionalità ed edge case — va
+aggiornato con una nuova sezione ad ogni fase/funzionalità aggiunta, e con
+una nuova voce in "Regressioni note" ad ogni bug reale scoperto in verifica
+manuale su device.
 
 ## Cos'è questo progetto
 
