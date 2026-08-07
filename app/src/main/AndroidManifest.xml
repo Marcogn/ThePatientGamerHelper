@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Fase 4: chiamate REST a Drive (googleapis.com) per il backup cloud.
-         Tappa 2 (backlog): stesso permesso, riusato per le chiamate REST a TheGamesDB. -->
+    <!-- Phase 4: REST calls to Drive (googleapis.com) for cloud backup.
+         Phase 6, Stage 2 (backlog): same permission, reused for REST calls to TheGamesDB. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -17,10 +17,10 @@
         android:theme="@style/Theme.ThePatientGamerHelper">
 
         <!--
-          ThePatientGamerHelperApplication implementa Configuration.Provider (Fase 4, per iniettare
-          HiltWorkerFactory): l'inizializzazione di default di WorkManager va rimossa esplicitamente,
-          altrimenti entrerebbe in conflitto con quella custom lazy-inizializzata al primo
-          WorkManager.getInstance(context) — vedi lint RemoveWorkManagerInitializer.
+          ThePatientGamerHelperApplication implements Configuration.Provider (Phase 4, to inject
+          HiltWorkerFactory): WorkManager's default initialization must be explicitly removed,
+          otherwise it would conflict with the custom one lazily initialized on the first
+          WorkManager.getInstance(context) call — see the RemoveWorkManagerInitializer lint check.
         -->
         <provider
             android:name="androidx.startup.InitializationProvider"
@@ -29,9 +29,9 @@
             tools:node="remove" />
 
         <!--
-          Fase 5: persistenza automatica della lingua per-app scelta con
-          AppCompatDelegate.setApplicationLocales() — senza questo service/meta-data
-          (autoStoreLocales) la preferenza andrebbe salvata a mano.
+          Phase 5: automatic persistence of the per-app language chosen with
+          AppCompatDelegate.setApplicationLocales() — without this service/meta-data
+          (autoStoreLocales) the preference would have to be saved by hand.
         -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

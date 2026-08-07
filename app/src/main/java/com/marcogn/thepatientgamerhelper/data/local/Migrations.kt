@@ -138,7 +138,7 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 
 /**
  * Adds `backlog_lists.systemKind` (nullable, additive) — identifies the two lists the app itself
- * manages ("Completati con recensione"/"Completati in attesa di recensione") independently of their
+ * manages ("Completed with review"/"Completed awaiting review") independently of their
  * display name, so a later app-language switch can't fork them into duplicate lists. Every row that
  * predates this migration reads back as `NULL` (a regular, user-created list), same as any list
  * created after this migration that isn't one of the two system ones.

@@ -104,7 +104,7 @@ class TheGamesDbApiClient @Inject constructor() {
             readTimeout = READ_TIMEOUT_MS
             setRequestProperty("User-Agent", USER_AGENT)
         }
-        check(connection.responseCode in 200..299) { "Download copertina non riuscito (HTTP ${connection.responseCode})" }
+        check(connection.responseCode in 200..299) { "Cover download failed (HTTP ${connection.responseCode})" }
         connection.inputStream.use { it.readBytes() }
     }
 

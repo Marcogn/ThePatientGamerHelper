@@ -67,7 +67,7 @@ fun ReviewFormScreen(
     // entirely and defaults to a bare popBackStack(), skipping the draft-save-and-link and the
     // "move to list?" offer below. Without this, a swipe-back on a backlog-originated review loses
     // the draft silently and leaves the backlog item's reviewId null, so reopening it re-offers the
-    // "vuoi scrivere una recensione?" prompt — the exact duplication reported on a real device.
+    // "want to write a review?" prompt — the exact duplication reported on a real device.
     BackHandler { viewModel.onBackPressed { onCancel() } }
 
     Scaffold(

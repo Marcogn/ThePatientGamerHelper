@@ -6,9 +6,9 @@ import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
 
 /**
- * Etichetta localizzata per la UI. Distinta da [com.marcogn.thepatientgamerhelper.domain.model.label],
- * che resta in italiano fisso: è usata anche da domain/export (Markdown), il cui output non
- * segue la lingua dell'app.
+ * Localized label for the UI. Distinct from [com.marcogn.thepatientgamerhelper.domain.model.label],
+ * which stays fixed Italian: it's also used by domain/export (Markdown), whose output doesn't
+ * follow the app's language setting.
  */
 @Composable
 fun ReviewStatus.displayName(): String = stringResource(

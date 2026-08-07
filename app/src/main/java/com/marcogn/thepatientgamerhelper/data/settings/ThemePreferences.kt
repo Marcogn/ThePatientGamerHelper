@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.map
 private val Context.themeDataStore: DataStore<Preferences> by preferencesDataStore(name = "theme_prefs")
 private val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
 
-/** Preferenza di tema persistita con Preferences DataStore, osservabile come [Flow]. */
+/** Theme preference persisted with Preferences DataStore, observable as a [Flow]. */
 @Singleton
 class ThemePreferences @Inject constructor(@ApplicationContext private val context: Context) {
 

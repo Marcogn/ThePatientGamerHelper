@@ -1,269 +1,284 @@
-# Specifica funzionale e tecnica — App recensioni videoludiche
+# Functional and Technical Specification — Video Game Review App
 
-**Versione:** 1.2 (roadmap estesa oltre l'originaria, Fase 8)
-**Scopo del documento:** definire ambito, modello dati, funzionalità ed architettura per un'app Android personale che sostituisce/supporta il tuo attuale flusso di recensioni per r/patientgamer, con export multi-formato, backup cloud e backlog tracciabile. Nato come documento di progettazione iniziale, ora tenuto aggiornato come riferimento sullo stato della roadmap — il dettaglio implementativo di ogni fase vive in `CLAUDE.md`.
-
----
-
-## 1. Obiettivo e principi guida
-
-App **single-user, offline-first**: nessun account è richiesto per l'uso base, nessun backend server è necessario per l'MVP. Tutti i dati vivono localmente sul device; il cloud entra in gioco solo come backup opzionale (Fase 4).
-
-Il front-end tecnico è lasciato a te; in questo documento propongo uno stack di default motivato, ma nessuna scelta qui è vincolante — sono indicate come raccomandazioni con relative alternative.
+**Version:** 1.2 (roadmap extended beyond the original scope, Phase 8)
+**Purpose of this document:** to define the scope, data model, features, and architecture for a personal Android app that replaces/supports your current review workflow for r/patientgamer, with multi-format export, cloud backup, and a trackable backlog. Originally written as an initial design document, it is now kept up to date as a reference on the roadmap's status — implementation details for each phase live in `CLAUDE.md`.
 
 ---
 
-## 2. Modello dati
+## 1. Goal and guiding principles
 
-Entità principale: **Recensione** (1 recensione = 1 gioco recensito).
+A **single-user, offline-first** app: no account is required for basic use, no backend server is needed for the MVP. All data lives locally on the device; the cloud only comes into play as an optional backup (Phase 4).
 
-| Campo | Tipo | Note |
+The technical front-end choice is left up to you; this document proposes a reasoned default stack, but no choice here is binding — they are presented as recommendations with their alternatives.
+
+---
+
+## 2. Data model
+
+Main entity: **Review** (1 review = 1 reviewed game).
+
+| Field | Type | Notes |
 |---|---|---|
-| `id` | UUID | chiave primaria |
-| `titolo` | stringa | nome del gioco |
-| `piattaforma` | stringa/tag | libera ma con autocomplete su valori già usati |
-| `genere` | stringa/tag | idem |
-| `tagPersonalizzati` | lista di stringhe | tassonomia libera, tua |
-| `voto` | numerico | **decisione aperta**: scala 0–10 (tipica recensioni testuali stile patientgamer) o stelle 1–5. Non presumo quale usi — è una scelta di prodotto tua |
-| `dataInizio` | data | quando hai iniziato il gioco |
-| `dataFine` | data | quando l'hai completato/abbandonato |
-| `oreGioco` | numerico | tempo di completamento dichiarato, inserito manualmente (nessuna integrazione automatica prevista nell'MVP) |
-| `stato` | enum | `completato` / `abbandonato` / `in corso` — utile per tracciare il backlog, coerente col tuo profilo di completista |
-| `pro` | lista di stringhe | punti strutturati |
-| `contro` | lista di stringhe | punti strutturati |
-| `testoRecensione` | testo lungo (markdown) | corpo libero della recensione |
-| `copertina` | URI locale (opzionale) | immagine salvata in storage interno app |
-| `creatoIl` / `modificatoIl` | timestamp | metadati |
+| `id` | UUID | primary key |
+| `title` | string | name of the game |
+| `platform` | string/tag | free-form but with autocomplete on already-used values |
+| `genre` | string/tag | same |
+| `customTags` | list of strings | free-form taxonomy, yours to define |
+| `rating` | numeric | **open decision**: 0–10 scale (typical of patientgamer-style written reviews) or 1–5 stars. I'm not assuming which one you'll use — that's a product decision that's yours to make |
+| `startDate` | date | when you started the game |
+| `endDate` | date | when you completed/abandoned it |
+| `hoursPlayed` | numeric | self-reported completion time, entered manually (no automatic integration planned for the MVP) |
+| `status` | enum | `completato` / `abbandonato` / `in corso` — useful for tracking the backlog, consistent with your completionist profile |
+| `pros` | list of strings | structured bullet points |
+| `cons` | list of strings | structured bullet points |
+| `reviewText` | long text (markdown) | free-form body of the review |
+| `coverImage` | local URI (optional) | image saved in the app's internal storage |
+| `createdAt` / `updatedAt` | timestamp | metadata |
 
-Entità di supporto: **Piattaforma** e **Genere** come tabelle di lookup separate, per garantire autocomplete coerente senza duplicare stringhe (evita "PS5" vs "Playstation 5" come tag diversi).
+Supporting entities: **Platform** and **Genre** as separate lookup tables, to guarantee consistent autocomplete without duplicating strings (avoids "PS5" vs "Playstation 5" ending up as different tags).
 
-### 2.1 Backlog (Fase 6)
+### 2.1 Backlog (Phase 6)
 
-Entità aggiuntive per tracciare i giochi non ancora recensiti:
+Additional entities for tracking games not yet reviewed:
 
-| Entità | Campi principali | Note |
+| Entity | Main fields | Notes |
 |---|---|---|
-| **Lista backlog** | `id`, `nome`, `ordine`, `dataCreazione` | create/rinominate/eliminate/riordinate liberamente dall'utente |
-| **Item backlog** | `id`, `listId`, `titolo`, piattaforma/genere/tag (many-to-many, stesse tabelle di lookup delle recensioni), `copertina`, `stato` (`da_iniziare`/`in_corso`/`completato`/`abbandonato`/`in_pausa`), `dataAggiunta`, `dataInizio`/`dataCompletamento` (opzionali, valorizzate automaticamente al cambio stato), `recensioneId` (opzionale), `notaAbbandono`, `anno`/`sviluppatore` (opzionali, valorizzati solo dalla ricerca online), `hltbStoriaPrincipale`/`hltbStoriaPiuExtra`/`hltbCompletista` (opzionali, ore stimate, Fase 8 — valorizzati solo dalla ricerca online, mai a mano) | una recensione per item al massimo |
-| **Commento** | `id`, `itemId`, `testo`, `timestamp` | multipli per item, ordine cronologico |
-| **Voce di storico** | `id`, `itemId`, `tipoEvento`, `timestamp`, `dettaglio` | generata automaticamente dal sistema, non richiede input manuale |
+| **Backlog list** | `id`, `name`, `order`, `creationDate` | freely created/renamed/deleted/reordered by the user |
+| **Backlog item** | `id`, `listId`, `title`, platform/genre/tag (many-to-many, same lookup tables as reviews), `coverImage`, `status` (`da_iniziare`/`in_corso`/`completato`/`abbandonato`/`in_pausa`), `addedDate`, `startDate`/`completedDate` (optional, set automatically on status change), `reviewId` (optional), `abandonNote`, `year`/`developer` (optional, set only via online search), `hltbMainStory`/`hltbMainPlusExtra`/`hltbCompletionist` (optional, estimated hours, Phase 8 — set only via online search, never by hand) | at most one review per item |
+| **Comment** | `id`, `itemId`, `text`, `timestamp` | multiple per item, chronological order |
+| **History entry** | `id`, `itemId`, `eventType`, `timestamp`, `detail` | generated automatically by the system, requires no manual input |
 
 ---
 
-## 3. Funzionalità
+## 3. Features
 
-### 3.1 MVP (Fase 1)
-- CRUD completo sulle recensioni
-- Libreria/lista con ricerca full-text e filtri combinabili (piattaforma, genere, tag, voto, stato, intervallo date)
-- Ordinamento per data, voto, titolo, ore di gioco
-- Vista dettaglio recensione
+### 3.1 MVP (Phase 1)
+- Full CRUD on reviews
+- Library/list with full-text search and combinable filters (platform, genre, tag, rating, status, date range)
+- Sorting by date, rating, title, hours played
+- Review detail view
 
-### 3.2 Statistiche libreria (Fase 3) ✅ completata
-Dato il tuo profilo (alto tasso di completamento, attenzione a backlog e serie complete), ha senso includere:
-- numero totale recensioni, voto medio, ore totali tracciate
-- distribuzione per piattaforma/genere
-- percentuale completato vs abbandonato
+### 3.2 Library statistics (Phase 3) ✅ completed
+Given your profile (high completion rate, attention to backlog and complete series), it makes sense to include:
+- total number of reviews, average rating, total hours tracked
+- distribution by platform/genre
+- completed vs. abandoned percentage
 
-Implementata come nuova schermata Statistiche raggiungibile dalla libreria,
-con le metriche sopra più la quota "in corso" (percentuale calcolata solo sul
-campo stato, a scelta singola — non su piattaforma/genere, che sono
-many-to-many e non sommerebbero a 100%). Dettaglio implementativo e scelte
-tecniche in `CLAUDE.md` e `docs/decisioni-implementazione.md`.
+Implemented as a new Statistics screen reachable from the library, with the
+metrics above plus the "in progress" share (a percentage computed only on
+the single-choice status field — not on platform/genre, which are
+many-to-many and wouldn't add up to 100%). Implementation details and
+technical choices in `CLAUDE.md` and `docs/implementation-decisions.md`.
 
-### 3.3 Export (Fase 2)
-- **Markdown**: formattazione compatibile con la sintassi di Reddit, per copia-incolla diretto nei tuoi post
-- **JSON/CSV**: dati grezzi, per backup/portabilità e per eventuale elaborazione esterna
-- **PDF**: singola recensione o intera libreria in batch
-- **DOCX**: **non implementato, decisione definitiva** — vedi nota tecnica dedicata sotto
+### 3.3 Export (Phase 2)
+- **Markdown**: formatting compatible with Reddit syntax, for direct copy-paste into your posts
+- **JSON/CSV**: raw data, for backup/portability and any external processing
+- **PDF**: single review or entire library in batch
+- **DOCX**: **not implemented, final decision** — see dedicated technical note below
 
-### 3.4 Backup cloud su Google Drive (Fase 4) ✅ completata
-Backup manuale e automatico (periodico via WorkManager) di un archivio ZIP
-(JSON completo + cartella immagini) salvato nella appDataFolder di Google
-Drive. Ripristino: elenco dei backup disponibili, selezione, download e
-reimport in Room con sovrascrittura completa dei dati locali (nessun
-merge). Dettaglio implementativo e scelte tecniche in `CLAUDE.md`, sezione
-"Fase 4 — Backup cloud Google Drive".
+### 3.4 Google Drive cloud backup (Phase 4) ✅ completed
+Manual and automatic (periodic, via WorkManager) backup of a ZIP archive
+(full JSON + images folder) saved in Google Drive's appDataFolder.
+Restore: list of available backups, selection, download, and reimport into
+Room with a full overwrite of local data (no merge). Implementation
+details and technical choices in `CLAUDE.md`, section "Phase 4 — Google
+Drive cloud backup".
 
-### 3.5 Backlog tracciabile (Fase 6, Tappa 1) ✅ completata
-CRUD liste e item, cambio stato tramite selettore dedicato, commenti
-multipli in ordine cronologico, storico automatico (timeline eventi),
-riordino manuale item dentro una lista (drag-to-reorder), ricerca/filtro
-unificata (lista, stato, piattaforma, genere) coerente con l'esperienza
-della libreria recensioni, vista aggregata leggera (conteggi per
-stato/lista), nota libera sul motivo di un abbandono. Al passaggio a
-"completato" viene proposto di scrivere subito la recensione, con il form
-precompilato dai dati già noti dal backlog. Dettaglio implementativo in
-`CLAUDE.md`, sezione "Fase 6 — Backlog tracciabile e fetch metadati
-(TheGamesDB)".
+### 3.5 Trackable backlog (Phase 6, Stage 1) ✅ completed
+List and item CRUD, status change via a dedicated selector, multiple
+comments in chronological order, automatic history (event timeline),
+manual item reordering within a list (drag-to-reorder), unified
+search/filter (list, status, platform, genre) consistent with the review
+library experience, a lightweight aggregate view (counts by status/list),
+a free-text note on the reason for abandoning a game. When switching to
+"completed," the user is prompted to write the review right away, with
+the form pre-filled from data already known from the backlog.
+Implementation details in `CLAUDE.md`, section "Phase 6 — Trackable
+backlog and metadata fetch (TheGamesDB)".
 
-### 3.6 Fetch automatico copertina e metadati (Fase 6, Tappa 2) ✅ completata
-Pulsante "Cerca online" (TheGamesDB) nel form di aggiunta al backlog e nel
-form recensione: interroga per titolo (+ piattaforma per disambiguare),
-mostra tutti i risultati per scelta manuale (nessuna auto-selezione),
-scarica e salva localmente copertina e metadati utili alla selezione. Il
-caricamento manuale della copertina resta sempre disponibile come
-alternativa. Richiede una API key TheGamesDB configurabile nelle
-Impostazioni (nessuna chiave inclusa nella build). Dettaglio implementativo
-in `CLAUDE.md`, stessa sezione sopra.
+### 3.6 Automatic cover and metadata fetch (Phase 6, Stage 2) ✅ completed
+A "Search online" (TheGamesDB) button in the backlog add form and the
+review form: queries by title (+ platform to disambiguate), shows all
+results for manual selection (no auto-selection), downloads and saves the
+cover and useful metadata locally upon selection. Manual cover upload
+remains always available as an alternative. Requires a TheGamesDB API key
+configurable in Settings (no key included in the build). Implementation
+details in `CLAUDE.md`, same section above.
 
-### 3.7 Import recensioni da Markdown (Fase 8) ✅ completata
+### 3.7 Markdown review import (Phase 8) ✅ completed
 
-Reverse dell'export Markdown singola recensione (3.3): un pulsante nella
-top bar della libreria apre un file `.md` via SAF e crea una nuova
-recensione a partire dal suo contenuto. Riconosce solo il formato prodotto
-dall'app stessa (stesse etichette italiane fisse, stessa struttura). Errori
-di parsing (campo obbligatorio mancante o non valido) mostrano un messaggio
-puntuale invece di un fallimento generico. Dettaglio implementativo in
-`CLAUDE.md`, sezione "Fase 8".
+The reverse of the single-review Markdown export (3.3): a button in the
+library's top bar opens an `.md` file via SAF and creates a new review
+from its content. It recognizes only the format produced by the app
+itself (same fixed Italian labels, same structure). Parsing errors (a
+required field missing or invalid) show a specific message instead of a
+generic failure. Implementation details in `CLAUDE.md`, section "Phase 8".
 
-### 3.8 Export/import backlog con le sue liste (Fase 8) ✅ completata
+### 3.8 Backlog export/import with its lists (Phase 8) ✅ completed
 
-Stesso principio dell'export/import Markdown ma per l'intero backlog: un
-unico archivio ZIP (dati + copertine) scaricabile/apribile via SAF dalla
-schermata Backlog. L'import è **sempre additivo** (nuove liste, nuovi
-item), mai una sostituzione — diverso dal restore da backup Drive (3.4/6),
-che è un ripristino completo. Dettaglio implementativo in `CLAUDE.md`,
-sezione "Fase 8".
+Same principle as the Markdown export/import but for the entire backlog: a
+single ZIP archive (data + covers) downloadable/openable via SAF from the
+Backlog screen. The import is **always additive** (new lists, new items),
+never a replacement — unlike the Drive backup restore (3.4/6), which is a
+full restore. Implementation details in `CLAUDE.md`, section "Phase 8".
 
-### 3.9 Tempi stimati da HowLongToBeat nel backlog (Fase 8) ✅ completata
+### 3.9 HowLongToBeat time estimates in the backlog (Phase 8) ✅ completed
 
-Quando "Cerca online" nel form backlog porta a selezionare un risultato
-TheGamesDB, l'app tenta anche una ricerca HowLongToBeat sullo stesso titolo
-e, se trova una corrispondenza, salva le stime (storia principale, storia +
-extra, completista, in ore) sull'item — visibili nella scheda di dettaglio
-del backlog. **HowLongToBeat non espone un'API pubblica**: l'integrazione
-usa la stessa tecnica reverse-engineered di ogni libreria non ufficiale
-esistente, quindi è intrinsecamente più fragile della ricerca TheGamesDB e
-può smettere di funzionare se HowLongToBeat cambia il proprio frontend —
-fallisce sempre in silenzio (nessun campo valorizzato), mai con un errore
-bloccante. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
+When "Search online" in the backlog form leads to selecting a TheGamesDB
+result, the app also attempts a HowLongToBeat search on the same title
+and, if it finds a match, saves the estimates (main story, main + extra,
+completionist, in hours) on the item — visible on the backlog detail
+screen. **HowLongToBeat does not expose a public API**: the integration
+uses the same reverse-engineered technique as every existing unofficial
+library, so it is inherently more fragile than the TheGamesDB search and
+can stop working if HowLongToBeat changes its frontend — it always fails
+silently (no field gets set), never with a blocking error. Implementation
+details in `CLAUDE.md`, section "Phase 8".
 
-### 3.10 Statistiche: tempo stimato backlog (Fase 8) ✅ completata
+### 3.10 Statistics: estimated backlog time (Phase 8) ✅ completed
 
-La schermata Statistiche mostra, quando disponibili, le ore stimate totali
-(storia principale/storia + extra/completista) sommate su tutti gli item
-del backlog che hanno una stima HowLongToBeat, più il conteggio di quanti
-item ne hanno una. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
+The Statistics screen shows, when available, the total estimated hours
+(main story/main + extra/completionist) summed across all backlog items
+that have a HowLongToBeat estimate, plus a count of how many items have
+one. Implementation details in `CLAUDE.md`, section "Phase 8".
 
-### 3.11 Viste lista/griglia per recensioni e backlog (Fase 8) ✅ completata
+### 3.11 List/grid views for reviews and backlog (Phase 8) ✅ completed
 
-Un pulsante nella libreria e nella vista di dettaglio di una lista backlog
-alterna tra la vista a lista esistente e una vista a griglia con copertine
-a piena larghezza in proporzione corretta (2:3, tipica delle cover
-box-art). La scelta è persistita per schermata. La griglia del backlog non
-supporta il riordino manuale (drag-to-reorder), disponibile solo in vista a
-lista. Dettaglio implementativo in `CLAUDE.md`, sezione "Fase 8".
+A button in the library and in a backlog list's detail view toggles
+between the existing list view and a grid view with full-width covers at
+the correct aspect ratio (2:3, typical of box-art covers). The choice is
+persisted per screen. The backlog grid does not support manual reordering
+(drag-to-reorder), which is only available in list view. Implementation
+details in `CLAUDE.md`, section "Phase 8".
 
 ---
 
-## 4. Architettura tecnica proposta (non vincolante)
+## 4. Proposed technical architecture (not binding)
 
-- **Kotlin + Jetpack Compose** per la UI. È lo stack che Google raccomanda ufficialmente nella documentazione architetturale aggiornata; il sistema a View è ormai in manutenzione e non riceve più investimento su nuove funzionalità.
-- **Pattern**: ViewModel con StateFlow + Unidirectional Data Flow (eventi salgono, stato scende) — è il pattern descritto nella guida ufficiale all'architettura Compose.
-- **Persistenza locale**: Room come single source of truth, con Flow per l'osservabilità reattiva della UI.
-- **DI**: Hilt (standard de facto sull'ecosistema Compose/Room).
-- **Immagini**: storage interno dell'app, riferimento via URI in Room (non serve un content provider dedicato per un'app single-user).
-- **Lavoro in background**: WorkManager per sync/backup periodici.
+- **Kotlin + Jetpack Compose** for the UI. This is the stack Google officially recommends in its up-to-date architecture documentation; the View-based system is now in maintenance mode and no longer receives investment for new features.
+- **Pattern**: ViewModel with StateFlow + Unidirectional Data Flow (events flow up, state flows down) — this is the pattern described in the official Compose architecture guide.
+- **Local persistence**: Room as the single source of truth, with Flow for reactive UI observability.
+- **DI**: Hilt (the de facto standard in the Compose/Room ecosystem).
+- **Images**: the app's internal storage, referenced via a URI in Room (no need for a dedicated content provider in a single-user app).
+- **Background work**: WorkManager for periodic sync/backup.
 
-Se preferisci restare più vicino al tuo stack lavorativo (Spring/JHipster ti rende comunque molto a tuo agio con pattern MVC/dependency injection), l'alternativa classica MVVM con View + ViewModel resta percorribile, ma è un investimento su tecnologia che Google sta esplicitamente deprioritizzando — te lo segnalo per onestà, non per spingerti verso Compose a tutti i costi.
+If you'd rather stay closer to your day-job stack (Spring/JHipster already
+makes you comfortable with MVC/dependency-injection patterns), the
+classic MVVM alternative with View + ViewModel remains viable, but it's
+an investment in technology that Google is explicitly deprioritizing —
+I'm flagging this for the sake of honesty, not to push you toward Compose
+at all costs.
 
 ---
 
-## 5. Dettaglio tecnico per l'export
+## 5. Technical detail for export
 
 ### PDF
-Due strade concrete:
-1. **`android.graphics.pdf.PdfDocument`** — nativo, gratuito, ma basso livello: disegni manualmente ogni elemento su un Canvas. Massimo controllo, zero rischi di licenza, più codice da scrivere.
-2. **Apache PDFBox (porting Android)** — libero sotto licenza Apache 2.0, API di più alto livello per testo/paragrafi/tabelle.
+Two concrete paths:
+1. **`android.graphics.pdf.PdfDocument`** — native, free, but low-level: you draw every element manually on a Canvas. Maximum control, zero licensing risk, more code to write.
+2. **Apache PDFBox (Android port)** — free under the Apache 2.0 license, higher-level API for text/paragraphs/tables.
 
-**Nota di onestà**: eviterei iText7 per questo progetto — è distribuito sotto licenza AGPL (uso gratuito ma con obbligo di rilasciare il codice sorgente dell'app che lo usa, a meno di licenza commerciale a pagamento). Per un'app personale non è bloccante in sé, ma è un vincolo da conoscere prima di adottarlo, non dopo.
+**A note of honesty**: I would avoid iText7 for this project — it's
+distributed under the AGPL license (free to use, but with an obligation
+to release the source code of any app that uses it, unless you pay for a
+commercial license). For a personal app this isn't a blocker in itself,
+but it's a constraint worth knowing before adopting it, not after.
 
 ### Markdown
-Nessuna libreria necessaria: è generazione di stringhe a template, il formato più semplice dei quattro.
+No library needed: it's template-based string generation, the simplest of the four formats.
 
 ### CSV/JSON
-`kotlinx.serialization` per JSON (idiomatico in Kotlin); per CSV un writer manuale o OpenCSV, senza particolari insidie.
+`kotlinx.serialization` for JSON (idiomatic in Kotlin); for CSV, a manual writer or OpenCSV, with no particular pitfalls.
 
-### DOCX — nota di onestà tecnica (e decisione presa)
-Qui va detta la cosa scomoda: **non esiste un writer DOCX leggero e maturo pensato per Android**. Apache POI (lo standard JVM per Office) ha problemi noti su Android — dipende da classi `java.awt` non disponibili sulla piattaforma e appesantisce parecchio l'APK. I wrapper Kotlin che si trovano in giro (es. DocxKtm) sono comunque costruiti sopra docx4j, che porta con sé lo stesso tipo di dipendenze pesanti.
+### DOCX — a note of technical honesty (and the decision made)
+Here's the uncomfortable truth: **there is no lightweight, mature DOCX
+writer built for Android**. Apache POI (the JVM standard for Office) has
+known problems on Android — it depends on `java.awt` classes that aren't
+available on the platform and adds significant weight to the APK. The
+Kotlin wrappers you can find out there (e.g., DocxKtm) are still built on
+top of docx4j, which brings the same kind of heavy dependencies.
 
-L'unica strada praticabile senza dipendenze pesanti sarebbe generare il
-DOCX manualmente come archivio ZIP di XML (un file .docx è tecnicamente uno
-ZIP con dentro `document.xml` + file di struttura OOXML) — fattibile per un
-documento semplice, ma con un investimento iniziale non banale.
+The only viable path without heavy dependencies would be to generate the
+DOCX manually as a ZIP archive of XML (a .docx file is technically a ZIP
+containing `document.xml` plus OOXML structure files) — feasible for a
+simple document, but with a non-trivial upfront investment.
 
-**Decisione presa** (non più un punto aperto): **non implementare l'export
-DOCX**. Con Markdown (condivisione leggibile, compatibile Reddit) e
-JSON/CSV (dato grezzo portabile) già coperti dalla Fase 2, il DOCX resta un
-nice-to-have senza un caso d'uso concreto che ne giustifichi il costo di
-implementazione. Non fa più parte della roadmap del progetto.
-
----
-
-## 6. Backup cloud — dettaglio tecnico (Fase 4)
-
-Alcuni punti che nel 2026 sono cambiati rispetto a molte guide che si trovano online, quindi verificati direttamente sulla documentazione Google:
-
-- **Non usare `GoogleSignInClient` / `play-services-auth`**: è deprecato e in fase di rimozione dal Play Services Auth SDK. Molte guide "backup su Drive stile WhatsApp" che circolano online lo usano ancora — sono da considerare superate.
-- Approccio corrente raccomandato: **Credential Manager** per l'autenticazione + **AuthorizationClient API** per l'autorizzazione specifica di accesso a Drive.
-- Scope da richiedere: `drive.appdata`, che dà accesso alla **appDataFolder** — una cartella privata per-app, non visibile nell'interfaccia utente di Drive e non condivisibile. Perfetta per un backup automatico invisibile all'utente.
-- API da usare: **Drive REST API v3**. La vecchia "Drive API per Android" (basata su `DriveClient`/`DriveResourceClient`) è deprecata dal 2019 e completamente disattivata dal 2023 — non è una scelta disponibile, a prescindere da preferenze.
-- Formato del backup: singolo archivio con JSON completo dei dati + cartella immagini, versionato con timestamp nel nome file.
-
-Nota pratica: dovrai comunque registrare l'app su Google Cloud Console e configurare una schermata di consenso OAuth. Per un'app a uso personale puoi restare in modalità "testing" (fino a un tetto di utenti di test), che evita il processo di verifica pubblica di Google — sufficiente per un caso d'uso a singolo utente come il tuo.
+**Decision made** (no longer an open question): **DOCX export will not be
+implemented**. With Markdown (readable, Reddit-compatible sharing) and
+JSON/CSV (portable raw data) already covered by Phase 2, DOCX remains a
+nice-to-have with no concrete use case that would justify the
+implementation cost. It is no longer part of the project roadmap.
 
 ---
 
-## 7. Fasi di sviluppo proposte
+## 6. Cloud backup — technical detail (Phase 4)
 
-1. **Fase 1 — MVP locale** ✅: CRUD, lista, filtri, dettaglio recensione
-2. **Fase 2 — Export** ✅: JSON/CSV → Markdown → PDF (in quest'ordine di complessità crescente)
-3. **Fase 3 — Statistiche libreria** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
-4. **Fase 4 — Backup cloud Google Drive** ✅: vedi `CLAUDE.md` per il dettaglio implementativo
-5. **Fase 5 — Internazionalizzazione, tema e documentazione** ✅: app tradotta
-   IT/EN con selettore lingua in-app, tema chiaro/scuro/sistema, e
-   documentazione riorganizzata sotto `docs/` (più `docs/en/` per la
-   traduzione inglese). Vedi `CLAUDE.md` per il dettaglio implementativo.
-6. **Fase 6 — Backlog tracciabile e fetch metadati (TheGamesDB)** ✅: nuova
-   sezione Backlog (liste, item, commenti, storico automatico) e ricerca
-   online TheGamesDB per copertina/metadati, in due tappe. Vedi `CLAUDE.md`
-   per il dettaglio implementativo.
-7. **Fase 7 — Rebranding, navigazione a drawer, fix ricerca TheGamesDB** ✅:
-   vedi `CLAUDE.md` per il dettaglio implementativo.
-8. **Fase 8 — Import Markdown, export/import backlog, HowLongToBeat, viste
-   griglia** ✅: import recensioni da Markdown, export/import dell'intero
-   backlog (sempre additivo), tempi stimati HowLongToBeat nel backlog e
-   nelle statistiche, vista a griglia per libreria e backlog. Vedi
-   `CLAUDE.md` per il dettaglio implementativo e
-   `docs/decisioni-implementazione.md` per il ragionamento completo,
-   inclusa la fragilità nota dell'integrazione HowLongToBeat.
+A few points that, as of 2026, have changed relative to many guides found online, so they were verified directly against Google's documentation:
 
-Con la Fase 5 si era chiusa la roadmap originaria di questo documento; le
-Fasi 6-8 la estendono su richiesta esplicita in sessioni successive. Export
-DOCX resta **non implementato**, decisione definitiva — vedi sezione 5.
+- **Don't use `GoogleSignInClient` / `play-services-auth`**: it's deprecated and being removed from the Play Services Auth SDK. Many "WhatsApp-style Drive backup" guides circulating online still use it — they should be considered outdated.
+- Current recommended approach: **Credential Manager** for authentication + the **AuthorizationClient API** for the specific Drive access authorization.
+- Scope to request: `drive.appdata`, which grants access to the **appDataFolder** — a private per-app folder, not visible in the Drive user interface and not shareable. Perfect for an automatic backup that's invisible to the user.
+- API to use: **Drive REST API v3**. The old "Drive API for Android" (based on `DriveClient`/`DriveResourceClient`) has been deprecated since 2019 and completely shut down since 2023 — it's not an available option, regardless of preference.
+- Backup format: a single archive with the full JSON data + an images folder, versioned with a timestamp in the file name.
+
+Practical note: you'll still need to register the app on Google Cloud
+Console and configure an OAuth consent screen. For a personal-use app you
+can stay in "testing" mode (up to a cap on test users), which avoids
+Google's public verification process — sufficient for a single-user use
+case like yours.
 
 ---
 
-## 8. Punti aperti che ti lascio a decidere
+## 7. Proposed development phases
 
-Questi sono scelte di prodotto che non presumo per te:
-- Scala di voto (0–10 con decimali vs stelle 1–5)
-- Se lo stato "in corso" ti serve davvero o se preferisci tracciare solo giochi completati/abbandonati (recensire "a freddo" è tipico dello spirito patientgamer)
-- Se vuoi un'unica recensione per gioco o la possibilità di rigiocare e aggiungere una seconda entry (replay) collegata alla stessa scheda gioco
+1. **Phase 1 — Local MVP** ✅: CRUD, list, filters, review detail
+2. **Phase 2 — Export** ✅: JSON/CSV → Markdown → PDF (in this order of increasing complexity)
+3. **Phase 3 — Library statistics** ✅: see `CLAUDE.md` for implementation details
+4. **Phase 4 — Google Drive cloud backup** ✅: see `CLAUDE.md` for implementation details
+5. **Phase 5 — Internationalization, theming, and documentation** ✅: the
+   app translated into IT/EN with an in-app language selector, a
+   light/dark/system theme, and documentation reorganized under `docs/`.
+   See `CLAUDE.md` for implementation details.
+6. **Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)** ✅: a
+   new Backlog section (lists, items, comments, automatic history) and
+   online TheGamesDB search for cover/metadata, in two stages. See
+   `CLAUDE.md` for implementation details.
+7. **Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix** ✅:
+   see `CLAUDE.md` for implementation details.
+8. **Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid
+   views** ✅: Markdown review import, export/import of the entire backlog
+   (always additive), HowLongToBeat time estimates in the backlog and in
+   statistics, grid view for library and backlog. See `CLAUDE.md` for
+   implementation details and `docs/implementation-decisions.md` for the
+   full reasoning, including the known fragility of the HowLongToBeat
+   integration.
+
+Phase 5 closed out this document's original roadmap; Phases 6-8 extend it
+at explicit request in later sessions. DOCX export remains **not
+implemented**, a final decision — see section 5.
 
 ---
 
-## Fonti principali consultate
+## 8. Open points left for you to decide
 
-- developer.android.com — Recommendations for Android architecture (aggiornata 2026-04-26)
-- developer.android.com — Compose UI Architecture (aggiornata 2026-06-16)
-- developer.android.com — About the migration from legacy Google Sign-In (aggiornata 2026-03-06)
-- developer.android.com — Store application-specific data (Drive appDataFolder, aggiornata 2026-04-20)
+These are product decisions I'm not presuming to make for you:
+- Rating scale (0–10 with decimals vs. 1–5 stars)
+- Whether you really need the "in progress" status, or whether you'd rather track only completed/abandoned games (reviewing "in hindsight" is typical of the patientgamer spirit)
+- Whether you want a single review per game, or the ability to replay and add a second entry (replay) linked to the same game entry
+
+---
+
+## Main sources consulted
+
+- developer.android.com — Recommendations for Android architecture (updated 2026-04-26)
+- developer.android.com — Compose UI Architecture (updated 2026-06-16)
+- developer.android.com — About the migration from legacy Google Sign-In (updated 2026-03-06)
+- developer.android.com — Store application-specific data (Drive appDataFolder, updated 2026-04-20)
 - developers.google.com — Drive Android API deprecation notice
 - android-developers.googleblog.com — Streamlining Android authentication: Credential Manager replaces legacy APIs
-- ironpdf.com / medium.com — confronto licenze iText7 (AGPL) vs alternative
-- dev.to — Kotlin PDF Libraries: Free & Paid (panoramica PDFBox)
-- discuss.kotlinlang.org / github.com (DocxKtm) — stato dei tool di generazione DOCX su Android/Kotlin
-- forums.thegamesdb.net — policy di accesso API (cambio 17/02/2026, richiesta apikey su ogni endpoint) e limiti della public key condivisa
-- github.com (muldjord/skyscraper, sselph/scraper, picandocodigo/gamesdb) — struttura reale degli endpoint TheGamesDB v1 (ricerca, include=boxart, lookup Platforms/Genres/Developers) usata per implementare `TheGamesDbApiClient` senza documentazione ufficiale raggiungibile
-- github.com (ScrappyCocco/HowLongToBeat-PythonAPI, ckatzorke/howlongtobeat, altre librerie non ufficiali) — confermato che HowLongToBeat non espone un'API pubblica e che ogni integrazione esistente ri-deriva l'endpoint di ricerca dal bundle frontend a runtime; usato per implementare `HowLongToBeatApiClient` (Fase 8) sapendo esplicitamente che è una tecnica reverse-engineered, non un contratto stabile
+- ironpdf.com / medium.com — iText7 (AGPL) license comparison vs. alternatives
+- dev.to — Kotlin PDF Libraries: Free & Paid (PDFBox overview)
+- discuss.kotlinlang.org / github.com (DocxKtm) — state of DOCX generation tools on Android/Kotlin
+- forums.thegamesdb.net — API access policy (17/02/2026 change, apikey now required on every endpoint) and limits of the shared public key
+- github.com (muldjord/skyscraper, sselph/scraper, picandocodigo/gamesdb) — the real structure of the TheGamesDB v1 endpoints (search, include=boxart, Platforms/Genres/Developers lookup) used to implement `TheGamesDbApiClient` without reachable official documentation
+- github.com (ScrappyCocco/HowLongToBeat-PythonAPI, ckatzorke/howlongtobeat, other unofficial libraries) — confirmed that HowLongToBeat exposes no public API and that every existing integration re-derives the search endpoint from the frontend bundle at runtime; used to implement `HowLongToBeatApiClient` (Phase 8) with the explicit understanding that it's a reverse-engineered technique, not a stable contract

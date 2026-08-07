@@ -17,5 +17,5 @@ enum class BacklogListKind {
     COMPLETED_AWAITING_REVIEW,
 }
 
-/** One-shot "vuoi spostarlo in questa lista?" confirmation, shared by the backlog and review form ViewModels. */
+/** One-shot "move it to this list?" confirmation, shared by the backlog and review form ViewModels. */
 data class PendingListMove(val itemTitle: String, val targetListKind: BacklogListKind, val targetListName: String)
