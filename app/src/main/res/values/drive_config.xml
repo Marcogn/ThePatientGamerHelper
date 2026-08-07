@@ -16,5 +16,5 @@
       rest of the external configuration (drive.appdata scope, testing mode
       of the consent screen).
     -->
-    <string name="google_oauth_web_client_id" translatable="false">[TO_COMPLETE]</string>
+    <string name="google_oauth_web_client_id" translatable="false">252469296963-954ul65p230dsbc7gfimo3s2d1519m1l.apps.googleusercontent.com</string>
 </resources>
