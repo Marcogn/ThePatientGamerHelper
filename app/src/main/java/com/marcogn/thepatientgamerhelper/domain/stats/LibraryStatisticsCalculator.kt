@@ -40,7 +40,7 @@ fun computeLibraryStatistics(reviews: List<Review>): LibraryStatistics {
 /**
  * Counts occurrences per label (a review with multiple platforms/genres counts once per value),
  * sorted by count descending. No percentage here: with many-to-many fields, shares would not sum
- * to 100% and would misread as if they did — see docs/decisioni-implementazione.md.
+ * to 100% and would misread as if they did — see docs/implementation-decisions.md.
  */
 private fun distributionOf(values: List<String>): List<DistributionEntry> =
     values.groupingBy { it }.eachCount()

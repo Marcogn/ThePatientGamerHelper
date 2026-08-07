@@ -21,7 +21,7 @@ private const val LOG_TAG = "GameMetadataSearch"
  *
  * The message includes the underlying exception's text (and it's also logged in full via
  * [Log.w]): a purely generic "search failed" with the real cause thrown away made the very first
- * real-device failure impossible to diagnose — see docs/decisioni-implementazione.md.
+ * real-device failure impossible to diagnose — see docs/implementation-decisions.md.
  */
 class GameMetadataSearchCoordinator @Inject constructor(
     @ApplicationContext private val appContext: Context,
