@@ -1291,6 +1291,68 @@ linguaggio).
   `FALLBACK_SEARCH_PATH`, ma solo con un valore verificato allo stesso
   modo (fonte esterna reale), non indovinato.
 
+### TheGamesDB: 403 "Invalid API key" con chiave rigenerata e quota residua
+
+Segnalazione separata da HowLongToBeat: la ricerca online da backlog/form
+recensione falliva con `HTTP 403: {"code":403,"status":"Invalid API key
+was provided.","remaining_monthly_allowance":0,"allowance_refresh_timer":0}`
+anche con una chiave **appena rigenerata** dal pannello di TheGamesDB, che
+mostrava quota residua reale (923/1000) — i due zero nel corpo dell'errore
+sono quindi valori segnaposto per una chiave non riconosciuta, non un
+riflesso della quota vera.
+
+- **Verificato: non è una regressione di questa sessione**. `git log` sui
+  file di `data/thegamesdb/` mostra l'ultimo tocco al giro "Fix UI e
+  robustezza dopo verifica su device reale" (Fase 8), ben prima di tutti i
+  round HowLongToBeat/navigazione di questa sessione — nessuna modifica
+  recente al modo in cui la `apikey` viene inviata.
+- **Formato della richiesta confermato corretto per confronto esterno**:
+  via `WebFetch` su `raw.githubusercontent.com` (stesso approccio usato
+  per il fix HowLongToBeat), recuperato `src/thegamesdb.cpp` di
+  `muldjord/skyscraper` — scraper C++ attivamente mantenuto, uno dei
+  consumer noti dell'API TheGamesDB citati anche nella Fase 6 di questo
+  stesso file. Usa lo stesso base URL (`https://api.thegamesdb.net/v1`),
+  lo stesso endpoint (`/Games/ByGameName`) e lo stesso parametro
+  `&apikey=...` in query string — struttura della richiesta identica alla
+  nostra, quindi non è quello il problema.
+- **`TheGamesDbPreferences.apiKey` fa già `trim()`** sul valore prima di
+  salvarlo (`set(value) = ... putString(KEY_API_KEY, value.trim())`),
+  quindi uno spazio/a-capo residuo da un copia-incolla non dovrebbe essere
+  la causa.
+- **Diagnostica aggiunta, stesso principio di HowLongToBeat**:
+  `TheGamesDbApiClient.ensureSuccessful()` ora include l'URL della
+  richiesta fallita nel messaggio d'errore — `search()` chiama quattro
+  endpoint per ricerca (`Platforms`/`Genres`/`Developers` come lookup, poi
+  `Games/ByGameName`), e senza l'URL non era possibile sapere quale dei
+  quattro stesse fallendo.
+- **Sospetto principale, da confermare dall'utente**: dato che il formato
+  della richiesta è verificato corretto e la chiave risulta valida sul
+  pannello TheGamesDB, il problema più probabile è lato server
+  (propagazione della chiave rigenerata non ancora avvenuta, o un bug nel
+  loro sistema di validazione) — non risolvibile lato client. Suggerito
+  all'utente un test diretto e conclusivo: aprire da browser mobile
+  `https://api.thegamesdb.net/v1/Games/ByGameName?apikey=<CHIAVE>&name=mario`
+  (stesso trucco già usato per controllare il pannello quota) — se anche
+  lì la stessa chiave risulta "invalid", è inequivocabilmente un problema
+  lato TheGamesDB, non dell'app (la loro stessa pagina di errore invita a
+  contattare support@thegamesdb.net o Discord in quel caso).
+- **Confermato dall'utente, causa isolata**: la stessa identica URL (con
+  la stessa chiave "invalid") testata a mano da browser mobile **funziona**
+  — la chiave è quindi valida e l'endpoint è corretto, la differenza è
+  tutta negli header della richiesta. Sospetto principale ora:
+  `USER_AGENT` era una stringa che identifica esplicitamente l'app
+  (`"ThePatientGamerHelper/1.0 (Android; ...)"`, con in più il vecchio
+  nome del repository `GameReviewer`) invece di un User-Agent da browser —
+  TheGamesDB ha inasprito l'anti-bot nello stesso cambio di policy del
+  17/02/2026 che ha reso obbligatoria la apikey, e un "invalid key"
+  fuorviante invece di un blocco esplicito è un pattern comune per quel
+  tipo di filtro. Fix: stesso `USER_AGENT` desktop Chrome già usato per
+  `HowLongToBeatApiClient` (stessa causa, stesso fix, stessa fonte di
+  ragionamento — non una nuova ipotesi isolata). Da confermare sul device
+  reale: se il 403 persiste anche con lo User-Agent da browser, il
+  prossimo sospetto è l'header `Accept: application/json` (assente da un
+  browser che naviga l'URL direttamente).
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la
