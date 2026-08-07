@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
@@ -61,11 +62,13 @@ fun ReviewFormScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (uiState.isEditMode) {
+                        text = if (uiState.isEditMode) {
                             stringResource(R.string.review_edit_title)
                         } else {
                             stringResource(R.string.review_new_title)
                         },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {

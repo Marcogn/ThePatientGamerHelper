@@ -893,6 +893,61 @@ considerarla verde, e verifica manualmente su device/emulatore sia
 l'import Markdown sia — soprattutto — l'integrazione HowLongToBeat, che
 resta la parte a rischio di fragilità più alto di questa modifica.
 
+### Fix dopo verifica su device reale
+
+La verifica manuale su device (dopo il merge della PR iniziale) ha trovato
+quattro problemi reali, non visibili dalla sola revisione statica:
+
+- **`FilterChip` "Abbandonato" spezzato verticalmente carattere per
+  carattere** nel selettore di stato del dettaglio backlog: un `Row` senza
+  wrap comprimeva l'ultimo chip oltre la larghezza minima del testo. Fix:
+  `FlowRow` (`@OptIn(ExperimentalLayoutApi::class)`, stesso pattern già in
+  uso in `FilterSheet.kt`/`BacklogFilterSheet.kt`/`TagInputField.kt`) così
+  i chip vanno a capo su una nuova riga invece di schiacciarsi.
+- **Titoli delle top bar (`Recensioni`, `Backlog`, ecc.) spezzati su due
+  righe**, sovrapposti all'icona hamburger: troppe icone azione affiancate
+  al titolo (fino a 5 nella libreria dopo la Fase 8) lasciavano troppo poco
+  spazio. Fix: `maxLines = 1` + `overflow = TextOverflow.Ellipsis` su
+  **tutti** i titoli di `TopAppBar` dell'app (non solo libreria/backlog,
+  per coerenza e per prevenire lo stesso bug altrove — es. titolo lungo di
+  una lista backlog o di una recensione). Se il titolo tronca troppo su
+  schermi stretti, il prossimo passo è ridurre il numero di icone
+  consolidandole in un menu overflow, non ancora fatto.
+- **Ricerca TheGamesDB che falliva con un errore JSON illeggibile**
+  (`Expected JsonArray, but had JsonNull ... element: $.developers`),
+  indipendentemente da piattaforma/titolo: TheGamesDB restituisce `null`
+  (non semplicemente omette la chiave) per `genres`/`developers` sui giochi
+  senza quei dati catalogati — un valore di default in
+  `kotlinx.serialization` copre solo la chiave *assente*, non un `null`
+  esplicito, quindi ogni gioco con `developers: null` nella risposta faceva
+  fallire l'intera ricerca. Fix: `genres`/`developers` resi `List<Long>?`
+  in `GameDto` (`TheGamesDbApiClient.kt`) invece di avere solo un default,
+  più `coerceInputValues = true` sul `Json` come rete di sicurezza
+  aggiuntiva per altri campi che dovessero comportarsi allo stesso modo in
+  futuro.
+- **HowLongToBeat assente ovunque** (né nella scheda backlog né nelle
+  statistiche): la prima versione del client implementava solo la POST di
+  ricerca "nuda", senza gli header `x-auth-token`/`x-hp-key`/`x-hp-val`
+  che le librerie non ufficiali attualmente mantenute (es.
+  ScrappyCocco/HowLongToBeat-PythonAPI) documentano come necessari — vanno
+  ottenuti con una `GET <path>init` prima della ricerca vera e propria.
+  `HowLongToBeatApiClient` ora implementa l'intero flusso (homepage → bundle
+  `_app-*.js` → endpoint → `init` → ricerca con gli header), usa uno
+  User-Agent desktop realistico invece di uno che si identifica come app
+  (molti siti con protezioni anti-scraping scartano UA non-browser a
+  priori), e logga un warning ad ogni passo che fallisce (tag
+  `HowLongToBeatClient`, controllabile con `adb logcat -s
+  HowLongToBeatClient`) — la fase precedente falliva in silenzio assoluto,
+  impossibile da diagnosticare da remoto. **Resta comunque la parte più a
+  rischio di questa fase**: se il sito è dietro protezioni anti-bot più
+  sofisticate di un controllo su header/User-Agent (es. una challenge
+  Cloudflare che richiede l'esecuzione di JavaScript), nessun client
+  `HttpURLConnection` può superarla — in quel caso l'unica strada
+  praticabile sarebbe una `WebView` nascosta che carica la pagina reale e
+  intercetta le chiamate di rete, un cambiamento molto più invasivo non
+  ancora fatto. Se dopo questo fix le stime restano sempre assenti,
+  controllare i log con quel tag prima di ipotizzare altre cause.
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

@@ -119,6 +119,25 @@ considerarla verde, e verifica manualmente su device/emulatore sia il fix
 di importazione Markdown sia — soprattutto — l'integrazione HowLongToBeat,
 che è la parte con il rischio di fragilità più alto di questa modifica.
 
+### Fix dopo verifica su device reale (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Quattro problemi reali trovati testando l'app su device dopo il merge:
+`FilterChip` "Abbandonato" spezzato carattere per carattere (fix: `FlowRow`
+invece di `Row`), titoli delle top bar spezzati su due righe (fix:
+`maxLines = 1` + ellissi ovunque, non solo dove segnalato), ricerca
+TheGamesDB che falliva sempre con un errore JSON illeggibile quando un
+gioco aveva `developers`/`genres` esplicitamente `null` nella risposta
+(fix: campi resi nullable nel DTO + `coerceInputValues = true`), e
+HowLongToBeat completamente assente perché il client implementava solo la
+POST di ricerca senza gli header di autenticazione (`x-auth-token`/
+`x-hp-key`/`x-hp-val`) che le librerie non ufficiali attualmente
+mantenute richiedono — riscritto per implementare l'intero flusso
+homepage→bundle→endpoint→init→ricerca, con logging diagnostico ad ogni
+passo (prima falliva in silenzio assoluto, senza alcun modo di capire
+perché). Resta il rischio, esplicitamente non escluso, che il sito sia
+dietro protezioni anti-bot che nessun client `HttpURLConnection` può
+superare — vedi CLAUDE.md per il dettaglio.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

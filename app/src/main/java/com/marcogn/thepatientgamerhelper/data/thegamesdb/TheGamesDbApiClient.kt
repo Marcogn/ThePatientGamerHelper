@@ -26,7 +26,7 @@ private const val USER_AGENT = "ThePatientGamerHelper/1.0 (Android; +https://git
 private const val CONNECT_TIMEOUT_MS = 10_000
 private const val READ_TIMEOUT_MS = 15_000
 
-private val theGamesDbJson = Json { ignoreUnknownKeys = true }
+private val theGamesDbJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
 
 /**
  * Hand-rolled TheGamesDB REST v1 client, same `HttpURLConnection` + kotlinx.serialization
@@ -139,14 +139,20 @@ class TheGamesDbApiClient @Inject constructor() {
         }
 }
 
+/**
+ * TheGamesDB returns `null` (not a missing key) for `genres`/`developers` on games that have
+ * none catalogued — a default value only covers a missing key, not an explicit JSON `null`, so
+ * these must be nullable or `Json.decodeFromString` throws `SerializationException` on every such
+ * game (this was breaking every search that happened to include one, platform filter or not).
+ */
 @Serializable
 private data class GameDto(
     val id: Long,
     @SerialName("game_title") val title: String,
     val platform: Long? = null,
     @SerialName("release_date") val releaseDate: String? = null,
-    val genres: List<Long> = emptyList(),
-    val developers: List<Long> = emptyList(),
+    val genres: List<Long>? = null,
+    val developers: List<Long>? = null,
 )
 
 private fun GameDto.toDomain(
@@ -166,8 +172,8 @@ private fun GameDto.toDomain(
         title = title,
         platformName = platform?.let { platformNamesById[it] },
         releaseYear = releaseDate?.take(4)?.toIntOrNull(),
-        genreNames = genres.mapNotNull { genreId -> genreNamesById[genreId] },
-        developerName = developers.firstOrNull()?.let { developerNamesById[it] },
+        genreNames = genres.orEmpty().mapNotNull { genreId -> genreNamesById[genreId] },
+        developerName = developers.orEmpty().firstOrNull()?.let { developerNamesById[it] },
         coverImageUrl = if (boxartBaseUrl != null && filename != null) boxartBaseUrl + filename else null,
     )
 }

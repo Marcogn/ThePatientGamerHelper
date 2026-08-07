@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
@@ -52,11 +53,13 @@ fun BacklogItemFormScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (uiState.isEditMode) {
+                        text = if (uiState.isEditMode) {
                             stringResource(R.string.backlog_item_edit_title)
                         } else {
                             stringResource(R.string.backlog_item_new_title)
                         },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
