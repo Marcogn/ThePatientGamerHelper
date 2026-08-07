@@ -3,6 +3,8 @@ package com.marcogn.thepatientgamerhelper.ui.backlog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
@@ -72,7 +75,7 @@ fun BacklogItemDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(item?.title.orEmpty(), maxLines = 1) },
+                title = { Text(item?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
@@ -234,16 +237,17 @@ private fun HowLongToBeatSection(mainStoryHours: Double?, mainExtraHours: Double
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatusSelector(status: BacklogItemStatus, onStatusChange: (BacklogItemStatus) -> Unit) {
     Column {
         Text(text = stringResource(R.string.label_status), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             BacklogItemStatus.entries.forEach { candidate ->
                 FilterChip(
                     selected = status == candidate,
                     onClick = { onStatusChange(candidate) },
-                    label = { Text(candidate.displayName()) },
+                    label = { Text(candidate.displayName(), maxLines = 1) },
                 )
             }
         }
