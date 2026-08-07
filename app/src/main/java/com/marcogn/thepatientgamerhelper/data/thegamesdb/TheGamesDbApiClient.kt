@@ -187,7 +187,7 @@ private fun HttpURLConnection.readTextBody(): String =
 private fun HttpURLConnection.ensureSuccessful(body: String) {
     if (responseCode !in 200..299) {
         val excerpt = body.trim().take(300)
-        error("HTTP $responseCode${if (excerpt.isNotEmpty()) ": $excerpt" else ""}")
+        error("HTTP $responseCode @ $url${if (excerpt.isNotEmpty()) ": $excerpt" else ""}")
     }
 }
 

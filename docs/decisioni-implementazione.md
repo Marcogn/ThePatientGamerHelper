@@ -221,6 +221,17 @@ richiedeva, quindi poteva agganciarsi al `fetch()` sbagliato nel bundle,
 spiegando il 404 del giro precedente. Portata 1:1 in Kotlin, non una
 riscrittura a naso.
 
+### TheGamesDB: 403 "Invalid API key" nonostante chiave rigenerata (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Segnalazione indipendente da HowLongToBeat. Confermato via `git log` che
+non è una regressione di questa sessione (nessun tocco recente a
+`data/thegamesdb/`), e confermato via `WebFetch` sul sorgente di
+`muldjord/skyscraper` che il formato della richiesta (base URL, endpoint,
+parametro `apikey`) è identico a quello di uno scraper attivamente
+mantenuto — non è un bug lato client. Aggiunta la stessa diagnostica URL
+già usata per HowLongToBeat. Sospetto principale: problema lato server
+TheGamesDB, da confermare con un test diretto da browser.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
