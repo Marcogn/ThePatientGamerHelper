@@ -198,6 +198,29 @@ mostrato viene risolto dalla lingua corrente dell'app al momento della
 creazione, senza frammentare la lista né mostrare sempre e solo
 l'italiano.
 
+### Quinta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+La duplicazione di recensioni persisteva sempre per lo stesso gioco: causa
+reale, il gesto di back di sistema (swipe/tasto hardware) bypassava
+completamente `onBackPressed()` — solo la freccia in alto a sinistra la
+richiamava. Fix: `BackHandler` in `ReviewFormScreen`. HowLongToBeat ora
+restituisce un HTTP 404 reale da howlongtobeat.com (prova che il fix del
+redirect 308 ha funzionato) invece di un errore di rete — il percorso di
+ricerca usato è però sbagliato/obsoleto. Aggiunta diagnostica (`source` su
+`HltbAuth`) per distinguere se il percorso viene dal bundle JS o dal
+fallback statico, invece di un ulteriore tentativo alla cieca.
+
+### Fix regex bundle HowLongToBeat: porting da libreria esterna mantenuta (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Su suggerimento dell'utente, recuperato via `WebFetch` il sorgente reale
+di `ScrappyCocco/HowLongToBeat-PythonAPI` (attivamente mantenuta, versione
+recente) e `ckatzorke/howlongtobeat` (TypeScript). La regex Python che
+estrae il percorso di ricerca dal bundle richiede esplicitamente
+`method: "POST"` nello stesso blocco `fetch(...)` — la mia non lo
+richiedeva, quindi poteva agganciarsi al `fetch()` sbagliato nel bundle,
+spiegando il 404 del giro precedente. Portata 1:1 in Kotlin, non una
+riscrittura a naso.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca
