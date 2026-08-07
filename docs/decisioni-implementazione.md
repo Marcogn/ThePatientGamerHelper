@@ -165,6 +165,39 @@ rilanciando la stessa richiesta (metodo, header, body) verso l'URL
 risolto — comportamento richiesto da 307/308, sicuro anche per gli altri
 codici 3xx in questo contesto.
 
+### Quarta verifica su device (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Due segnalazioni: le recensioni create dal flusso backlog si duplicavano ad
+ogni nuovo tentativo (perché non c'era modo di riaprire una recensione già
+collegata a un item, solo di crearne un'altra vuota — fix: "Recensione
+collegata" ora è un link cliccabile che apre la recensione esistente), e
+HowLongToBeat continua a dare "HTTP 308" nonostante il fix del redirect
+manuale del giro precedente — non risolto, non è stato tentato un secondo
+fix "alla cieca": invece i messaggi di errore ora includono l'URL che ha
+fallito, per una diagnosi mirata al prossimo report.
+
+### Spostamento automatico in liste "Completati con/senza recensione" (vedi CLAUDE.md, stessa sezione, per il dettaglio completo)
+
+Un item completato ora "sparisce" automaticamente (con avviso prima dello
+spostamento) in una di due liste gestite dall'app — "Completati con
+recensione" se si scrive la recensione, "Completati in attesa di
+recensione" se si risponde "No" al prompt. Approfittato anche per
+disabilitare l'icona "sposta in lista" quando non c'è nessun'altra lista
+tra cui scegliere (prima il tap apriva silenziosamente un menu vuoto,
+sembrava non fare nulla).
+
+Due revisioni dopo il feedback dell'utente: (1) rispondere "No" non
+lasciava più nessun modo di scrivere la recensione in seguito — aggiunto
+un link persistente "Scrivi una recensione" ogni volta che l'item è
+Completato senza recensione collegata, da qualunque lista si trovi; (2) i
+nomi delle due liste erano inizialmente costanti Kotlin fisse in italiano
+per evitare duplicati al cambio lingua — sostituito con
+`BacklogListEntity.systemKind` (colonna nuova, nullable, migration
+additiva) come identificatore stabile per il match, mentre il nome
+mostrato viene risolto dalla lingua corrente dell'app al momento della
+creazione, senza frammentare la lista né mostrare sempre e solo
+l'italiano.
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

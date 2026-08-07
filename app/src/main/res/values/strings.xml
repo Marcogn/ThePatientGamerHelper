@@ -206,6 +206,7 @@
     <string name="backlog_item_not_found">Elemento non trovato</string>
     <string name="backlog_move_to_list">Sposta in un\'altra lista</string>
     <string name="backlog_review_linked">Recensione collegata</string>
+    <string name="backlog_write_review_action">Scrivi una recensione</string>
     <string name="backlog_abandon_note_label">Motivo dell\'abbandono</string>
     <string name="backlog_comments_title">Commenti</string>
     <string name="backlog_comment_field_label">Aggiungi un commento</string>
@@ -220,6 +221,12 @@
     <string name="backlog_delete_item_confirm_title">Eliminare questo elemento?</string>
     <string name="backlog_write_review_prompt_title">Scrivere una recensione?</string>
     <string name="backlog_write_review_prompt_message">Vuoi scrivere una recensione per \"%1$s\"?</string>
+    <string name="backlog_move_confirm_title">Spostare nella lista?</string>
+    <string name="backlog_move_confirm_message">\"%1$s\" verrà spostato nella lista \"%2$s\".</string>
+    <string name="backlog_list_completed_with_review">Completati con recensione</string>
+    <string name="backlog_list_completed_awaiting_review">Completati in attesa di recensione</string>
+    <string name="action_move">Sposta</string>
+    <string name="action_dont_move">Non spostare</string>
 
     <string name="cd_export_backlog">Esporta backlog</string>
     <string name="cd_import_backlog">Importa backlog</string>

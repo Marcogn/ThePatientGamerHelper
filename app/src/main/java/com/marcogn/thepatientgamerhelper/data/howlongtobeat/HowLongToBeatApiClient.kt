@@ -203,7 +203,7 @@ class HowLongToBeatApiClient @Inject constructor() {
             Log.w(LOG_TAG, "$method $currentUrl redirected (HTTP ${connection.responseCode}) to $location")
             currentUrl = URL(URL(currentUrl), location).toString()
         }
-        error("Troppi redirect (>$MAX_REDIRECTS) per $url")
+        error("Troppi redirect (>$MAX_REDIRECTS) per $url, ultimo: $currentUrl")
     }
 }
 
@@ -232,6 +232,6 @@ private fun HttpURLConnection.readTextBody(): String =
 private fun HttpURLConnection.ensureSuccessful(body: String) {
     if (responseCode !in 200..299) {
         val excerpt = body.trim().take(300)
-        error("HTTP $responseCode${if (excerpt.isNotEmpty()) ": $excerpt" else ""}")
+        error("HTTP $responseCode @ $url${if (excerpt.isNotEmpty()) ": $excerpt" else ""}")
     }
 }

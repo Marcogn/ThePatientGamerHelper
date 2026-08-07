@@ -180,7 +180,10 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                     onBack = { navController.popBackStack() },
                     onEdit = { itemId, listId -> navController.navigate(Destination.BacklogItemForm(listId, itemId)) },
                     onDeleted = { navController.popBackStack() },
-                    onWriteReview = { itemId -> navController.navigate(Destination.Form(backlogItemId = itemId)) },
+                    onWriteReview = { itemId ->
+                        navController.navigate(Destination.Form(backlogItemId = itemId)) { launchSingleTop = true }
+                    },
+                    onOpenReview = { reviewId -> navController.navigate(Destination.Detail(reviewId)) },
                 )
             }
         }

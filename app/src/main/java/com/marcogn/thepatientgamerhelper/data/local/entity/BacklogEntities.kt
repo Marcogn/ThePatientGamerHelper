@@ -16,6 +16,8 @@ data class BacklogListEntity(
     val name: String,
     val position: Int,
     val createdAt: Instant,
+    /** Null for regular, user-created lists. See [com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind]. */
+    val systemKind: String? = null,
 )
 
 @Entity(

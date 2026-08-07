@@ -1,13 +1,18 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
+import com.marcogn.thepatientgamerhelper.domain.model.PendingListMove
 import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import com.marcogn.thepatientgamerhelper.ui.navigation.Destination
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +26,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class BacklogItemDetailViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
     private val backlogRepository: BacklogRepository,
 ) : ViewModel() {
@@ -44,6 +50,15 @@ class BacklogItemDetailViewModel @Inject constructor(
     /** One-shot "vuoi scrivere una recensione?" trigger, consumed by the screen after showing it. */
     private val _showReviewPrompt = MutableStateFlow(false)
     val showReviewPrompt: StateFlow<Boolean> = _showReviewPrompt.asStateFlow()
+
+    /**
+     * Confirmation offered right after answering "No" to the review prompt: the item is completed
+     * but won't get a review, so it's offered a move into [BacklogListKind.COMPLETED_AWAITING_REVIEW]
+     * instead of staying mixed in with everything else — same "always warn before moving" contract
+     * as the "Sì" path's own move offer in `ReviewFormViewModel` (see CLAUDE.md, Fase 8).
+     */
+    private val _pendingMove = MutableStateFlow<PendingListMove?>(null)
+    val pendingMove: StateFlow<PendingListMove?> = _pendingMove.asStateFlow()
 
     /**
      * Commits a status change (and, only for ABBANDONATO, its note) picked in the UI's pending
@@ -88,5 +103,28 @@ class BacklogItemDetailViewModel @Inject constructor(
 
     fun onReviewPromptConsumed() {
         _showReviewPrompt.value = false
+    }
+
+    /** "No" on the review prompt: completed, no review — offer the move to the awaiting-review list. */
+    fun onReviewDeclined() {
+        _showReviewPrompt.value = false
+        viewModelScope.launch {
+            val item = backlogRepository.observeItem(itemId).first() ?: return@launch
+            val name = appContext.getString(R.string.backlog_list_completed_awaiting_review)
+            _pendingMove.value = PendingListMove(item.title, BacklogListKind.COMPLETED_AWAITING_REVIEW, name)
+        }
+    }
+
+    fun onConfirmMove() {
+        val target = _pendingMove.value ?: return
+        viewModelScope.launch {
+            val listId = backlogRepository.getOrCreateSystemList(target.targetListKind, target.targetListName)
+            backlogRepository.moveItem(itemId, listId)
+            _pendingMove.value = null
+        }
+    }
+
+    fun onDeclineMove() {
+        _pendingMove.value = null
     }
 }

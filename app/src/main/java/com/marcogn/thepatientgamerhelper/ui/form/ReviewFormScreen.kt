@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -57,6 +59,7 @@ fun ReviewFormScreen(
     viewModel: ReviewFormViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val pendingMove by viewModel.pendingMove.collectAsState()
     var showSearchDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -228,6 +231,20 @@ fun ReviewFormScreen(
             onDismiss = {
                 viewModel.onSearchDialogDismissed()
                 showSearchDialog = false
+            },
+        )
+    }
+
+    pendingMove?.let { move ->
+        AlertDialog(
+            onDismissRequest = viewModel::onDeclineMove,
+            title = { Text(stringResource(R.string.backlog_move_confirm_title)) },
+            text = { Text(stringResource(R.string.backlog_move_confirm_message, move.itemTitle, move.targetListName)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::onConfirmMove) { Text(stringResource(R.string.action_move)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDeclineMove) { Text(stringResource(R.string.action_dont_move)) }
             },
         )
     }

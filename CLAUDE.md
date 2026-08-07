@@ -1042,6 +1042,164 @@ comportamento di default. Ogni redirect seguito viene loggato (tag
 `HowLongToBeatClient`) per restare diagnosticabile se il nuovo comportamento
 rivelasse un ulteriore problema a valle.
 
+### Quarta verifica su device: recensioni duplicate dal flusso backlog, HowLongToBeat ancora 308
+
+Due ulteriori segnalazioni dopo il fix del redirect HTTP 308: le recensioni
+create dal flusso "completa item → scrivi recensione" si duplicavano ad ogni
+nuovo tentativo, e HowLongToBeat continuava a restituire lo stesso errore
+"HTTP 308" nonostante il fix del redirect manuale.
+
+- **Recensioni duplicate — causa reale**: una volta collegata una recensione
+  a un backlog item (`BacklogItem.reviewId` valorizzato), l'unico modo per
+  "rientrarci" era di nuovo `onWriteReview` →
+  `Destination.Form(backlogItemId = itemId)`, che crea **sempre** una
+  recensione vuota nuova (`reviewId = null` nella route), ignorando che una
+  recensione era già collegata. L'unica traccia visibile del collegamento
+  era una scritta inerte ("Recensione collegata"), non cliccabile — nessun
+  modo di riaprire *quella* recensione, quindi ogni volta che l'utente
+  ripassava dal flusso (es. per verificare/continuare la recensione) finiva
+  per generarne un'altra bozza. Il guard `current.reviewId == null` in
+  `BacklogItemDetailViewModel.onSaveStatus()` impedisce già correttamente un
+  secondo prompt "vuoi scrivere una recensione?" per lo stesso item — il
+  problema non era lì, ma nell'assenza totale di un percorso per
+  raggiungere di nuovo una recensione già esistente.
+- **Fix**: "Recensione collegata" (`BacklogItemDetailScreen.kt`) è ora un
+  testo cliccabile (sottolineato, stesso colore primario di prima) che apre
+  direttamente `Destination.Detail(reviewId)` — la normale schermata di
+  dettaglio recensione, con i suoi percorsi di modifica/cancellazione già
+  esistenti e sicuri (nessun rischio di duplicazione: modificare una
+  recensione esistente passa sempre da `editingId != null`, mai dal ramo di
+  precompilazione da backlog). Aggiunto anche `onOpenReview: (String) -> Unit`
+  come nuovo parametro di `BacklogItemDetailScreen`, cablato in
+  `ThePatientGamerHelperNavGraph.kt`. Come protezione difensiva aggiuntiva
+  contro un doppio tap sul pulsante "Sì" del dialog (che potrebbe accodare
+  due navigazioni identiche prima che il dialog si chiuda), la navigazione
+  di `onWriteReview` ora passa anche `launchSingleTop = true`.
+- **Pulsante "Salva" dello stato poco visibile**: `StatusEditor` usava un
+  semplice `TextButton` — poco distinguibile dal resto del testo quando
+  compare. Cambiato in `Button` (pieno, colore primario) per renderlo
+  immediatamente riconoscibile come azione da compiere.
+- **Recensioni bozza già duplicate sul device dell'utente**: questo fix
+  previene nuove duplicazioni, ma **non tocca i dati già presenti** — le
+  bozze doppie/triple create prima del fix restano nel database locale e
+  vanno cancellate a mano dall'utente (icona cestino nel dettaglio di ogni
+  recensione di troppo). Non è stato scritto un passo di migrazione
+  automatica per deduplicare: non c'è un modo affidabile di distinguere
+  "recensione duplicata da questo bug" da "due recensioni identiche per
+  titolo ma volute dall'utente" senza rischiare di cancellare dati reali.
+- **HowLongToBeat ancora "HTTP 308" dopo il fix del redirect manuale**: il
+  fix della sessione precedente (seguire i redirect a mano, vedi sopra) era
+  una correzione motivata da un errore reale riportato dall'utente, ma il
+  nuovo test riporta lo stesso identico errore, non uno diverso — quindi
+  **non è stato risolto**, o almeno non è ancora possibile dirlo con
+  certezza. Senza accesso di rete a `howlongtobeat.com` da questo sandbox
+  (stessa limitazione nota, invariata), non è possibile riprodurre e
+  verificare oltre quello che l'utente può riportare da un device reale.
+  Invece di tentare un altro fix "alla cieca" sullo stesso codice già
+  corretto una volta senza successo, `ensureSuccessful()` e il messaggio di
+  troppi-redirect in `HowLongToBeatApiClient.request()` ora includono anche
+  l'URL che ha effettivamente fallito (`HTTP $responseCode @ $url`, e per i
+  troppi-redirect sia l'URL di partenza che l'ultimo raggiunto) — prima il
+  messaggio era solo "HTTP 308" senza dire *quale* chiamata delle quattro
+  del flusso (homepage, bundle JS, init, ricerca) lo avesse prodotto, né se
+  fosse il path derivato dal bundle o il fallback `/api/s/`. Un prossimo
+  report con l'URL incluso permetterà una diagnosi mirata invece di un
+  ulteriore tentativo speculativo. **Resta la parte meno affidabile di
+  questa fase**, come già segnalato — non dare per risolto finché l'utente
+  non conferma che le stime compaiono davvero.
+
+### Spostamento automatico in liste "Completati con/senza recensione"
+
+Richiesta esplicita: una volta completato un item del backlog, dovrebbe
+"sparire" automaticamente in una di due liste dedicate a seconda che
+l'utente abbia scritto la recensione o meno, con un avviso prima dello
+spostamento (non uno spostamento silenzioso).
+
+- **Due liste gestite dall'app, identificate da un tag stabile, non dal
+  nome**: `BacklogListEntity.systemKind` (colonna nullable, `MIGRATION_3_4`
+  additiva) porta `domain/model/BacklogListKind` (`COMPLETED_WITH_REVIEW`/
+  `COMPLETED_AWAITING_REVIEW`) — vedi la sottosezione dedicata più sotto
+  ("Nomi delle due liste...") per il ragionamento completo, incluso perché
+  la primissima versione usava invece un nome fisso non localizzato e
+  perché è stata rivista dopo il feedback dell'utente.
+- **`BacklogRepository.getOrCreateSystemList(kind, displayName)`** (nuovo,
+  in `BacklogRepositoryImpl`) risolve per `systemKind` esatto
+  (`backlog_lists WHERE systemKind = :kind`) o crea la lista in coda con
+  quel tag e `displayName` come nome iniziale se non esiste — poi riusa
+  `moveItem()` già esistente (stessa history `CAMBIO_LISTA` del riordino
+  manuale). Il chiamante (ViewModel) risolve `displayName` da
+  `context.getString()` nella lingua corrente dell'app.
+- **Trigger "No" (non scrivere recensione)**: `BacklogItemDetailViewModel`
+  — il pulsante "No" del prompt "vuoi scrivere una recensione?" ora chiama
+  `onReviewDeclined()` invece di limitarsi a chiudere il dialog, che espone
+  un secondo one-shot `pendingMove: StateFlow<PendingListMove?>`
+  consumato da un nuovo `AlertDialog` in `BacklogItemDetailScreen`
+  ("Sposta"/"Non spostare") — è **questo** dialog il punto in cui l'utente
+  viene avvisato prima dello spostamento vero, non il primo prompt.
+  Chiudere il primo dialog toccando fuori (`onDismissRequest`, invariato,
+  → `onReviewPromptConsumed()`) resta un vero e proprio "decido dopo": non
+  offre lo spostamento, l'item resta dov'è.
+- **Trigger "Sì" (scrivi recensione)**: lo spostamento non può avvenire al
+  tap su "Sì" (l'utente potrebbe non arrivare mai a salvare), quindi vive
+  in `ReviewFormViewModel`, agganciato al **primo** salvataggio riuscito di
+  una recensione creata dal backlog — sia il tasto ✓ esplicito (`save()`)
+  sia il salvataggio implicito di bozza premendo indietro
+  (`onBackPressed()`, Fase 8 precedente). Entrambi condividono
+  `offerMoveToCompletedWithReview()`: popola lo stesso `pendingMove`
+  one-shot e **rimanda** la callback di navigazione (`onSaved`/`onDone`)
+  finché l'utente non risponde al dialog — chi tocca "Sposta" o "Non
+  spostare" fa proseguire la navigazione, mai prima. Guardia esplicita
+  `editingId == null`: modificare in un secondo momento una recensione già
+  collegata (aperta ora anche tramite il link "Recensione collegata", vedi
+  sopra) **non** ripropone l'offerta ad ogni salvataggio — solo alla
+  creazione originale.
+- **Icona "sposta in lista" (freccia su cartella) che "non faceva
+  niente"**: causa reale, non un bug di rendering — con una sola lista nel
+  backlog il menu a tendina non aveva alcuna voce da mostrare (il filtro
+  esclude la lista corrente), quindi il tap apriva un `DropdownMenu` vuoto,
+  visivamente indistinguibile dal "niente è successo". Fix:
+  `IconButton` disabilitato (`enabled = otherLists.isNotEmpty()`) quando
+  non c'è nessun'altra lista verso cui spostare — un'icona visibilmente
+  spenta invece di un tap silenzioso. Con l'auto-creazione delle due liste
+  sopra, dopo il primo completamento l'icona torna comunque utile (c'è
+  sempre almeno un'altra lista tra cui scegliere).
+- **Nessun modo di scrivere una recensione più tardi, da "Completati in
+  attesa di recensione"**: l'unico innesco del flusso "vuoi scrivere una
+  recensione?" era il momento esatto del cambio di stato a Completato —
+  rispondere "No" (e quindi finire nella lista "in attesa") non lasciava
+  nessun altro punto d'ingresso, a parte il trucco di cambiare stato e
+  rimetterlo su Completato per far riscattare il guard `reviewId == null`
+  in `onSaveStatus()`. Fix: nello stesso punto dove compare "Recensione
+  collegata" (quando l'item ha già una recensione), ora compare un link
+  cliccabile "Scrivi una recensione" ogni volta che l'item è Completato
+  *senza* una recensione collegata — persistente, funziona da qualunque
+  lista si trovi l'item, e riusa `onWriteReview(item.id)` esistente.
+- **Nomi delle due liste: da costanti fisse a un tag di identità stabile
+  con etichetta localizzata**: la prima versione usava due stringhe fisse
+  in italiano (`BacklogSystemLists`, non `stringResource`) per evitare che
+  un cambio di lingua dell'app facesse ricreare una seconda lista parallela
+  al prossimo trigger (il lookup era per nome esatto). L'utente ha fatto
+  notare, correttamente, che così un utente che usa l'app in inglese
+  vedrebbe comunque nomi di lista in italiano — un compromesso peggiore del
+  necessario. Soluzione adottata: `BacklogListEntity.systemKind` (colonna
+  nuova, nullable, `MIGRATION_3_4` additiva — `NULL` per ogni lista
+  esistente/normale) porta un identificatore stabile e non localizzato
+  (`domain/model/BacklogListKind`, enum `COMPLETED_WITH_REVIEW`/
+  `COMPLETED_AWAITING_REVIEW`), usato per il lookup in
+  `BacklogRepository.getOrCreateSystemList(kind, displayName)` **al posto**
+  del nome. Il nome vero e proprio (`displayName`, risolto dal chiamante
+  via `context.getString(R.string.backlog_list_completed_...)`, quindi
+  nella lingua corrente dell'app) viene scritto solo al momento della
+  *creazione* della lista — esattamente come un nome di lista digitato a
+  mano da un utente, non segue retroattivamente un cambio lingua successivo
+  (stesso comportamento di qualunque altro dato testuale salvato
+  nell'app). Il vantaggio pratico: la lista non si duplica mai più al
+  cambio lingua (il match è sempre per `systemKind`), e chi la crea per la
+  prima volta la vede nella propria lingua — senza dover toccare ogni punto
+  della UI che mostra un nome di lista (sarebbe stato necessario solo con
+  un'alternativa "nome sempre risolto al volo dal kind ad ogni render", non
+  scelta per non introdurre quella complessità aggiuntiva).
+
 ## Export DOCX — perché non è stato implementato
 
 Rimosso in modo esplicito dalla roadmap (non "rimandato" o "opzionale"): la

@@ -135,3 +135,16 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE `backlog_items` ADD COLUMN `hltbCompletionistHours` REAL")
     }
 }
+
+/**
+ * Adds `backlog_lists.systemKind` (nullable, additive) — identifies the two lists the app itself
+ * manages ("Completati con recensione"/"Completati in attesa di recensione") independently of their
+ * display name, so a later app-language switch can't fork them into duplicate lists. Every row that
+ * predates this migration reads back as `NULL` (a regular, user-created list), same as any list
+ * created after this migration that isn't one of the two system ones.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `backlog_lists` ADD COLUMN `systemKind` TEXT")
+    }
+}

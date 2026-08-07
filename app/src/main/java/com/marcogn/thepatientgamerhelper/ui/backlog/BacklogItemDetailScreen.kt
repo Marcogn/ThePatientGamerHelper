@@ -1,5 +1,6 @@
 package com.marcogn.thepatientgamerhelper.ui.backlog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,6 +68,7 @@ fun BacklogItemDetailScreen(
     onEdit: (String, Long) -> Unit,
     onDeleted: () -> Unit,
     onWriteReview: (String) -> Unit,
+    onOpenReview: (String) -> Unit,
     viewModel: BacklogItemDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -85,12 +89,13 @@ fun BacklogItemDetailScreen(
                 },
                 actions = {
                     item?.let {
+                        val otherLists = uiState.lists.filter { list -> list.id != it.listId }
                         Box {
-                            IconButton(onClick = { showMoveMenu = true }) {
+                            IconButton(onClick = { showMoveMenu = true }, enabled = otherLists.isNotEmpty()) {
                                 Icon(Icons.Filled.DriveFileMove, contentDescription = stringResource(R.string.backlog_move_to_list))
                             }
                             DropdownMenu(expanded = showMoveMenu, onDismissRequest = { showMoveMenu = false }) {
-                                uiState.lists.filter { list -> list.id != it.listId }.forEach { list ->
+                                otherLists.forEach { list ->
                                     DropdownMenuItem(
                                         text = { Text(list.name) },
                                         onClick = {
@@ -146,11 +151,25 @@ fun BacklogItemDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (item.reviewId != null) {
+                    val reviewId = item.reviewId
+                    if (reviewId != null) {
                         Text(
                             stringResource(R.string.backlog_review_linked),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            modifier = Modifier.clickable { onOpenReview(reviewId) },
+                        )
+                    } else if (item.status == BacklogItemStatus.COMPLETATO) {
+                        // Persistent entry point, not just the one-shot prompt right after completing:
+                        // an item that was completed without a review (e.g. answered "No" and moved to
+                        // "Completati in attesa di recensione") must still be reachable later.
+                        Text(
+                            stringResource(R.string.backlog_write_review_action),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            modifier = Modifier.clickable { onWriteReview(item.id) },
                         )
                     }
                 }
@@ -191,7 +210,22 @@ fun BacklogItemDetailScreen(
                 }) { Text(stringResource(R.string.action_yes)) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::onReviewPromptConsumed) { Text(stringResource(R.string.action_no)) }
+                TextButton(onClick = viewModel::onReviewDeclined) { Text(stringResource(R.string.action_no)) }
+            },
+        )
+    }
+
+    val pendingMove by viewModel.pendingMove.collectAsState()
+    pendingMove?.let { move ->
+        AlertDialog(
+            onDismissRequest = viewModel::onDeclineMove,
+            title = { Text(stringResource(R.string.backlog_move_confirm_title)) },
+            text = { Text(stringResource(R.string.backlog_move_confirm_message, move.itemTitle, move.targetListName)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::onConfirmMove) { Text(stringResource(R.string.action_move)) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDeclineMove) { Text(stringResource(R.string.action_dont_move)) }
             },
         )
     }
@@ -259,7 +293,7 @@ private fun StatusEditor(item: BacklogItem, onSave: (BacklogItemStatus, String?)
                 modifier = Modifier.weight(1f),
             )
             if (hasChanges) {
-                TextButton(onClick = {
+                Button(onClick = {
                     onSave(pendingStatus, if (pendingStatus == BacklogItemStatus.ABBANDONATO) abandonNoteDraft else null)
                 }) {
                     Text(stringResource(R.string.action_save))
