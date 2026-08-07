@@ -232,6 +232,13 @@ mantenuto — non è un bug lato client. Aggiunta la stessa diagnostica URL
 già usata per HowLongToBeat. Sospetto principale: problema lato server
 TheGamesDB, da confermare con un test diretto da browser.
 
+Confermato dall'utente: la stessa URL con la stessa chiave funziona da
+browser, isolando la causa negli header della richiesta. Fix: `USER_AGENT`
+era una stringa che identifica esplicitamente l'app invece di un
+User-Agent da browser — stesso fix già applicato a `HowLongToBeatApiClient`
+per lo stesso motivo (TheGamesDB ha inasprito l'anti-bot nello stesso
+cambio di policy che ha reso obbligatoria la apikey).
+
 ## Fase 7 (Rebranding ThePatientGamerHelper, navigazione a drawer, fix ricerca TheGamesDB)
 
 Vedi la sezione "Fase 7 — Rebranding, navigazione a drawer, fix ricerca

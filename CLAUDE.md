@@ -1336,6 +1336,22 @@ riflesso della quota vera.
   lì la stessa chiave risulta "invalid", è inequivocabilmente un problema
   lato TheGamesDB, non dell'app (la loro stessa pagina di errore invita a
   contattare support@thegamesdb.net o Discord in quel caso).
+- **Confermato dall'utente, causa isolata**: la stessa identica URL (con
+  la stessa chiave "invalid") testata a mano da browser mobile **funziona**
+  — la chiave è quindi valida e l'endpoint è corretto, la differenza è
+  tutta negli header della richiesta. Sospetto principale ora:
+  `USER_AGENT` era una stringa che identifica esplicitamente l'app
+  (`"ThePatientGamerHelper/1.0 (Android; ...)"`, con in più il vecchio
+  nome del repository `GameReviewer`) invece di un User-Agent da browser —
+  TheGamesDB ha inasprito l'anti-bot nello stesso cambio di policy del
+  17/02/2026 che ha reso obbligatoria la apikey, e un "invalid key"
+  fuorviante invece di un blocco esplicito è un pattern comune per quel
+  tipo di filtro. Fix: stesso `USER_AGENT` desktop Chrome già usato per
+  `HowLongToBeatApiClient` (stessa causa, stesso fix, stessa fonte di
+  ragionamento — non una nuova ipotesi isolata). Da confermare sul device
+  reale: se il 403 persiste anche con lo User-Agent da browser, il
+  prossimo sospetto è l'header `Accept: application/json` (assente da un
+  browser che naviga l'URL direttamente).
 
 ## Export DOCX — perché non è stato implementato
 

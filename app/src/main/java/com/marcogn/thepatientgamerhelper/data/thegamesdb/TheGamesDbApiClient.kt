@@ -22,7 +22,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 
 private const val BASE_URL = "https://api.thegamesdb.net/v1"
-private const val USER_AGENT = "ThePatientGamerHelper/1.0 (Android; +https://github.com/Marcogn/GameReviewer)"
+// A realistic desktop Chrome UA, not an app-identifying one: the same request URL, tried manually
+// from a mobile browser, succeeds with the exact key the app gets "Invalid API key" for — the only
+// difference is the request's headers. TheGamesDB hardened anti-bot measures in the same 2026-02-17
+// policy change that made the apikey mandatory (see the class doc comment below), and a misleading
+// "invalid key" instead of an honest block is a common pattern for that kind of filtering. Same fix,
+// same reasoning already applied to HowLongToBeatApiClient's USER_AGENT.
+private const val USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 private const val CONNECT_TIMEOUT_MS = 10_000
 private const val READ_TIMEOUT_MS = 15_000
 
