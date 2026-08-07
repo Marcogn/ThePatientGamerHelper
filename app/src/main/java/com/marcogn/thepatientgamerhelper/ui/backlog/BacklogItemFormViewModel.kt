@@ -59,6 +59,7 @@ class BacklogItemFormViewModel @Inject constructor(
     private val isSaving = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val search = MutableStateFlow(SearchState())
+    private val hltbMessage = MutableStateFlow<String?>(null)
 
     private val lookupNames = combine(
         lookupRepository.observePlatforms().map { it.map(Platform::name) },
@@ -94,12 +95,13 @@ class BacklogItemFormViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<BacklogItemFormUiState> = combine(formCore, search) { core, search ->
+    val uiState: StateFlow<BacklogItemFormUiState> = combine(formCore, search, hltbMessage) { core, search, hltbMessage ->
         core.copy(
             searchQuery = search.query,
             isSearchingOnline = search.isSearching,
             searchResults = search.results,
             searchMessage = search.message,
+            hltbMessage = hltbMessage,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -134,6 +136,7 @@ class BacklogItemFormViewModel @Inject constructor(
 
     fun onSearchOnlineOpened() {
         search.update { it.copy(query = draft.value.title, results = emptyList(), message = null) }
+        hltbMessage.value = null
     }
 
     fun onSearchOnline() {
@@ -154,7 +157,8 @@ class BacklogItemFormViewModel @Inject constructor(
     fun onSearchResultSelected(result: GameMetadataSearchResult) {
         viewModelScope.launch {
             val coverPath = searchCoordinator.downloadCoverLocally(result)
-            val hltbEstimate = searchCoordinator.searchHowLongToBeat(result.title)
+            val hltbOutcome = searchCoordinator.searchHowLongToBeat(result.title)
+            val hltbEstimate = (hltbOutcome as? GameMetadataSearchCoordinator.HltbOutcome.Found)?.estimate
             val previousPath = draft.value.coverImagePath
             val newDraft = draft.value.copy(
                 title = result.title,
@@ -170,6 +174,11 @@ class BacklogItemFormViewModel @Inject constructor(
             onDraftReplaced(newDraft)
             if (coverPath != null && previousPath != null) imageStorage.delete(previousPath)
             search.value = SearchState()
+            hltbMessage.value = when (hltbOutcome) {
+                is GameMetadataSearchCoordinator.HltbOutcome.Found -> appContext.getString(R.string.hltb_status_found)
+                GameMetadataSearchCoordinator.HltbOutcome.NotFound -> appContext.getString(R.string.hltb_status_not_found)
+                is GameMetadataSearchCoordinator.HltbOutcome.Error -> appContext.getString(R.string.hltb_status_error, hltbOutcome.message)
+            }
         }
     }
 

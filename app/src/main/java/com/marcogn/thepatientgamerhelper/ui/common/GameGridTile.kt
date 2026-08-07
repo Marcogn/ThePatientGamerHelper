@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -21,13 +20,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 
-private const val COVER_ASPECT_RATIO = 2f / 3f
+private const val PLACEHOLDER_ASPECT_RATIO = 2f / 3f
 
 /**
- * Grid-mode tile shared by the library and the backlog list detail screen (Fase 8): a full-width,
- * correctly proportioned cover (2:3 box-art ratio, `ContentScale.Crop`) instead of the small fixed
- * square thumbnail used in list rows ([CoverThumbnail]) — same placeholder icon when there's no
- * image, just scaled to the tile.
+ * Grid-mode tile shared by the library and the backlog list detail screen (Fase 8). A cover
+ * renders at its own natural aspect ratio (`ContentScale.FillWidth`, no forced height) so square
+ * and portrait box-art sit next to each other without wasted vertical padding above/below the
+ * shorter ones — meant to be used inside a staggered grid (`LazyVerticalStaggeredGrid`), not a
+ * uniform-row `LazyVerticalGrid`, otherwise every row still stretches to its tallest tile. Only the
+ * no-cover placeholder falls back to a fixed ratio, since there's no intrinsic image size to derive
+ * a shape from.
  */
 @Composable
 fun GameGridTile(
@@ -39,28 +41,27 @@ fun GameGridTile(
 ) {
     Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
         Column {
-            Box(modifier = Modifier.fillMaxWidth().aspectRatio(COVER_ASPECT_RATIO)) {
-                if (coverImagePath != null) {
-                    AsyncImage(
-                        model = coverImagePath,
+            if (coverImagePath != null) {
+                AsyncImage(
+                    model = coverImagePath,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(PLACEHOLDER_ASPECT_RATIO)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SportsEsports,
                         contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(0.4f).aspectRatio(1f),
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.SportsEsports,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.fillMaxWidth(0.4f).aspectRatio(1f),
-                        )
-                    }
                 }
             }
             Column(modifier = Modifier.padding(8.dp)) {

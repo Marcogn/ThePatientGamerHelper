@@ -229,6 +229,9 @@
     <string name="backlog_hltb_main_story_short">Main story: %1$.1f h</string>
     <string name="backlog_hltb_main_extra_short">Main+extra: %1$.1f h</string>
     <string name="backlog_hltb_completionist_short">Completionist: %1$.1f h</string>
+    <string name="hltb_status_found">HowLongToBeat: estimate found</string>
+    <string name="hltb_status_not_found">HowLongToBeat: no match found</string>
+    <string name="hltb_status_error">HowLongToBeat: search failed — %1$s</string>
 
     <string name="backlog_status_to_start">To start</string>
     <string name="backlog_status_in_progress">In progress</string>

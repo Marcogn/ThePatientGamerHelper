@@ -130,14 +130,28 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                     },
                 )
             }
-            composable<Destination.Form> {
+            composable<Destination.Form> { backStackEntry ->
+                val route = backStackEntry.toRoute<Destination.Form>()
                 ReviewFormScreen(
                     onSaved = { id ->
                         navController.navigate(Destination.Detail(id)) {
                             popUpTo(Destination.Library)
                         }
                     },
-                    onCancel = { navController.popBackStack() },
+                    onCancel = {
+                        if (route.backlogItemId != null) {
+                            // Opened from the backlog's "vuoi scrivere una recensione?" prompt: leaving
+                            // (with or without an implicit draft save, see ReviewFormViewModel.onBackPressed)
+                            // should land on Recensioni, not back into the Backlog stack it came from.
+                            navController.navigate(Destination.Library) {
+                                popUpTo(Destination.Home) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
                 )
             }
             composable<Destination.Backlog> {
