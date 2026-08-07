@@ -19,11 +19,11 @@ import com.marcogn.thepatientgamerhelper.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
- * `AppCompatActivity`, non `ComponentActivity`: per Compose puro sarebbe la scelta di default, ma
- * `AppCompatDelegate.setApplicationLocales()` (selettore lingua, Fase 5) richiede esplicitamente
- * questa base class — con `ComponentActivity` il cambio lingua viene silenziosamente ignorato,
- * vedi `docs/decisioni-implementazione.md`. Non introduce View/XML: `setContent {}` resta l'unico
- * punto di ingresso della UI.
+ * `AppCompatActivity`, not `ComponentActivity`: for pure Compose the latter would be the default
+ * choice, but `AppCompatDelegate.setApplicationLocales()` (language picker, Phase 5) explicitly
+ * requires this base class — with `ComponentActivity` the language switch is silently ignored,
+ * see `docs/implementation-decisions.md`. Doesn't introduce View/XML: `setContent {}` remains the
+ * only UI entry point.
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {

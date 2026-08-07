@@ -47,7 +47,7 @@ class BacklogItemDetailViewModel @Inject constructor(
         initialValue = BacklogItemDetailUiState(),
     )
 
-    /** One-shot "vuoi scrivere una recensione?" trigger, consumed by the screen after showing it. */
+    /** One-shot "want to write a review?" trigger, consumed by the screen after showing it. */
     private val _showReviewPrompt = MutableStateFlow(false)
     val showReviewPrompt: StateFlow<Boolean> = _showReviewPrompt.asStateFlow()
 
@@ -63,7 +63,7 @@ class BacklogItemDetailViewModel @Inject constructor(
     /**
      * Commits a status change (and, only for ABBANDONATO, its note) picked in the UI's pending
      * selector — status edits are staged locally in the screen and only reach here on an explicit
-     * "Salva", so the "vuoi scrivere una recensione?" prompt fires once, right when the user
+     * "Save", so the "want to write a review?" prompt fires once, right when the user
      * confirms COMPLETATO, not on every chip tap while still deciding.
      */
     fun onSaveStatus(status: BacklogItemStatus, abandonNote: String?) {

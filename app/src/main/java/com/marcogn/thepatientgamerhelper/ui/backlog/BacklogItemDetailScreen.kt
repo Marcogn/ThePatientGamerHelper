@@ -163,7 +163,7 @@ fun BacklogItemDetailScreen(
                     } else if (item.status == BacklogItemStatus.COMPLETATO) {
                         // Persistent entry point, not just the one-shot prompt right after completing:
                         // an item that was completed without a review (e.g. answered "No" and moved to
-                        // "Completati in attesa di recensione") must still be reachable later.
+                        // "Completed awaiting review") must still be reachable later.
                         Text(
                             stringResource(R.string.backlog_write_review_action),
                             style = MaterialTheme.typography.labelSmall,
@@ -265,8 +265,8 @@ private fun HowLongToBeatSection(mainStoryHours: Double?, mainExtraHours: Double
 
 /**
  * Status is edited as a local, uncommitted selection (chip taps only move [pendingStatus] around)
- * and only reaches the repository — and, if it lands on COMPLETATO, triggers the "vuoi scrivere
- * una recensione?" prompt — when the user explicitly presses "Salva". Tapping through chips while
+ * and only reaches the repository — and, if it lands on COMPLETATO, triggers the "want to write
+ * a review?" prompt — when the user explicitly presses "Save". Tapping through chips while
  * deciding no longer fires that prompt on every intermediate tap.
  */
 @OptIn(ExperimentalLayoutApi::class)

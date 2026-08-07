@@ -140,9 +140,9 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                     },
                     onCancel = {
                         if (route.backlogItemId != null) {
-                            // Opened from the backlog's "vuoi scrivere una recensione?" prompt: leaving
+                            // Opened from the backlog's "want to write a review?" prompt: leaving
                             // (with or without an implicit draft save, see ReviewFormViewModel.onBackPressed)
-                            // should land on Recensioni, not back into the Backlog stack it came from.
+                            // should land on the reviews library, not back into the Backlog stack it came from.
                             navController.navigate(Destination.Library) {
                                 popUpTo(Destination.Home) { saveState = true }
                                 launchSingleTop = true

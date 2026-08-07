@@ -4,72 +4,71 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![minSdk 26](https://img.shields.io/badge/minSdk-26-brightgreen.svg)](app/build.gradle.kts)
 
-App Android nativa per tenere traccia delle recensioni dei videogiochi che
-finisco (o abbandono). Nasce per sostituire un flusso che tenevo a mano tra
-note sparse e post per r/patientgamer: una scheda per gioco con voto,
-piattaforma, genere, pro e contro, e uno spazio libero per il testo della
-recensione vera e propria.
+Native Android app to keep track of the video game reviews I finish (or
+drop). Born to replace a workflow I used to keep by hand between scattered
+notes and posts for r/patientgamer: one card per game with a rating,
+platform, genre, pros and cons, and free-form space for the actual review
+text.
 
-Single-user, offline-first: i dati vivono sul dispositivo, non serve nessun
-account per usarla, il cloud entra in gioco solo come backup opzionale.
+Single-user, offline-first: data lives on the device, no account is needed
+to use it, the cloud only comes into play as an optional backup.
 
-## Cosa fa
+## What it does
 
-- **Libreria recensioni**: crea, modifica, cancella. Ricerca full-text e
-  filtri combinabili per piattaforma, genere, tag, voto, stato e intervallo
-  di date. Ordinamento per data, voto, titolo o ore di gioco. Copertina
-  presa dalla galleria del telefono, senza permessi di storage.
-- **Statistiche**: numero di recensioni, voto medio, ore totali giocate,
-  distribuzione per piattaforma e genere, ripartizione tra completati, in
-  corso e abbandonati.
-- **Export**: Markdown pronto per essere incollato su Reddit, JSON e CSV
-  per portabilità dei dati, PDF per singola recensione o per l'intera
-  libreria in un unico file.
-- **Backup su Google Drive**: manuale o automatico una volta al giorno,
-  salvato nella cartella privata dell'app (non visibile né condivisibile
-  dall'interfaccia di Drive). Ripristino da un elenco dei backup disponibili.
-- **Lingua e tema**: interfaccia in italiano o inglese, selezionabile
-  dall'app indipendentemente dalla lingua di sistema; tema chiaro, scuro o
-  a scarto automatico su quello di sistema.
-- **Backlog**: liste di giochi da giocare, con stato (da iniziare, in
-  corso, completato, abbandonato, in pausa), commenti, storico automatico
-  degli eventi e riordino manuale per prioritizzare. Al completamento di un
-  item propone di scrivere subito la recensione, precompilata con i dati
-  già noti.
-- **Ricerca online (TheGamesDB)**: dal form di backlog o di recensione,
-  cerca un gioco per titolo e scegli tra i risultati per scaricare
-  copertina e metadati in automatico, invece di inserirli a mano. Richiede
-  una API key personale TheGamesDB (gratuita, da registrare sul sito),
-  configurabile in Impostazioni — senza chiave il resto dell'app funziona
-  comunque, solo la ricerca resta disattivata.
+- **Review library**: create, edit, delete. Full-text search and
+  combinable filters by platform, genre, tag, rating, status and date
+  range. Sort by date, rating, title or hours played. Cover pulled from
+  the phone's gallery, no storage permissions required.
+- **Statistics**: number of reviews, average rating, total hours played,
+  distribution by platform and genre, breakdown between completed, in
+  progress and dropped.
+- **Export**: Markdown ready to paste on Reddit, JSON and CSV for data
+  portability, PDF for a single review or for the entire library in one
+  file.
+- **Google Drive backup**: manual or automatic once a day, saved to the
+  app's private folder (not visible or shareable from the Drive UI).
+  Restore from a list of available backups.
+- **Language and theme**: interface in Italian or English, selectable
+  in-app independently of the system language; light, dark or
+  system-following theme.
+- **Backlog**: lists of games to play, with status (to start, in
+  progress, completed, dropped, on hold), comments, automatic event
+  history and manual reordering to prioritize. Completing an item offers
+  to write the review right away, pre-filled with the data already known.
+- **Online search (TheGamesDB)**: from the backlog or review form, search
+  for a game by title and pick from the results to automatically download
+  the cover and metadata, instead of entering them by hand. Requires a
+  personal TheGamesDB API key (free, register on their site), configurable
+  in Settings — without a key the rest of the app still works, only the
+  search stays disabled.
 
-Nessuna di queste funzionalità richiede un account: il backup su Drive e la
-ricerca online sono le uniche eccezioni, ed entrambe sono facoltative.
+None of these features require an account: Drive backup and online search
+are the only exceptions, and both are optional.
 
-## Stack tecnico
+## Tech stack
 
-Kotlin e Jetpack Compose con Material 3, seguendo le linee guida
-architetturali correnti di Google piuttosto che il vecchio sistema a View.
+Kotlin and Jetpack Compose with Material 3, following Google's current
+architecture guidelines rather than the old View-based system.
 
-- **Room** come unica fonte di verità per i dati, esposta via `Flow`
-- **Hilt** per la dependency injection
-- **ViewModel + StateFlow**, flusso di dati unidirezionale (gli eventi
-  salgono, lo stato scende)
-- **WorkManager** per il backup periodico in background
-- **Preferences DataStore** per la preferenza di tema
-- **Credential Manager** e **AuthorizationClient** per l'autenticazione e
-  l'autorizzazione verso Google Drive (non la vecchia `GoogleSignInClient`,
-  ormai deprecata)
+- **Room** as the single source of truth for data, exposed via `Flow`
+- **Hilt** for dependency injection
+- **ViewModel + StateFlow**, unidirectional data flow (events go up,
+  state comes down)
+- **WorkManager** for periodic background backup
+- **Preferences DataStore** for the theme preference
+- **Credential Manager** and **AuthorizationClient** for authentication
+  and authorization towards Google Drive (not the old, now-deprecated
+  `GoogleSignInClient`)
 - `minSdk 26`, `targetSdk 36`, `compileSdk 36`
 
-Nessuna dipendenza pesante dove non serve: niente libreria di charting per
-le statistiche (bastano barre Compose native), niente client Java ufficiale
-di Google per Drive (un client REST scritto a mano con `HttpURLConnection`
-copre i tre endpoint che servono), niente Apache POI o iText per il PDF
-(`android.graphics.pdf.PdfDocument` nativo, iText7 è AGPL e quindi escluso a
-priori), niente Retrofit/Ktor per TheGamesDB (stesso client REST scritto a
-mano usato per Drive) né libreria di reorder per il drag-to-reorder del
-backlog (Compose Foundation puro).
+No heavy dependency where it isn't needed: no charting library for
+statistics (native Compose bars are enough), no official Google Java
+client for Drive (a hand-written REST client with `HttpURLConnection`
+covers the three endpoints needed), no Apache POI or iText for PDF
+(native `android.graphics.pdf.PdfDocument`, iText7 is AGPL and therefore
+excluded outright), no Retrofit/Ktor for TheGamesDB (same hand-written
+REST client used for Drive) nor a reorder library for backlog
+drag-to-reorder (plain Compose Foundation).
 
 ## Build
 
@@ -79,49 +78,53 @@ backlog (Compose Foundation puro).
 ./gradlew lint
 ```
 
-Richiede l'Android SDK (`compileSdk 36`) e accesso al repository Maven di
-Google. Per usare il backup su Drive va anche configurato un client OAuth
-in Google Cloud Console — i dettagli sono in `CLAUDE.md`.
+Requires the Android SDK (`compileSdk 36`) and access to Google's Maven
+repository. To use Drive backup, an OAuth client also needs to be
+configured in Google Cloud Console — details are in `CLAUDE.md`.
 
-## Struttura del progetto
+## Project structure
 
 ```
 app/src/main/java/com/marcogn/thepatientgamerhelper/
-├── data/       # Room (entity/dao), repository, export (SAF/PDF), backup/drive
-│               # (Google Drive, WorkManager), thegamesdb (ricerca online),
-│               # preferenze (tema), seed dati di debug
-├── domain/     # Modelli puri, logica di filtro/ordinamento, formattazione export/backup
-├── di/         # Moduli Hilt
-└── ui/         # Schermate Compose (libreria, dettaglio, form, statistiche,
-                # backlog, impostazioni) + tema + navigazione
+├── data/       # Room (entity/dao), repositories, export (SAF/PDF), backup/drive
+│               # (Google Drive, WorkManager), thegamesdb (online search),
+│               # preferences (theme), debug data seeding
+├── domain/     # Pure models, filter/sort logic, export/backup formatting
+├── di/         # Hilt modules
+└── ui/         # Compose screens (library, detail, form, statistics,
+                # backlog, settings) + theme + navigation
 ```
 
-## Documentazione
+## Documentation
 
-- `docs/spec.md` — specifica funzionale e tecnica, con la roadmap delle fasi
-  di sviluppo
-- `docs/decisioni-implementazione.md` — scelte tecniche non ovvie prese
-  durante lo sviluppo, fase per fase
-- `CLAUDE.md` — guida di riferimento per chi (o cosa) lavora su questo
-  codice: architettura, convenzioni, limiti noti
-- `docs/en/` — traduzione inglese della documentazione sopra (l'italiano
-  resta la fonte di verità)
+- `docs/spec.md` — functional and technical spec, with the development
+  phase roadmap
+- `docs/implementation-decisions.md` — non-obvious technical choices made
+  during development, phase by phase
+- `docs/test-plan.md` — manual (human/app interaction) test plan, covering
+  every feature and edge case
+- `CLAUDE.md` — reference guide for whoever (or whatever) works on this
+  code: architecture, conventions, known limitations
 
-## Dati demo
+The app itself keeps its Italian/English dual-language UI (see
+`app/src/main/res/values` and `values-en`); everything else in this
+repository — documentation, comments, commit history going forward — is
+in English.
 
-Le build `debug` seedano automaticamente qualche recensione di esempio
-(`data/debug/DebugSeeder.kt`) per non partire da uno schermo vuoto durante
-lo sviluppo. Le build `release` non includono mai dati finti.
+## Demo data
 
-## Contribuire
+`debug` builds automatically seed a few sample reviews
+(`data/debug/DebugSeeder.kt`) so development doesn't start from an empty
+screen. `release` builds never include fake data.
 
-Progetto personale, sviluppato per un uso single-user. Non c'è una roadmap
-pubblica di funzionalità aperte a proposte, ma segnalazioni di bug e piccole
-PR di fix sono benvenute — apri una issue prima di lavorare su qualcosa di
-grande per evitare lavoro sprecato. Per segnalare una vulnerabilità di
-sicurezza, vedi [`SECURITY.md`](SECURITY.md) invece di aprire una issue
-pubblica.
+## Contributing
 
-## Licenza
+Personal project, built for single-user use. There's no public roadmap
+open to feature proposals, but bug reports and small fix PRs are welcome —
+open an issue before working on something big to avoid wasted effort. To
+report a security vulnerability, see [`SECURITY.md`](SECURITY.md) instead
+of opening a public issue.
 
-MIT, vedi `LICENSE`.
+## License
+
+MIT, see `LICENSE`.

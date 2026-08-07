@@ -4,9 +4,9 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 
 /**
- * Lingua dell'app, gestita tramite le API AndroidX per-app language
- * (funzionano da API 26 grazie al backport, non solo da API 33+).
- * [tag] null significa "segui la lingua di sistema".
+ * App language, managed through the AndroidX per-app language APIs
+ * (work from API 26 thanks to the backport, not just from API 33+).
+ * A null [tag] means "follow the system language".
  */
 enum class AppLanguage(val tag: String?) {
     SISTEMA(null),
@@ -20,10 +20,10 @@ fun currentAppLanguage(): AppLanguage {
 }
 
 /**
- * autoStoreLocales (manifest) persiste automaticamente la scelta, nessuno storage custom
- * necessario. Nessuna `recreate()` manuale: `setApplicationLocales()` la innesca già da sé, ma
- * **solo se l'activity estende `AppCompatActivity`** (vedi `MainActivity`) — su una
- * `ComponentActivity` pura il cambio lingua verrebbe silenziosamente ignorato.
+ * autoStoreLocales (manifest) persists the choice automatically, no custom storage needed. No
+ * manual `recreate()`: `setApplicationLocales()` already triggers it on its own, but **only if
+ * the activity extends `AppCompatActivity`** (see `MainActivity`) — on a plain `ComponentActivity`
+ * the language change would be silently ignored.
  */
 fun applyAppLanguage(language: AppLanguage) {
     val locales = language.tag?.let(LocaleListCompat::forLanguageTags) ?: LocaleListCompat.getEmptyLocaleList()

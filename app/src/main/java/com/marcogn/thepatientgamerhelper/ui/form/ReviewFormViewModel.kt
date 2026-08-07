@@ -72,11 +72,11 @@ class ReviewFormViewModel @Inject constructor(
     private val search = MutableStateFlow(SearchState())
 
     /**
-     * One-shot "vuoi spostarlo in 'Completati con recensione'?" confirmation, offered right after
+     * One-shot "move it to 'Completed with review'?" confirmation, offered right after
      * the *first* save of a review created from the backlog flow (explicit checkmark or the
      * implicit draft-save-on-back, see [onBackPressed]) — never on a later edit of an already-linked
      * review, which would re-ask on every single edit. The actual navigation callback the screen
-     * passed in is deferred until the user answers, so "vuoi spostarlo?" is asked *before* leaving.
+     * passed in is deferred until the user answers, so "move it?" is asked *before* leaving.
      */
     private val _pendingMove = MutableStateFlow<PendingListMove?>(null)
     val pendingMove: StateFlow<PendingListMove?> = _pendingMove.asStateFlow()

@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      OAuth 2.0 "Web application" client ID creato in Google Cloud Console
-      (APIs & Services > Credenziali), nello stesso progetto in cui è
-      registrata la schermata di consenso OAuth e l'app Android (SHA-1 del
-      certificato di firma + applicationId com.marcogn.thepatientgamerhelper).
+      OAuth 2.0 "Web application" client ID created in Google Cloud Console
+      (APIs & Services > Credentials), in the same project where the OAuth
+      consent screen and the Android app are registered (SHA-1 of the
+      signing certificate + applicationId com.marcogn.thepatientgamerhelper).
 
-      Serve a Credential Manager (GetGoogleIdOption.serverClientId) per
-      l'autenticazione "Accedi con Google": identifica il progetto verso cui
-      l'ID token restituito è stato emesso. Non è il client ID Android (che
-      non richiede configurazione lato codice, è legato a SHA-1+package
-      automaticamente) — dev'essere il client ID di tipo "Web application".
+      Used by Credential Manager (GetGoogleIdOption.serverClientId) for the
+      "Sign in with Google" authentication: it identifies the project the
+      returned ID token was issued for. It is not the Android client ID
+      (which needs no code-side configuration, it's tied to SHA-1+package
+      automatically) — it must be the "Web application" type client ID.
 
-      Vedi CLAUDE.md, sezione "Fase 4 — Backup cloud Google Drive", per il
-      resto della configurazione esterna (scope drive.appdata, modalità
-      testing della schermata di consenso).
+      See CLAUDE.md, "Phase 4 — Google Drive cloud backup" section, for the
+      rest of the external configuration (drive.appdata scope, testing mode
+      of the consent screen).
     -->
-    <string name="google_oauth_web_client_id" translatable="false">[DA_COMPLETARE]</string>
+    <string name="google_oauth_web_client_id" translatable="false">[TO_COMPLETE]</string>
 </resources>
