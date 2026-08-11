@@ -16,9 +16,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.marcogn.thepatientgamerhelper.R
 
-/** Whole-library export entry point (Fase 2): raw data backup formats plus a batch PDF. */
+/** Whole-library export entry point (Fase 2, +ZIP per v2 §2.3): raw data backup formats plus a batch PDF. */
 @Composable
-fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit, onExportPdf: () -> Unit) {
+fun LibraryExportMenu(
+    onExportJson: () -> Unit,
+    onExportCsv: () -> Unit,
+    onExportPdf: () -> Unit,
+    onExportZip: () -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Box {
@@ -37,6 +42,10 @@ fun LibraryExportMenu(onExportJson: () -> Unit, onExportCsv: () -> Unit, onExpor
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.export_action_pdf)) },
                 onClick = { expanded = false; onExportPdf() },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.export_action_zip)) },
+                onClick = { expanded = false; onExportZip() },
             )
         }
     }

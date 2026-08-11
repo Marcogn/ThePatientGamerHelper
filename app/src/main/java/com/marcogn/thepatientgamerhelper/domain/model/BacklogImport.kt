@@ -31,6 +31,13 @@ data class ImportedBacklogItem(
     val hltbMainStoryHours: Double?,
     val hltbMainExtraHours: Double?,
     val hltbCompletionistHours: Double?,
+    /**
+     * The exported [reviewId], carried through only as a candidate — `BacklogRepositoryImpl.importLists`
+     * links it back onto the imported item *only if* a review with that id already exists on this
+     * device (best-effort, never a validation gate: the review usually belongs to whichever library
+     * exported the file and may well not exist here).
+     */
+    val reviewId: String?,
     val comments: List<ImportedBacklogComment>,
     val history: List<ImportedBacklogHistoryEntry>,
 )

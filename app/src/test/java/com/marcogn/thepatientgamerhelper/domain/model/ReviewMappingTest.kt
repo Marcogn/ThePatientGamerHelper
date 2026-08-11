@@ -24,6 +24,12 @@ class ReviewMappingTest {
             cons = listOf("Curva di apprendimento"),
             reviewText = "Fantastico",
             coverImagePath = "/covers/abc.jpg",
+            developer = null,
+            publisher = null,
+            releaseYear = null,
+            metadataSource = null,
+            externalId = null,
+            linkedBacklogItemId = null,
             createdAt = Instant.EPOCH,
             updatedAt = Instant.EPOCH,
         )

@@ -754,3 +754,152 @@ percentage is mathematically coherent.
 - `ui/stats/StatsScreen.kt` + `StatsViewModel` + `StatsUiState`: same
   MVVM/UDF pattern as the other screens (`ui/library`, `ui/detail`), with
   `ReviewRepository.observeAll()` as the single data source (no mocks).
+
+## Reviews/backlog import-export spec v2 (Tappa 1 + Tappa 2)
+
+`docs/reviews-backlog-import-export-spec-v2.md` was supplied as the
+authoritative behavior document, explicitly superseding prior assumptions
+in the code — see its own §5 changelog vs. v1. Two attached fixtures
+(`docs/examples/review-export-template-example.md`,
+`docs/examples/backlog-backup-template-example.json`) were the format
+reference. Several real conflicts surfaced between the fixtures and
+already-shipped, CLAUDE.md-documented decisions; all were resolved by
+asking the user rather than guessing, before writing any code.
+
+### Conflict 1: front-matter Markdown vs. the existing Reddit-style format
+
+The already-implemented single-review export (`ReviewMarkdownFormatter`/
+`ReviewMarkdownParser`, Phase 8) produced a bare `# Title` + bullet-list
+format with no front matter and none of the fixture's extra fields
+(`developer`/`publisher`/`releaseYear`/`metadataSource`/`externalId`/
+`linkedBacklogItemId`). The fixture is a YAML front-matter file. Matching
+it meant adding six new columns to the `Review` entity — directly
+reversing the Phase 6 decision documented in CLAUDE.md ("releaseYear/
+developer only on BacklogItem, not on Review"). **Resolved by asking**:
+the user chose to switch to the fixture's front-matter format. The six
+new fields (`ReviewEntity`/`Review`, `MIGRATION_4_5`, DB version 4→5) are
+**never edited by the create/edit form** — `ReviewDraft` deliberately
+doesn't carry them, and `ReviewRepositoryImpl.save()` always preserves
+whatever the review already had for them instead of wiping them on every
+save. In practice they stay `null` for any review created purely through
+the UI and only get populated by importing a file that already had them
+set (single-review form import parses but never applies them; multi-review
+import writes them as part of a full record upsert) — a deliberate, narrow
+scope: no "search online" flow was wired to populate them, since
+CLAUDE.md's Phase 6 decision to keep the review form's online search
+limited to title/platform/genre/cover was left untouched.
+
+The Drive backup DTO (`domain/backup/BackupPayload.kt`, Phase 4) was also
+extended with the same six fields (all with a `= null` default, so old
+backups without them still decode) — otherwise every Drive backup/restore
+cycle would have silently dropped this new data, which would have been a
+real regression even though Drive backup wasn't itself in scope for this
+session.
+
+### Conflict 2: singular `platform:`/`genre:` vs. the many-to-many model
+
+The review fixture's front matter shows singular `platform:`/`genre:`
+string fields. The app's data model has always been many-to-many for both
+(CLAUDE.md, "Product decisions already made" — modeled as lookup tables +
+bridge tables specifically to support a review with multiple platforms or
+genres). Implementing the fixture literally would silently drop every
+platform/genre past the first one on export, and cap a review to one of
+each on import — a real, permanent loss of an existing capability.
+**Resolved by asking**: arrays (`platforms:`/`genres:`), same as `tags:`,
+which the fixture already shows as an array. The single-review example
+just happens to have one platform and one genre, which round-trips
+identically through a length-1 array — nothing in the resolved format
+loses data for that case, only gains correctness for the general one.
+
+### Conflict 3: backlog backup JSON schema vs. the already-shipped one
+
+The backlog backup fixture uses English field names, singular
+`platform`/`genre`, no HLTB/`releaseYear`/`developer`/abandon-note fields,
+and includes `linkedReviewId` — while the already-implemented Phase 8
+backlog export/import (`BacklogExportDto.kt`) uses Italian field names,
+arrays for platform/genre (same many-to-many reasoning as Conflict 2),
+the extra fields the fixture omits, and deliberately drops `reviewId` on
+import (documented reasoning: the linked review usually doesn't exist on
+the importing device). **Resolved by asking**: keep the existing,
+already-shipped schema as-is (it's not a new feature, and rewriting its
+field names/shape would be a breaking change for zero real gain — the
+JSON structural *shape* the fixture illustrates, lists→items→comments/
+history, is what the existing schema already follows) and only add the
+one genuinely new thing the fixture calls for: a best-effort `reviewId`
+round-trip. Export now includes `recensioneCollegataId` (default `null`,
+so files exported before this change still decode); import links it back
+onto the item **only if** a review with that id already exists locally
+(`BacklogRepositoryImpl.importLists` now takes a `ReviewDao` dependency to
+check), leaving it `null` otherwise — never a validation gate, and no new
+history entry is synthesized for the link (the source device's own
+"Linked to review ..." entry, if any, is already being re-inserted
+verbatim as part of the item's history).
+
+### Multi-review ZIP export/import: genuinely new, not a fix
+
+Unlike the backlog export/import above, ZIP export/import for *reviews*
+didn't exist before this session — v2 §2.3/§2.4 asked for it from
+scratch. Implemented with the same architectural pattern already
+established for the backlog archive (`data/export/BacklogExportArchive.kt`
+→ `data/export/ReviewZipArchive.kt`): a `reviews/` folder of front-matter
+`.md` files plus an `images/` folder, written/read with the same
+`ZipOutputStream`/`ZipInputStream` (no new dependency). The `images/`
+prefix is only ever written when at least one review has a cover, so a
+batch with none produces a zip with no image folder in it at all — this
+was verified to already hold for the pre-existing `BacklogExportArchive`
+too (same construction, no dedicated fix needed there).
+
+Validation is atomic on content (every `.md` must parse before anything
+is written; on any failure nothing is imported and every failing file
+name + reason is reported) and always best-effort on images (a missing
+folder, an empty one, or one specific missing file degrades silently to
+"import without a cover," matching the same rule already established for
+the backlog). `ReviewRepository` gained `upsertImported()` — an additive,
+preserve-id/createdAt/updatedAt upsert, distinct from both `save()` (form
+semantics: resolves the id, keeps existing hidden fields) and
+`replaceAll()` (Drive restore semantics: wipes everything first).
+
+### Single-review import moved from the library to the form
+
+Before this session, the only single-review Markdown import was a
+library-level action that always created a brand new review — a real
+functional mismatch against v2 §2.2's "replace form content inside the
+review create/edit screen, not a database upsert." The old
+`LibraryViewModel.importMarkdown()` was removed outright (not deprecated
+alongside a new path) and replaced with
+`ReviewFormViewModel.importMarkdown()`: it parses the file the same way,
+but only ever calls `updateDraft {}` on the in-memory form state — the
+file's `id` is parsed (needed for validation, since it's a required
+front-matter field structurally) but never applied, so editing review A
+and importing a file exported from review B still updates review A, never
+creates or touches B. The library's former import icon slot was
+repurposed for the new multi-review ZIP import (previous section) instead
+of being removed, since v2 still wants a library-level batch import
+entry point.
+
+### PDF template seam
+
+v2 §2.6 asked for the seam to be built now even though no real template
+exists yet ("don't hardcode a single layout that has to be torn out when
+the template arrives"). `PdfTemplateProvider` (interface) +
+`NoOpPdfTemplateProvider` (the only implementation, always returns
+`null`) are wired into `PdfReviewRenderer` via a new `PdfModule` Hilt
+`@Binds`, following the same interface/impl/`@Binds` pattern already used
+for the repositories (`RepositoryModule.kt`) — deliberately not the
+"concrete class, `@Inject constructor`" pattern used for I/O utilities
+like `ReviewExporter`/`ImageStorage`, since this really is meant to be a
+swappable abstraction, not a fixed one. `PdfReviewRenderer.render()` now
+checks `currentTemplate()` once per batch and threads it down to
+`renderReview()`, which has a `if (template != null) { ... }` branch that
+is genuinely unreachable today (there is no `PdfTemplate` implementation
+with any content) but exists as the literal point a future template
+would be wired into, rather than only a comment saying so.
+
+### Not done: JSON/CSV whole-library export/import
+
+v2 doesn't mention the existing JSON/CSV whole-library export
+(`domain/export/ReviewExportDto.kt`/`ReviewCsvFormatter.kt`) at all, and
+there was never a JSON/CSV *import* path to begin with. Left untouched —
+in scope for this session was only what v2 §2/§3 actually describes
+(single/multi-review Markdown, backlog JSON+zip), not a general audit of
+every export format.

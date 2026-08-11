@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26])
 class PdfReviewRendererTest {
 
-    private val renderer = PdfReviewRenderer()
+    private val renderer = PdfReviewRenderer(NoOpPdfTemplateProvider())
 
     @Test
     fun `content includes title and metadata`() {

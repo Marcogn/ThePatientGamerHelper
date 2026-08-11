@@ -40,6 +40,12 @@ private fun review(
     cons = cons,
     reviewText = reviewText,
     coverImagePath = null,
+    developer = null,
+    publisher = null,
+    releaseYear = null,
+    metadataSource = null,
+    externalId = null,
+    linkedBacklogItemId = null,
     createdAt = Instant.EPOCH,
     updatedAt = Instant.EPOCH,
 )

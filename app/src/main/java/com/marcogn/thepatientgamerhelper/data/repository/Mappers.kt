@@ -32,6 +32,12 @@ fun ReviewWithDetails.toDomain(): Review {
         cons = cons,
         reviewText = review.reviewText,
         coverImagePath = review.coverImagePath,
+        developer = review.developer,
+        publisher = review.publisher,
+        releaseYear = review.releaseYear,
+        metadataSource = review.metadataSource,
+        externalId = review.externalId,
+        linkedBacklogItemId = review.linkedBacklogItemId,
         createdAt = review.createdAt,
         updatedAt = review.updatedAt,
     )

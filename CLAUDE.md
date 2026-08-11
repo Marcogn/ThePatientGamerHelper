@@ -52,7 +52,13 @@ Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
   an integration that is inherently fragile because HowLongToBeat has no
   public API — see below; list/grid view for library and
   backlog). See dedicated section below and
-  `docs/implementation-decisions.md` for the full reasoning.
+  `docs/implementation-decisions.md` for the full reasoning. **Revisited**
+  against `docs/reviews-backlog-import-export-spec-v2.md`: single-review
+  Markdown export/import switched to a front-matter format and moved to a
+  form-level "replace content" action, multi-review ZIP export/import
+  added, backlog export/import gained a `reviewId` round-trip, a PDF
+  template seam was added — see the "Reviews/backlog import-export spec
+  v2" subsection below.
 - **DOCX export**: **decided not to implement it**, not merely postponed. See
   "DOCX export — why it was not implemented" below.
 
@@ -93,15 +99,24 @@ com.marcogn.thepatientgamerhelper
 │   │   ├── dao/          # Room DAOs, exposed as Flow (ReviewDao, LookupDaos, BacklogDao)
 │   │   ├── Converters.kt # TypeConverter for LocalDate/Instant/enum
 │   │   └── Migrations.kt # MIGRATION_1_2 (Phase 6: backlog tables), MIGRATION_2_3 (Phase 8:
-│   │                      # HowLongToBeat estimate columns on backlog_items) — both additive
+│   │                      # HowLongToBeat estimate columns on backlog_items), MIGRATION_3_4
+│   │                      # (backlog_lists.systemKind), MIGRATION_4_5 (import-export spec v2:
+│   │                      # developer/publisher/releaseYear/metadataSource/externalId/
+│   │                      # linkedBacklogItemId on reviews) — all additive
 │   ├── repository/       # Repository implementations (transactional upsert)
 │   ├── export/            # Android I/O for export/import: ExportFileWriter (SAF, write),
-│   │                      # ImportFileReader (Phase 8, SAF, read — used both by review
-│   │                      # Markdown import and by backlog import), PdfReviewRenderer
-│   │                      # (PdfDocument), ReviewExporter, BacklogExporter/BacklogImporter +
-│   │                      # BacklogExportArchiveBuilder/Reader (Phase 8, zip data+covers) —
-│   │                      # all concrete classes injected via Hilt, like ImageStorage, not
-│   │                      # an interface/impl abstraction like the repositories
+│   │                      # ImportFileReader (Phase 8, SAF, read — used by review Markdown
+│   │                      # import, backlog import, and review zip import), PdfReviewRenderer
+│   │                      # (PdfDocument, checks PdfTemplateProvider before rendering),
+│   │                      # PdfTemplateProvider/NoOpPdfTemplateProvider (import-export spec v2
+│   │                      # PDF template seam), ReviewExporter, ReviewZipExporter/
+│   │                      # ReviewZipImporter + ReviewZipArchiveBuilder/Reader (import-export
+│   │                      # spec v2: multi-review zip, one front-matter .md per review +
+│   │                      # covers), BacklogExporter/BacklogImporter + BacklogExportArchiveBuilder/
+│   │                      # Reader (Phase 8, zip data+covers) — all concrete classes injected
+│   │                      # via Hilt, like ImageStorage, not an interface/impl abstraction like
+│   │                      # the repositories (PdfTemplateProvider is the one deliberate
+│   │                      # exception — see its own section)
 │   ├── drive/             # Drive REST v3 client (DriveApiClient, HttpURLConnection)
 │   │                      # + auth (DriveAuthManager: Credential Manager + AuthorizationClient)
 │   ├── backup/            # Backup/restore orchestration: BackupManager, zip archive
@@ -122,22 +137,28 @@ com.marcogn.thepatientgamerhelper
 ├── domain/
 │   ├── model/            # Pure domain models (no Android dependencies), including ThemeMode,
 │   │                      # Backlog* and GameMetadataSearchResult (Phase 6), HowLongToBeatEstimate/
-│   │                      # ViewMode/ImportedBacklog* (Phase 8)
+│   │                      # ViewMode/ImportedBacklog* (Phase 8), ReviewZipImportResult
+│   │                      # (import-export spec v2, multi-review zip import outcome)
 │   ├── filter/            # Library and backlog filter/sort logic, pure functions, unit-tested
 │   ├── stats/             # Pure aggregations: LibraryStatisticsCalculator (Phase 3),
 │   │                      # BacklogStatisticsCalculator (Phase 6, counts by status/list;
 │   │                      # Phase 8: also computeBacklogTimeEstimateStatistics)
 │   ├── export/            # Pure export/import formatting: JSON (kotlinx.serialization),
-│   │                      # CSV (manual writer), Markdown (string templates, Phase 8: also
-│   │                      # ReviewMarkdownParser, the reverse) — no Android import,
+│   │                      # CSV (manual writer), ReviewBackupMarkdown.kt (import-export spec v2:
+│   │                      # front-matter Markdown format + parser, replaced the Phase 8
+│   │                      # ReviewMarkdownFormatter/Parser pair) — no Android import,
 │   │                      # unit-testable in plain JVM. The labels remain fixed in Italian
-│   │                      # (see Phase 5, they do not follow the app language). Phase 8: also
-│   │                      # BacklogExportDto.kt (backlog export/import zip payload, format
-│   │                      # separate from domain/backup — see dedicated section below)
+│   │                      # (see Phase 5, they do not follow the app language) — the v2 front
+│   │                      # matter's structural keys are the one deliberate exception, matching
+│   │                      # the fixture's English shape. Phase 8: also BacklogExportDto.kt
+│   │                      # (backlog export/import zip payload, format separate from
+│   │                      # domain/backup — see dedicated section below; import-export spec v2:
+│   │                      # +recensioneCollegataId round-trip)
 │   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto,
 │   │                      # Review<->DTO mapping, file naming — same pattern as domain/export
 │   └── repository/        # Repository interfaces (ReviewRepository, LookupRepository,
-│                          # BacklogRepository from Phase 6, + importLists() from Phase 8)
+│                          # BacklogRepository from Phase 6, + importLists() from Phase 8,
+│                          # + upsertImported() from import-export spec v2)
 ├── di/                    # Hilt modules (Database, Repository)
 └── ui/
     ├── theme/             # Material 3 (Compose) theme + ThemeViewModel (Phase 5, reads ThemePreferences)
@@ -149,11 +170,15 @@ com.marcogn.thepatientgamerhelper
     │                      # main choices (reviews/backlog/statistics)
     ├── library/           # Library screen (list, search, filters, sorting, export).
     │                      # Phase 7: no longer startDestination, top bar without the app name/
-    │                      # backlog/statistics/settings icons (now in the drawer). Phase 8: Markdown
-    │                      # import, list/grid view toggle
+    │                      # backlog/statistics/settings icons (now in the drawer). Phase 8:
+    │                      # list/grid view toggle. Import-export spec v2: the top bar's upload
+    │                      # icon now triggers the multi-review zip import (not single-file
+    │                      # Markdown import anymore, see ui/form/), export menu gained a ZIP option
     ├── detail/            # Review detail screen (+ single review export)
     ├── form/              # Create/edit review form (+ "Search online" and prefilling
-    │                      # from a backlog item, Phase 6)
+    │                      # from a backlog item, Phase 6). Import-export spec v2: upload icon in
+    │                      # the top bar imports a front-matter Markdown file as a "replace form
+    │                      # content" action (moved here from ui/library/, see dedicated section)
     ├── backlog/            # Phase 6: BacklogScreen (lists + unified search/filter + lightweight
     │                       # aggregate stats), BacklogListDetailScreen (drag-to-reorder),
     │                       # BacklogItemFormScreen, BacklogItemDetailScreen (status/comments/
@@ -1270,6 +1295,76 @@ reflection of the real quota.
   device: if the 403 persists even with the browser User-Agent, the
   next suspect is the `Accept: application/json` header (absent from a
   browser navigating the URL directly).
+
+### Reviews/backlog import-export spec v2 (Tappa 1 + Tappa 2)
+
+A dedicated spec document, `docs/reviews-backlog-import-export-spec-v2.md`
+(with two fixtures under `docs/examples/`), was supplied as authoritative
+— explicitly superseding prior assumptions in the code where the two
+disagreed. Three real conflicts surfaced against already-shipped,
+documented decisions before any code was written; all three were resolved
+by asking the user rather than guessing — see
+`docs/implementation-decisions.md`, "Reviews/backlog import-export spec
+v2", for the full reasoning behind each. Summary of what changed:
+
+- **Single-review Markdown export/import switched to a YAML front-matter
+  format** (id/title/platforms\[\]/genres\[\]/tags/score/status/dates/
+  hoursPlayed/coverImage/developer/publisher/releaseYear/metadataSource/
+  externalId/linkedBacklogItemId/createdAt/updatedAt, then the same
+  Pros/Cons/free-text body as before), replacing the earlier bare
+  "Reddit-style" bullet-list format entirely (`ReviewMarkdownFormatter.kt`/
+  `ReviewMarkdownParser.kt` deleted, replaced by
+  `domain/export/ReviewBackupMarkdown.kt`). `platforms`/`genres` are
+  arrays, not the singular strings the fixture happens to show for a
+  review with exactly one of each — the app's data model is many-to-many
+  for both, an array is the only lossless shape (confirmed with the user).
+  The six new fields live on `Review`/`ReviewEntity` (`MIGRATION_4_5`, DB
+  version 4→5) purely for round-trip fidelity: the create/edit form never
+  edits them, `save()` always preserves whatever a review already had.
+- **Single-review import moved from a library-level "always create new
+  review" action to a form-level "replace form content" action**
+  (`ReviewFormViewModel.importMarkdown()`, upload icon in the form's top
+  bar) — this is a real behavior change the old implementation got wrong
+  relative to the spec, not just a format change. The file's `id` is
+  parsed (structurally required) but never applied; the review being
+  edited keeps its own identity.
+- **Multi-review ZIP export/import is new** (`data/export/
+  ReviewZipArchive.kt`/`ReviewZipExporter.kt`/`ReviewZipImporter.kt`,
+  upload/download in the library's top bar — the upload icon that used to
+  trigger the old single-file import now triggers this instead).
+  Content-atomic validation (any malformed `.md` blocks the whole batch,
+  with every failing file name + reason reported), images always
+  best-effort, upsert-by-id-from-front-matter on success.
+  `ReviewRepository.upsertImported()` is the new repository method behind
+  it — additive, preserves id/createdAt/updatedAt, distinct from both
+  `save()` and the Drive-restore-only `replaceAll()`.
+- **Backlog export/import (already shipped, Phase 8) kept its existing
+  Italian-labeled, array-based schema** rather than being rewritten to
+  match the fixture's English/singular-field shape (confirmed with the
+  user — the fixture's JSON *structure*, lists→items→comments/history, is
+  what the existing schema already follows; rewriting field names/shape
+  would be a breaking change for no real gain). The one genuine addition:
+  a best-effort `reviewId` round-trip (`recensioneCollegataId` in the
+  export DTO, default `null` so older exported files still decode) —
+  relinked on import only if a review with that id already exists on the
+  importing device, `BacklogRepositoryImpl` now takes a `ReviewDao`
+  dependency to check.
+- **`PdfTemplateProvider` seam added** to `PdfReviewRenderer` (new
+  `PdfModule` Hilt `@Binds`, interface + `NoOpPdfTemplateProvider`) — no
+  real template exists yet, `currentTemplate()` always returns `null`
+  today, every render still falls back to the existing plain layout.
+- Also extended `domain/backup/BackupPayload.kt` (`BackupReviewDto`) with
+  the same six new Review fields (default `null`, old backups still
+  decode) — otherwise every Drive backup/restore cycle would have
+  silently dropped them, a real regression even though Drive backup
+  wasn't itself in scope for this session.
+- **Not touched**: JSON/CSV whole-library export — v2 doesn't mention it,
+  and there was never a JSON/CSV import path to begin with.
+
+**Build status**: same discussion as every phase above — written and
+reviewed statically, `dl.google.com` unreachable from this sandbox so no
+local build was possible. Check the checks on the relevant PR before
+considering it green.
 
 ## DOCX export — why it was not implemented
 

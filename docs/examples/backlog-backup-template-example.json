@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-08-11T10:00:00Z",
+  "lists": [
+    {
+      "id": "11111111-1111-4111-8111-111111111101",
+      "name": "Priorità 2026",
+      "order": 1,
+      "createdAt": "2026-01-04T10:00:00Z",
+      "items": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "title": "Hollow Prism",
+          "platform": "PC",
+          "genre": "Metroidvania",
+          "tags": ["indie"],
+          "status": "in_progress",
+          "dateAdded": "2026-01-04T10:00:00Z",
+          "dateStarted": "2026-03-11T09:15:00Z",
+          "comments": [
+            {
+              "text": "Tried the demo, looks promising.",
+              "timestamp": "2026-01-05T18:40:00Z"
+            },
+            {
+              "text": "Officially started, first impressions good.",
+              "timestamp": "2026-03-11T09:20:00Z"
+            }
+          ],
+          "history": [
+            {
+              "event": "Added to list \"Priorità 2026\"",
+              "timestamp": "2026-01-04T10:00:00Z"
+            },
+            {
+              "event": "Status changed: to_start -> in_progress",
+              "timestamp": "2026-03-11T09:15:00Z"
+            }
+          ]
+        },
+        {
+          "id": "11111111-1111-4111-8111-111111111112",
+          "title": "Ashen Roads",
+          "platform": "Nintendo Switch",
+          "genre": "JRPG",
+          "tags": [],
+          "status": "to_start",
+          "dateAdded": "2026-02-10T12:00:00Z",
+          "comments": [],
+          "history": [
+            {
+              "event": "Added to list \"Priorità 2026\"",
+              "timestamp": "2026-02-10T12:00:00Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222201",
+      "name": "Backlog generale",
+      "order": 2,
+      "createdAt": "2025-11-20T08:30:00Z",
+      "items": [
+        {
+          "id": "22222222-2222-4222-8222-222222222211",
+          "title": "Copper & Rust",
+          "platform": "PS5",
+          "genre": "Action",
+          "tags": ["hidden-gem"],
+          "status": "completed",
+          "dateAdded": "2025-12-01T09:00:00Z",
+          "dateStarted": "2026-01-15T20:00:00Z",
+          "dateCompleted": "2026-02-02T22:30:00Z",
+          "linkedReviewId": "9c7e2b41-11aa-4de5-8f2c-77a0b6d9e123",
+          "comments": [],
+          "history": [
+            {
+              "event": "Added to list \"Backlog generale\"",
+              "timestamp": "2025-12-01T09:00:00Z"
+            },
+            {
+              "event": "Status changed: to_start -> in_progress",
+              "timestamp": "2026-01-15T20:00:00Z"
+            },
+            {
+              "event": "Status changed: in_progress -> completed",
+              "timestamp": "2026-02-02T22:30:00Z"
+            },
+            {
+              "event": "Linked to review 9c7e2b41-11aa-4de5-8f2c-77a0b6d9e123",
+              "timestamp": "2026-02-02T22:31:00Z"
+            }
+          ]
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222212",
+          "title": "Fable of the Deep",
+          "platform": "PC",
+          "genre": "Adventure",
+          "tags": [],
+          "status": "abandoned",
+          "dateAdded": "2025-12-05T09:00:00Z",
+          "dateStarted": "2026-01-02T19:00:00Z",
+          "comments": [
+            {
+              "text": "Combat feels unresponsive, not clicking with me after 5 hours.",
+              "timestamp": "2026-01-20T21:10:00Z"
+            }
+          ],
+          "history": [
+            {
+              "event": "Added to list \"Backlog generale\"",
+              "timestamp": "2025-12-05T09:00:00Z"
+            },
+            {
+              "event": "Status changed: to_start -> in_progress",
+              "timestamp": "2026-01-02T19:00:00Z"
+            },
+            {
+              "event": "Status changed: in_progress -> abandoned",
+              "timestamp": "2026-01-20T21:12:00Z"
+            }
+          ]
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222213",
+          "title": "Sable's Grasp",
+          "platform": "Nintendo Switch",
+          "genre": "Metroidvania",
+          "tags": [],
+          "status": "on_hold",
+          "dateAdded": "2026-01-10T09:00:00Z",
+          "dateStarted": "2026-01-18T09:00:00Z",
+          "comments": [
+            {
+              "text": "Pausing for Nebula Drift, will come back after.",
+              "timestamp": "2026-04-30T08:00:00Z"
+            }
+          ],
+          "history": [
+            {
+              "event": "Added to list \"Backlog generale\"",
+              "timestamp": "2026-01-10T09:00:00Z"
+            },
+            {
+              "event": "Status changed: to_start -> in_progress",
+              "timestamp": "2026-01-18T09:00:00Z"
+            },
+            {
+              "event": "Status changed: in_progress -> on_hold",
+              "timestamp": "2026-04-30T08:00:00Z"
+            }
+          ]
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222214",
+          "title": "Iron Meridian",
+          "platform": "PC",
+          "genre": "Strategy",
+          "tags": ["wishlist"],
+          "status": "to_start",
+          "dateAdded": "2026-03-22T09:00:00Z",
+          "comments": [],
+          "history": [
+            {
+              "event": "Added to list \"Backlog generale\"",
+              "timestamp": "2026-03-22T09:00:00Z"
+            }
+          ]
+        },
+        {
+          "id": "22222222-2222-4222-8222-222222222215",
+          "title": "Wren & Thistle",
+          "platform": "PS Vita",
+          "genre": "Puzzle",
+          "tags": [],
+          "status": "in_progress",
+          "dateAdded": "2026-02-14T09:00:00Z",
+          "dateStarted": "2026-06-01T09:00:00Z",
+          "comments": [],
+          "history": [
+            {
+              "event": "Added to list \"Backlog generale\"",
+              "timestamp": "2026-02-14T09:00:00Z"
+            },
+            {
+              "event": "Status changed: to_start -> in_progress",
+              "timestamp": "2026-06-01T09:00:00Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

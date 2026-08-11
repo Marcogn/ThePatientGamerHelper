@@ -41,7 +41,7 @@ class ReviewRepositoryImpl @Inject constructor(
     override suspend fun save(id: String?, draft: ReviewDraft): String = database.withTransaction {
         val now = Instant.now()
         val reviewId = id ?: UUID.randomUUID().toString()
-        val createdAt = id?.let { reviewDao.getReviewEntity(it)?.createdAt } ?: now
+        val existing = id?.let { reviewDao.getReviewEntity(it) }
 
         reviewDao.upsertReview(
             ReviewEntity(
@@ -54,7 +54,15 @@ class ReviewRepositoryImpl @Inject constructor(
                 status = draft.status,
                 reviewText = draft.reviewText,
                 coverImagePath = draft.coverImagePath,
-                createdAt = createdAt,
+                // Never edited by the form — carry over whatever the review already had (null for a
+                // brand new one) instead of wiping it on every save. See Review.kt's doc comment.
+                developer = existing?.developer,
+                publisher = existing?.publisher,
+                releaseYear = existing?.releaseYear,
+                metadataSource = existing?.metadataSource,
+                externalId = existing?.externalId,
+                linkedBacklogItemId = existing?.linkedBacklogItemId,
+                createdAt = existing?.createdAt ?: now,
                 updatedAt = now,
             ),
         )
@@ -79,31 +87,54 @@ class ReviewRepositoryImpl @Inject constructor(
         genreDao.deleteAll()
         tagDao.deleteAll()
 
-        reviews.forEach { review ->
-            reviewDao.upsertReview(
-                ReviewEntity(
-                    id = review.id,
-                    title = review.title,
-                    rating = review.rating,
-                    startDate = review.startDate,
-                    endDate = review.endDate,
-                    hoursPlayed = review.hoursPlayed,
-                    status = review.status,
-                    reviewText = review.reviewText,
-                    coverImagePath = review.coverImagePath,
-                    createdAt = review.createdAt,
-                    updatedAt = review.updatedAt,
-                ),
-            )
-            writeRelations(
-                reviewId = review.id,
-                platformNames = review.platforms.map { it.name },
-                genreNames = review.genres.map { it.name },
-                tagNames = review.tags.map { it.name },
-                pros = review.pros,
-                cons = review.cons,
-            )
-        }
+        reviews.forEach { review -> upsertReviewEntity(review) }
+    }
+
+    /**
+     * Multi-review import (v2 §2.4): upserts each review by id, preserving id/createdAt/updatedAt
+     * from the parsed file — same "preserve, don't regenerate" restore semantics as [replaceAll],
+     * but additive (existing reviews not present in [reviews] are left untouched) instead of a full
+     * wipe. Caller (`ReviewImporter`) has already validated every review in the batch atomically
+     * before this runs, so every entry here is written unconditionally.
+     */
+    override suspend fun upsertImported(reviews: List<Review>) = database.withTransaction {
+        reviews.forEach { review -> upsertReviewEntity(review) }
+    }
+
+    private suspend fun upsertReviewEntity(review: Review) {
+        reviewDao.upsertReview(
+            ReviewEntity(
+                id = review.id,
+                title = review.title,
+                rating = review.rating,
+                startDate = review.startDate,
+                endDate = review.endDate,
+                hoursPlayed = review.hoursPlayed,
+                status = review.status,
+                reviewText = review.reviewText,
+                coverImagePath = review.coverImagePath,
+                developer = review.developer,
+                publisher = review.publisher,
+                releaseYear = review.releaseYear,
+                metadataSource = review.metadataSource,
+                externalId = review.externalId,
+                linkedBacklogItemId = review.linkedBacklogItemId,
+                createdAt = review.createdAt,
+                updatedAt = review.updatedAt,
+            ),
+        )
+        reviewDao.clearPlatformCrossRefs(review.id)
+        reviewDao.clearGenreCrossRefs(review.id)
+        reviewDao.clearTagCrossRefs(review.id)
+        reviewDao.clearProCon(review.id)
+        writeRelations(
+            reviewId = review.id,
+            platformNames = review.platforms.map { it.name },
+            genreNames = review.genres.map { it.name },
+            tagNames = review.tags.map { it.name },
+            pros = review.pros,
+            cons = review.cons,
+        )
     }
 
     /** Resolves lookup names to ids and writes cross-refs + pro/con rows for a review that already exists. */

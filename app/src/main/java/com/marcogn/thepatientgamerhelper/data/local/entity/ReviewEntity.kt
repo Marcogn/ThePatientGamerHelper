@@ -18,6 +18,12 @@ data class ReviewEntity(
     val status: ReviewStatus,
     val reviewText: String,
     val coverImagePath: String?,
+    val developer: String?,
+    val publisher: String?,
+    val releaseYear: Int?,
+    val metadataSource: String?,
+    val externalId: String?,
+    val linkedBacklogItemId: String?,
     val createdAt: Instant,
     @ColumnInfo(name = "updatedAt") val updatedAt: Instant,
 )

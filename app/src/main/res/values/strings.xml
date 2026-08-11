@@ -18,6 +18,7 @@
     <string name="cd_view_mode_list">Vista a lista</string>
     <string name="import_completed">Importazione completata</string>
     <string name="import_failed">Importazione non riuscita: %1$s</string>
+    <string name="review_zip_import_completed">Importate %1$d recensioni</string>
 
     <!-- Home -->
     <string name="home_subtitle">Cosa vuoi fare?</string>
@@ -56,6 +57,7 @@
     <string name="export_action_csv">Esporta CSV</string>
     <string name="export_action_pdf">Esporta PDF</string>
     <string name="export_action_markdown">Esporta Markdown</string>
+    <string name="export_action_zip">Esporta ZIP (Markdown)</string>
 
     <!-- Impostazioni -->
     <string name="settings_title">Impostazioni</string>
@@ -116,6 +118,7 @@
     <string name="cd_filters">Filtri</string>
     <string name="cd_export_library">Esporta libreria</string>
     <string name="cd_import_review_markdown">Importa recensione da Markdown</string>
+    <string name="cd_import_reviews_zip">Importa recensioni da zip</string>
     <string name="library_search_placeholder">Cerca titolo, testo, pro/contro…</string>
     <string name="library_empty_title">Nessuna recensione ancora</string>
     <string name="library_empty_subtitle">Tocca + per aggiungere la prima recensione</string>

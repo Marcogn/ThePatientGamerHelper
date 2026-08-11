@@ -27,4 +27,11 @@ interface ReviewRepository {
      * overwrite of local data.
      */
     suspend fun replaceAll(reviews: List<Review>)
+
+    /**
+     * Multi-review import (reviews/backlog import-export spec v2 §2.4): upserts each review by
+     * id, preserving id/createdAt/updatedAt from [reviews] like [replaceAll] does, but additive —
+     * reviews already in the library that aren't part of [reviews] are left untouched.
+     */
+    suspend fun upsertImported(reviews: List<Review>)
 }

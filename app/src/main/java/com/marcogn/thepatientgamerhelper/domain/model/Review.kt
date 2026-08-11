@@ -21,6 +21,19 @@ data class Review(
     val cons: List<String>,
     val reviewText: String,
     val coverImagePath: String?,
+    /**
+     * The following six fields are never set by the create/edit form (see [ReviewDraft], which
+     * deliberately omits them) — they only round-trip through the front-matter Markdown
+     * export/import format (`domain/export/ReviewBackupMarkdown.kt`) and the Drive backup DTO. A
+     * review created or edited from the UI always carries whatever value it already had for them
+     * (null for a brand new review), see `ReviewRepositoryImpl.save()`.
+     */
+    val developer: String?,
+    val publisher: String?,
+    val releaseYear: Int?,
+    val metadataSource: String?,
+    val externalId: String?,
+    val linkedBacklogItemId: String?,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

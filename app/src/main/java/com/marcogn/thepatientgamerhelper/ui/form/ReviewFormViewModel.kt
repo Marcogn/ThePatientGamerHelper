@@ -7,8 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.data.export.ImportFileReader
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator
+import com.marcogn.thepatientgamerhelper.domain.export.parseReviewBackupMarkdown
+import com.marcogn.thepatientgamerhelper.domain.export.toFormDraft
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogListKind
 import com.marcogn.thepatientgamerhelper.domain.model.GameMetadataSearchResult
 import com.marcogn.thepatientgamerhelper.domain.model.Genre
@@ -59,6 +62,7 @@ class ReviewFormViewModel @Inject constructor(
     private val searchCoordinator: GameMetadataSearchCoordinator,
     lookupRepository: LookupRepository,
     private val imageStorage: ImageStorage,
+    private val importFileReader: ImportFileReader,
 ) : ViewModel() {
 
     private val formRoute = savedStateHandle.toRoute<Destination.Form>()
@@ -81,6 +85,9 @@ class ReviewFormViewModel @Inject constructor(
     private val _pendingMove = MutableStateFlow<PendingListMove?>(null)
     val pendingMove: StateFlow<PendingListMove?> = _pendingMove.asStateFlow()
     private var pendingMoveContinuation: (() -> Unit)? = null
+
+    private val _importMessage = MutableStateFlow<String?>(null)
+    val importMessage: StateFlow<String?> = _importMessage.asStateFlow()
 
     private val lookupNames = combine(
         lookupRepository.observePlatforms().map { it.map(Platform::name) },
@@ -220,6 +227,39 @@ class ReviewFormViewModel @Inject constructor(
 
     fun onSearchDialogDismissed() {
         search.update { it.copy(results = emptyList(), message = null) }
+    }
+
+    /**
+     * Single-review import (reviews/backlog import-export spec v2 §2.2): a "replace form content"
+     * action, not a database upsert-by-id — the review being created/edited keeps its own identity
+     * (the file's `id` is parsed only for validation, never applied), only the form's fields are
+     * overwritten. Full pre-parse validation: on any failure, the form is left completely untouched
+     * and [importMessage] carries the specific reason. A referenced cover image is never resolvable
+     * from a single standalone `.md` pick (no accompanying image bytes), so it always degrades to
+     * "no cover" per the image-is-always-best-effort rule — the previous cover file, if any, is
+     * deleted the same way [onRemoveCoverImage] does, so a re-imported review doesn't leave an
+     * orphaned file behind.
+     */
+    fun importMarkdown(source: Uri) {
+        viewModelScope.launch {
+            val outcome = runCatching {
+                val content = importFileReader.readText(source)
+                parseReviewBackupMarkdown(content).getOrThrow().toFormDraft(resolvedCoverImagePath = null)
+            }
+            outcome.onSuccess { newDraft ->
+                val previousCoverPath = draft.value.coverImagePath
+                updateDraft { newDraft }
+                if (previousCoverPath != null) imageStorage.delete(previousCoverPath)
+            }
+            _importMessage.value = outcome.fold(
+                onSuccess = { appContext.getString(R.string.import_completed) },
+                onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },
+            )
+        }
+    }
+
+    fun consumeImportMessage() {
+        _importMessage.value = null
     }
 
     /**

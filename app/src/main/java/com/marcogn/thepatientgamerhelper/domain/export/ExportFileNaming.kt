@@ -18,3 +18,6 @@ fun suggestedLibraryFileName(format: ExportFormat, today: LocalDate = LocalDate.
 
 /** Backlog export (Fase 8) is always a zip archive (data + covers) — see `BacklogExportArchive`. */
 fun suggestedBacklogExportFileName(today: LocalDate = LocalDate.now()): String = "backlog-$today.zip"
+
+/** Multi-review ZIP export (v2 §2.3) — one `.md` per review plus covers, see `ReviewZipArchive`. */
+fun suggestedReviewZipFileName(today: LocalDate = LocalDate.now()): String = "recensioni-videogiochi-$today.zip"

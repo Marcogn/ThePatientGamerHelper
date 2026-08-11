@@ -246,59 +246,64 @@ as a permanent regression. This is not a "one-shot" document.
 - [ ] **LIB-41 (edge)** Device storage full during an export: handled
       failure with a message such as "Export failed: ...", not a silent
       crash or a truncated file without warning.
+- [ ] **LIB-41b** ZIP export (import-export spec v2): one front-matter
+      `.md` file per review under `reviews/`, plus an `images/` folder —
+      verify the folder is present when at least one exported review has a
+      cover, and **absent entirely** when none do (open the zip with an
+      archive tool, don't just trust the app).
+- [ ] **LIB-41c (edge)** ZIP export with two reviews sharing the exact same
+      title: verify both `.md` files are present (deduplicated file names,
+      e.g. a `-2` suffix), neither silently overwrites the other.
 
-### 2.7 Markdown import
+### 2.7 Multi-review ZIP import
 
-- [ ] **LIB-42** The Markdown import icon opens the SAF picker
-      (`ActivityResultContracts.OpenDocument`) filtered for/suited to
-      `.md`/text files.
-- [ ] **LIB-43** Importing an `.md` file exported by the app itself
-      (Phase 2) creates a **new** review (never an update to an existing
-      one), even if the title exactly matches an existing review
-      (duplicates are expected, not a merge).
-- [ ] **LIB-44** After a successful import: "Import complete" snackbar, the
-      new review appears in the list without needing to reload the
-      screen.
-- [ ] **LIB-45 (edge)** Importing an `.md` file **missing a title** (no
-      `# Title` line): fails with **"Manca il titolo (riga \"# Titolo\")"**
-      (this parser error message is hardcoded in Italian in
-      `domain/export` regardless of app language, see `CLAUDE.md`); with a
-      `#` line present but empty: **"Il titolo non può essere vuoto"**.
-- [ ] **LIB-46 (edge)** Importing an `.md` file with a missing or
-      non-numeric rating: fails with **"Voto mancante o non valido (atteso
-      \"- **Voto:** X.X/10\")"**.
-- [ ] **LIB-47 (edge)** Importing an `.md` file with a missing/unrecognized
-      status: **"Stato mancante o non riconosciuto (atteso \"- **Stato:**
-      In corso/Completato/Abbandonato\")"**. With a missing start date:
-      **"Data di inizio mancante (atteso \"- **Iniziato il:**
-      gg/mm/aaaa\")"**; with a date present but in an invalid format:
-      **"Data non valida: \"{value}\" (atteso gg/mm/aaaa)"**.
-- [ ] **LIB-48 (edge)** Importing a completely unrelated file (e.g. a
-      README `.md` downloaded from the internet, not produced by the app):
-      fails with a readable error message, no crash, no partially-created
-      "junk" review.
-- [ ] **LIB-49 (edge)** Importing a non-Markdown file (e.g. renaming a
-      `.jpg` to `.md`, or a binary file): handled as a failure, not a
-      crash. If the file/stream isn't even readable (e.g. access denied by
-      the content provider), the expected message is "Impossibile leggere
-      il file selezionato" (`ImportFileReader`, also hardcoded Italian).
-- [ ] **LIB-50 (edge)** Import with pros/cons/platforms/genres/tags omitted
-      (optional sections absent from the file): import still succeeds,
-      the optional fields on the created review are empty.
-- [ ] **LIB-51 (edge)** Importing an `.md` file with pros/cons sections
-      present but empty (just the `## Pro` heading with no bullets under
-      it): verify it doesn't produce a phantom empty pro/con entry.
-- [ ] **LIB-52 (edge)** Full roundtrip: export a review with *every*
-      optional field filled in (multiple platforms, multiple genres,
-      multiple tags, hours, pros, cons, a body with nested markdown such
-      as a bullet list inside the body) → import the just-exported file →
-      confirm the data matches the original 1:1 (aside from the id, which
-      is new by design).
-- [ ] **LIB-53 (edge)** Cancelling the SAF picker during import: no crash,
-      no misleading error message.
-- [ ] **LIB-54 (edge)** Importing a very large `.md` file (e.g. tens of
-      thousands of lines in the body): does not freeze the UI indefinitely
-      or crash from OOM on a lower-end device.
+Single-review Markdown import moved into the review create/edit form (see
+3.8) — this section now covers only the library-level **multi-review ZIP**
+import (import-export spec v2 §2.4), which replaced it at this entry
+point.
+
+- [ ] **LIB-42** The upload icon in the library's top bar opens the SAF
+      picker (`ActivityResultContracts.OpenDocument`) filtered for/suited
+      to `.zip` files.
+- [ ] **LIB-43** Importing a zip previously exported by this same feature
+      (2.6): every review inside is imported/updated, "Imported N reviews"
+      shown on success.
+- [ ] **LIB-43b** Re-importing the **same** zip a second time: every review
+      is **overwritten in place** (upsert by id from front matter), not
+      duplicated — unlike the old single-file import, which always created
+      a new review.
+- [ ] **LIB-44** After a successful import, the library list reflects the
+      change without needing to reload the screen.
+- [ ] **LIB-45 (edge)** A zip where **one** `.md` file (out of several) is
+      malformed (e.g. missing `score:`): **nothing** is imported — verify
+      no review from the batch was written — and the warning lists the
+      failing file's name and reason.
+- [ ] **LIB-46 (edge)** A zip with no `.md` files at all (e.g. only an
+      `images/` folder, or genuinely empty): fails with a readable message,
+      no crash, nothing imported.
+- [ ] **LIB-47 (edge)** A zip whose `images/` folder is **absent entirely**:
+      every review imports successfully, just without a cover — no warning
+      specific to the missing folder.
+- [ ] **LIB-48 (edge)** A zip whose `images/` folder is present but is
+      **missing one specific file** referenced by one review's
+      `coverImage`: that one review imports without a cover, every other
+      review in the batch (including ones with resolvable covers) is
+      unaffected.
+- [ ] **LIB-49 (edge)** Importing a zip that isn't one this feature
+      produced (e.g. a random zip renamed to `.zip` with unrelated
+      content, or a corrupted archive): fails with a readable error
+      message, no crash.
+- [ ] **LIB-50 (edge)** Full roundtrip: export the entire library (2.6) →
+      delete/modify a couple of reviews → re-import the exported zip →
+      confirm every review matches the original (title, platforms/genres/
+      tags as full sets — not truncated to one — score, dates, hours,
+      pros/cons, body, cover, and the id-based upsert did not create
+      duplicates).
+- [ ] **LIB-51 (edge)** Cancelling the SAF picker during export or import:
+      no crash, no misleading error message.
+- [ ] **LIB-52 (edge)** Importing a very large zip (many reviews, or one
+      review with a very long body): does not freeze the UI indefinitely or
+      crash from OOM on a lower-end device.
 
 ---
 
@@ -508,6 +513,52 @@ as a permanent regression. This is not a "one-shot" document.
       is still saved and linked, the backlog item stays in the list it was
       already in.
 
+### 3.8 Markdown import ("replace form content")
+
+Import-export spec v2 §2.2: single-review Markdown import moved from a
+library-level "always create new review" action to a form-level "replace
+form content" action — the upload icon is now in the **form's** top bar,
+not the library's (2.7 covers the library's own zip import instead).
+
+- [ ] **FORM-57** Opening the create/edit form and tapping the upload icon:
+      opens the SAF picker (`ActivityResultContracts.OpenDocument`)
+      filtered for/suited to `.md`/text files.
+- [ ] **FORM-58** Importing a `.md` file exported by this app (2.6/2.7)
+      while **editing an existing review**: the form's fields (title,
+      platforms, genres, tags, score, dates, hours played, pros, cons,
+      body) are overwritten with the file's content — the review being
+      edited keeps its **own id**, verify no new review is created and no
+      other existing review is touched, even if the imported file's own
+      front-matter `id` matches a *different* review.
+- [ ] **FORM-59** Same import while creating a **new** review (no
+      `editingId`): the blank form is filled from the file, saving still
+      creates a brand-new review afterward (import alone doesn't save).
+- [ ] **FORM-60** A cover already set on the form before the import: after
+      importing, the cover is **cleared** (a standalone `.md` pick never
+      carries image bytes, so a referenced `coverImage` can never resolve
+      — best-effort degrades to no cover) — verify the previous cover
+      file is not left orphaned in storage and the form shows no cover.
+- [ ] **FORM-61 (edge)** Importing a `.md` file missing a required
+      front-matter field (`id`, `title`, `score`, `status`, or
+      `startDate`): the form is left **completely untouched** (no partial
+      field-by-field overwrite) and a snackbar states which field failed.
+- [ ] **FORM-62 (edge)** Importing a file with an unrecognized `status:`
+      value (anything other than `in_progress`/`completed`/`abandoned`):
+      fails the same way, form untouched.
+- [ ] **FORM-63 (edge)** Importing a completely unrelated file (e.g. a
+      README `.md` from the internet, or a binary file renamed to `.md`):
+      fails with a readable message, no crash, form untouched.
+- [ ] **FORM-64 (edge)** Full roundtrip: export a review with every
+      optional field filled in (multiple platforms/genres/tags, hours,
+      pros, cons, developer/publisher/releaseYear if present) → open a
+      **different** review's edit form → import the exported file →
+      confirm every form-visible field matches the original exactly (the
+      six backup-only fields — developer/publisher/releaseYear/
+      metadataSource/externalId/linkedBacklogItemId — are *not* expected to
+      appear anywhere in the form, they're parsed but never applied here).
+- [ ] **FORM-65 (edge)** Cancelling the SAF picker during import: no crash,
+      form unchanged.
+
 ---
 
 ## 4. Review detail screen
@@ -635,9 +686,18 @@ as a permanent regression. This is not a "one-shot" document.
       failed: File non valido: manca data.json nell'archivio"** (exact
       message confirmed from the code — the inner message is hardcoded
       Italian regardless of app language, see `CLAUDE.md`), not a crash.
-- [ ] **BKL-24 (edge)** Importing a backlog export archive that references
-      a `reviewId`: verify it's discarded (no phantom review linked to a
-      non-existent id on the destination device).
+- [ ] **BKL-24 (edge)** Importing a backlog export archive whose item
+      references a `reviewId` that does **not** exist on the destination
+      device (the common case — the review usually lives only on the
+      exporting device's library): the link is dropped, no phantom/dangling
+      reference, no crash.
+- [ ] **BKL-24b (edge)** Importing a backlog export archive whose item's
+      `reviewId` **does** exist on the destination device (e.g. re-import a
+      backlog you exported from this same device, or export/import between
+      two libraries that happen to share a review id): verify the item
+      **is** relinked to that review ("Review linked" shows and opens it) —
+      this is the new best-effort round-trip behavior (import-export spec
+      v2), distinct from BKL-24.
 - [ ] **BKL-25 (edge)** Importing a backlog with comments/history: original
       timestamps are preserved (not replaced with "now"), and **no**
       synthetic extra history entry such as "Added to backlog" is injected
@@ -1175,3 +1235,13 @@ review alone — all the more reason not to skip them in future test rounds.
 - 2026-08-07 — First draft, covering every feature through Phase 8
   inclusive (Markdown import, backlog export/import, HowLongToBeat, grid
   views, system lists, multi-round post-device fixes).
+- 2026-08-11 — Revised for `docs/reviews-backlog-import-export-spec-v2.md`:
+  §2.6 gained ZIP export coverage (LIB-41b/c), §2.7 rewritten from
+  single-file Markdown import to multi-review ZIP import (LIB-42–52,
+  content-atomic validation, images always best-effort), a new §3.8 covers
+  the single-review Markdown import that moved into the create/edit form
+  (FORM-57–65), and §5.4's BKL-24 was split into BKL-24/BKL-24b to cover
+  the new best-effort `reviewId` relink on backlog import. Not yet
+  manually verified on device (see each phase's own "Build status" note in
+  `CLAUDE.md`) — no new "Known regressions" entries added, since none of
+  this has been through real-device verification yet.
