@@ -18,6 +18,7 @@
     <string name="cd_view_mode_list">List view</string>
     <string name="import_completed">Import complete</string>
     <string name="import_failed">Import failed: %1$s</string>
+    <string name="review_zip_import_completed">Imported %1$d reviews</string>
 
     <!-- Home -->
     <string name="home_subtitle">What do you want to do?</string>
@@ -56,6 +57,7 @@
     <string name="export_action_csv">Export CSV</string>
     <string name="export_action_pdf">Export PDF</string>
     <string name="export_action_markdown">Export Markdown</string>
+    <string name="export_action_zip">Export ZIP (Markdown)</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -116,6 +118,7 @@
     <string name="cd_filters">Filters</string>
     <string name="cd_export_library">Export library</string>
     <string name="cd_import_review_markdown">Import review from Markdown</string>
+    <string name="cd_import_reviews_zip">Import reviews from zip</string>
     <string name="library_search_placeholder">Search title, text, pros/cons…</string>
     <string name="library_empty_title">No reviews yet</string>
     <string name="library_empty_subtitle">Tap + to add your first review</string>

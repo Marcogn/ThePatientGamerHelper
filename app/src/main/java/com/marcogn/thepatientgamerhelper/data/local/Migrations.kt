@@ -148,3 +148,22 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE `backlog_lists` ADD COLUMN `systemKind` TEXT")
     }
 }
+
+/**
+ * Adds six nullable columns to `reviews` (Tappa 1 of the reviews/backlog import-export spec v2):
+ * `developer`/`publisher`/`releaseYear`/`metadataSource`/`externalId`/`linkedBacklogItemId`. None
+ * of these are ever set by the create/edit form — they only round-trip through the new front-matter
+ * Markdown export/import format (see `domain/export/ReviewBackupMarkdown.kt`) and the Drive backup
+ * DTO, so every row that predates this migration (and every row created afterward outside of an
+ * import) simply reads back as `NULL` in all six columns, additive like every migration before it.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `developer` TEXT")
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `publisher` TEXT")
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `releaseYear` INTEGER")
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `metadataSource` TEXT")
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `externalId` TEXT")
+        db.execSQL("ALTER TABLE `reviews` ADD COLUMN `linkedBacklogItemId` TEXT")
+    }
+}

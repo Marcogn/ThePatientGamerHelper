@@ -92,6 +92,12 @@ class ReviewDaoTest {
         status = ReviewStatus.IN_CORSO,
         reviewText = "",
         coverImagePath = null,
+        developer = null,
+        publisher = null,
+        releaseYear = null,
+        metadataSource = null,
+        externalId = null,
+        linkedBacklogItemId = null,
         createdAt = Instant.EPOCH,
         updatedAt = Instant.EPOCH,
     )

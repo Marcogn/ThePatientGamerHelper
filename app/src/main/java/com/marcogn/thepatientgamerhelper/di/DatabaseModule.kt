@@ -6,6 +6,7 @@ import com.marcogn.thepatientgamerhelper.data.local.ThePatientGamerHelperDatabas
 import com.marcogn.thepatientgamerhelper.data.local.MIGRATION_1_2
 import com.marcogn.thepatientgamerhelper.data.local.MIGRATION_2_3
 import com.marcogn.thepatientgamerhelper.data.local.MIGRATION_3_4
+import com.marcogn.thepatientgamerhelper.data.local.MIGRATION_4_5
 import com.marcogn.thepatientgamerhelper.data.local.dao.BacklogDao
 import com.marcogn.thepatientgamerhelper.data.local.dao.GenreDao
 import com.marcogn.thepatientgamerhelper.data.local.dao.PlatformDao
@@ -29,7 +30,7 @@ object DatabaseModule {
             context,
             ThePatientGamerHelperDatabase::class.java,
             ThePatientGamerHelperDatabase.DATABASE_NAME,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
 
     @Provides
     fun provideReviewDao(database: ThePatientGamerHelperDatabase): ReviewDao = database.reviewDao()

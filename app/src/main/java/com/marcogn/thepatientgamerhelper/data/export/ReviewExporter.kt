@@ -1,9 +1,9 @@
 package com.marcogn.thepatientgamerhelper.data.export
 
 import android.net.Uri
+import com.marcogn.thepatientgamerhelper.domain.export.toBackupMarkdown
 import com.marcogn.thepatientgamerhelper.domain.export.toCsvExport
 import com.marcogn.thepatientgamerhelper.domain.export.toJsonExport
-import com.marcogn.thepatientgamerhelper.domain.export.toRedditMarkdown
 import com.marcogn.thepatientgamerhelper.domain.model.Review
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,7 +26,7 @@ class ReviewExporter @Inject constructor(
     }
 
     suspend fun exportMarkdown(review: Review, destination: Uri) {
-        fileWriter.writeText(destination, review.toRedditMarkdown())
+        fileWriter.writeText(destination, review.toBackupMarkdown())
     }
 
     /** Works for both a single review ([reviews] with one element) and a whole-library batch. */

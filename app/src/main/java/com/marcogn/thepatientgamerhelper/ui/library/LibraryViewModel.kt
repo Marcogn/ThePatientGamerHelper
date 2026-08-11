@@ -5,10 +5,10 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcogn.thepatientgamerhelper.R
-import com.marcogn.thepatientgamerhelper.data.export.ImportFileReader
 import com.marcogn.thepatientgamerhelper.data.export.ReviewExporter
+import com.marcogn.thepatientgamerhelper.data.export.ReviewZipExporter
+import com.marcogn.thepatientgamerhelper.data.export.ReviewZipImporter
 import com.marcogn.thepatientgamerhelper.data.settings.ViewModePreferences
-import com.marcogn.thepatientgamerhelper.domain.export.parseReviewMarkdown
 import com.marcogn.thepatientgamerhelper.domain.filter.LibraryFilters
 import com.marcogn.thepatientgamerhelper.domain.filter.SortOption
 import com.marcogn.thepatientgamerhelper.domain.filter.applyLibraryFilters
@@ -16,6 +16,7 @@ import com.marcogn.thepatientgamerhelper.domain.filter.sortReviews
 import com.marcogn.thepatientgamerhelper.domain.model.Genre
 import com.marcogn.thepatientgamerhelper.domain.model.Platform
 import com.marcogn.thepatientgamerhelper.domain.model.Review
+import com.marcogn.thepatientgamerhelper.domain.model.ReviewZipImportResult
 import com.marcogn.thepatientgamerhelper.domain.model.Tag
 import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
 import com.marcogn.thepatientgamerhelper.domain.repository.LookupRepository
@@ -44,7 +45,8 @@ class LibraryViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val reviewRepository: ReviewRepository,
     private val reviewExporter: ReviewExporter,
-    private val importFileReader: ImportFileReader,
+    private val reviewZipExporter: ReviewZipExporter,
+    private val reviewZipImporter: ReviewZipImporter,
     private val viewModePreferences: ViewModePreferences,
     lookupRepository: LookupRepository,
 ) : ViewModel() {
@@ -113,27 +115,33 @@ class LibraryViewModel @Inject constructor(
         viewModePreferences.libraryViewMode = mode
     }
 
-    /** Imports a single review from a Reddit-flavored Markdown file (Fase 8) — reverse of the single-review Markdown export. Always creates a new review, never overwrites an existing one. */
-    fun importMarkdown(source: Uri) {
-        viewModelScope.launch {
-            val outcome = runCatching {
-                val content = importFileReader.readText(source)
-                val draft = parseReviewMarkdown(content).getOrThrow()
-                reviewRepository.save(id = null, draft = draft)
-            }
-            _exportMessage.value = outcome.fold(
-                onSuccess = { appContext.getString(R.string.import_completed) },
-                onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },
-            )
-        }
-    }
-
     /** Exports every review, ignoring active filters — a backup should be complete. */
     fun exportJson(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportJson(reviews, destination) }
 
     fun exportCsv(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportCsv(reviews, destination) }
 
     fun exportPdf(destination: Uri) = exportLibrary { reviews -> reviewExporter.exportPdf(reviews, destination) }
+
+    /** ZIP export (v2 §2.3): one front-matter Markdown file per review plus covers, round-trip importable — unlike the batch PDF, which is display-only (v2 §2.5). */
+    fun exportZip(destination: Uri) = exportLibrary { reviews -> reviewZipExporter.export(reviews, destination) }
+
+    /** Multi-review ZIP import (v2 §2.4) — atomic on content: any malformed `.md` in the archive blocks the whole batch, images are always best-effort. Upserts by id from front matter. */
+    fun importZip(source: Uri) {
+        viewModelScope.launch {
+            val outcome = runCatching { reviewZipImporter.import(source) }
+            _exportMessage.value = outcome.fold(
+                onSuccess = { result ->
+                    when (result) {
+                        is ReviewZipImportResult.Success ->
+                            appContext.getString(R.string.review_zip_import_completed, result.importedCount)
+                        is ReviewZipImportResult.ValidationFailed ->
+                            appContext.getString(R.string.import_failed, result.failures.joinToString("; "))
+                    }
+                },
+                onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },
+            )
+        }
+    }
 
     fun consumeExportMessage() {
         _exportMessage.value = null

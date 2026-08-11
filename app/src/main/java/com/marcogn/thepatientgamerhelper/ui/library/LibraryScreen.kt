@@ -51,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.export.ExportFormat
 import com.marcogn.thepatientgamerhelper.domain.export.suggestedLibraryFileName
+import com.marcogn.thepatientgamerhelper.domain.export.suggestedReviewZipFileName
 import com.marcogn.thepatientgamerhelper.domain.model.Review
 import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
 import com.marcogn.thepatientgamerhelper.ui.common.GameGridTile
@@ -78,9 +79,12 @@ fun LibraryScreen(
     val pdfExportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType),
     ) { uri -> uri?.let(viewModel::exportPdf) }
-    val markdownImportLauncher = rememberLauncherForActivityResult(
+    val zipExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri -> uri?.let(viewModel::exportZip) }
+    val zipImportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(viewModel::importMarkdown) }
+    ) { uri -> uri?.let(viewModel::importZip) }
 
     LaunchedEffect(exportMessage) {
         exportMessage?.let {
@@ -99,13 +103,14 @@ fun LibraryScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { markdownImportLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*")) }) {
-                        Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_review_markdown))
+                    IconButton(onClick = { zipImportLauncher.launch(arrayOf("application/zip", "*/*")) }) {
+                        Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_reviews_zip))
                     }
                     LibraryExportMenu(
                         onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON)) },
                         onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV)) },
                         onExportPdf = { pdfExportLauncher.launch(suggestedLibraryFileName(ExportFormat.PDF)) },
+                        onExportZip = { zipExportLauncher.launch(suggestedReviewZipFileName()) },
                     )
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {

@@ -1,6 +1,8 @@
 package com.marcogn.thepatientgamerhelper.ui.form
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,10 +31,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +67,20 @@ fun ReviewFormScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val pendingMove by viewModel.pendingMove.collectAsState()
+    val importMessage by viewModel.importMessage.collectAsState()
     var showSearchDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val markdownImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(viewModel::importMarkdown) }
+
+    LaunchedEffect(importMessage) {
+        importMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeImportMessage()
+        }
+    }
 
     // The toolbar arrow's onClick only fires on a tap — the system back gesture/button bypasses it
     // entirely and defaults to a bare popBackStack(), skipping the draft-save-and-link and the
@@ -90,12 +109,16 @@ fun ReviewFormScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { markdownImportLauncher.launch(arrayOf("text/markdown", "text/plain", "*/*")) }) {
+                        Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_review_markdown))
+                    }
                     IconButton(onClick = { viewModel.save(onSaved) }, enabled = !uiState.isSaving) {
                         Icon(Icons.Filled.Check, contentDescription = stringResource(R.string.action_save))
                     }
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         if (uiState.isLoading) {
             Box(

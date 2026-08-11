@@ -22,6 +22,9 @@ import kotlinx.serialization.json.Json
  * always additive (see `BacklogRepository.importLists`), never a device restore. [copertina] is a
  * bare file name (same convention as `BackupReviewDto.coverImageFileName`), resolved against
  * `images/<copertina>` in the zip archive — see `data/export/BacklogExportArchive.kt`.
+ * [recensioneCollegataId] (v2 §3.1, default `null` so files from before this field existed still
+ * decode) round-trips the linked review's id, but it's a best-effort candidate, not a guarantee:
+ * `importLists` only links it back if a review with that id already exists on *this* device.
  */
 @Serializable
 data class BacklogCommentExportDto(val testo: String, val timestamp: String)
@@ -46,6 +49,7 @@ data class BacklogItemExportDto(
     val hltbStoriaPiuExtraOre: Double?,
     val hltbCompletistaOre: Double?,
     val copertina: String?,
+    val recensioneCollegataId: String? = null,
     val commenti: List<BacklogCommentExportDto>,
     val storico: List<BacklogHistoryExportDto>,
 )
@@ -93,6 +97,7 @@ private fun BacklogItem.toExportDto(): BacklogItemExportDto = BacklogItemExportD
     hltbStoriaPiuExtraOre = hltbMainExtraHours,
     hltbCompletistaOre = hltbCompletionistHours,
     copertina = coverImagePath?.substringAfterLast('/'),
+    recensioneCollegataId = reviewId,
     commenti = comments.map { BacklogCommentExportDto(testo = it.text, timestamp = it.timestamp.toString()) },
     storico = history.map { BacklogHistoryExportDto(tipo = it.type.name, timestamp = it.timestamp.toString(), dettaglio = it.detail) },
 )
@@ -126,6 +131,7 @@ private fun BacklogItemExportDto.toImportedItem(resolveCoverPath: (String) -> St
     hltbMainStoryHours = hltbStoriaPrincipaleOre,
     hltbMainExtraHours = hltbStoriaPiuExtraOre,
     hltbCompletionistHours = hltbCompletistaOre,
+    reviewId = recensioneCollegataId,
     comments = commenti.map { ImportedBacklogComment(text = it.testo, timestamp = Instant.parse(it.timestamp)) },
     history = storico.map {
         ImportedBacklogHistoryEntry(

@@ -1,7 +1,13 @@
 # Functional and Technical Specification — Video Game Review App
 
-**Version:** 1.2 (roadmap extended beyond the original scope, Phase 8)
+**Version:** 1.3 (Phase 8 revisited against `reviews-backlog-import-export-spec-v2.md`)
 **Purpose of this document:** to define the scope, data model, features, and architecture for a personal Android app that replaces/supports your current review workflow for r/patientgamer, with multi-format export, cloud backup, and a trackable backlog. Originally written as an initial design document, it is now kept up to date as a reference on the roadmap's status — implementation details for each phase live in `CLAUDE.md`.
+
+**Authoritative source for review/backlog import-export-backup-restore behavior**:
+`docs/reviews-backlog-import-export-spec-v2.md` — where sections 3.3/3.7/3.8
+below summarize the current implementation, that document is the one that
+wins on any future discrepancy. Fixture examples referenced there live under
+`docs/examples/`.
 
 ---
 
@@ -37,6 +43,14 @@ Main entity: **Review** (1 review = 1 reviewed game).
 
 Supporting entities: **Platform** and **Genre** as separate lookup tables, to guarantee consistent autocomplete without duplicating strings (avoids "PS5" vs "Playstation 5" ending up as different tags).
 
+Six additional optional fields (`developer`, `publisher`, `releaseYear`,
+`metadataSource`, `externalId`, `linkedBacklogItemId`) exist on the Review
+entity purely for round-trip fidelity through the front-matter Markdown
+export/import (3.3/3.7) and the Drive backup — the create/edit form never
+shows or edits them, they only carry through whatever a review already had.
+
+### 2.1 Backlog (Phase 6)
+
 ### 2.1 Backlog (Phase 6)
 
 Additional entities for tracking games not yet reviewed:
@@ -70,10 +84,26 @@ the single-choice status field — not on platform/genre, which are
 many-to-many and wouldn't add up to 100%). Implementation details and
 technical choices in `CLAUDE.md` and `docs/implementation-decisions.md`.
 
-### 3.3 Export (Phase 2)
-- **Markdown**: formatting compatible with Reddit syntax, for direct copy-paste into your posts
-- **JSON/CSV**: raw data, for backup/portability and any external processing
-- **PDF**: single review or entire library in batch
+### 3.3 Export (Phase 2, single-review Markdown format revised per import-export spec v2)
+- **Markdown (single review)**: a YAML front-matter block (id, title,
+  platforms/genres as arrays, tags, score, status, dates, hours played,
+  cover reference, developer/publisher/releaseYear/metadataSource/
+  externalId/linkedBacklogItemId, createdAt/updatedAt) followed by the
+  same Pros/Cons/free-text body as before. This **replaced** the earlier
+  bare "Reddit-style" format (title as `#` heading + a bullet list of
+  metadata, no front matter) — see 3.7 for why, and
+  `docs/implementation-decisions.md` for the full reasoning. The exact
+  shape matches `docs/examples/review-export-template-example.md`.
+- **ZIP (multiple reviews)**: one front-matter `.md` per review plus an
+  `images/` folder, included only if at least one exported review has a
+  cover — round-trip importable (3.7), unlike the batch PDF below.
+- **JSON/CSV**: raw data, for backup/portability and any external
+  processing — unchanged, still the entire library with fixed Italian
+  field names, not touched by the v2 spec.
+- **PDF**: single review or entire library in batch. Now checks a
+  `PdfTemplateProvider` seam before rendering — with no template
+  configured (the only state today), it falls back to the existing plain
+  layout unchanged.
 - **DOCX**: **not implemented, final decision** — see dedicated technical note below
 
 ### 3.4 Google Drive cloud backup (Phase 4) ✅ completed
@@ -105,22 +135,47 @@ remains always available as an alternative. Requires a TheGamesDB API key
 configurable in Settings (no key included in the build). Implementation
 details in `CLAUDE.md`, same section above.
 
-### 3.7 Markdown review import (Phase 8) ✅ completed
+### 3.7 Markdown review import (Phase 8, revised per import-export spec v2) ✅ completed
 
-The reverse of the single-review Markdown export (3.3): a button in the
-library's top bar opens an `.md` file via SAF and creates a new review
-from its content. It recognizes only the format produced by the app
-itself (same fixed Italian labels, same structure). Parsing errors (a
-required field missing or invalid) show a specific message instead of a
-generic failure. Implementation details in `CLAUDE.md`, section "Phase 8".
+**Single review**: no longer a library-level "always create a new review"
+action — it is now a **"replace form content"** action inside the review
+create/edit screen (an upload icon in the form's top bar). It parses the
+selected `.md` file (front-matter format, 3.3) and overwrites the current
+form's fields (title, platforms, genres, tags, score, dates, hours played,
+pros, cons, body text, cover image reference) with what the file
+contains; the file's `id` is ignored — the review being edited keeps its
+own identity, only its content changes. Full pre-parse validation: any
+failure leaves the form completely untouched and shows a system warning
+with the specific reason. A referenced cover image can never be resolved
+from a single standalone `.md` pick (no accompanying image bytes come
+with it), so it always degrades to "no cover" — the previous cover file,
+if any, is deleted so nothing is orphaned.
 
-### 3.8 Backlog export/import with its lists (Phase 8) ✅ completed
+**Multiple reviews**: a new ZIP import (upload icon in the library's top
+bar, the same one that previously triggered the single-file import
+above). Validation is atomic on review *content*: if even one `.md` file
+in the archive is malformed, nothing is imported and a warning lists
+every failing file with its reason. Images are always best-effort — an
+absent/empty `images/` folder or a missing individual file never blocks
+the batch and never produces its own warning, the corresponding review is
+just imported without a cover. Once the whole batch validates, it commits
+with an upsert by `id` from front matter (known id → overwrite, unknown
+id → insert).
+
+Implementation details in `CLAUDE.md`, section "Phase 8", and
+`docs/reviews-backlog-import-export-spec-v2.md` §2.
+
+### 3.8 Backlog export/import with its lists (Phase 8, +reviewId round-trip per v2) ✅ completed
 
 Same principle as the Markdown export/import but for the entire backlog: a
 single ZIP archive (data + covers) downloadable/openable via SAF from the
 Backlog screen. The import is **always additive** (new lists, new items),
 never a replacement — unlike the Drive backup restore (3.4/6), which is a
-full restore. Implementation details in `CLAUDE.md`, section "Phase 8".
+full restore. The export now also carries the linked review's id (if any);
+on import it's relinked **only if** a review with that id already exists
+on the importing device — otherwise, same as before, the item is imported
+without a link. Implementation details in `CLAUDE.md`, section "Phase 8",
+and `docs/reviews-backlog-import-export-spec-v2.md` §3.
 
 ### 3.9 HowLongToBeat time estimates in the backlog (Phase 8) ✅ completed
 
@@ -150,6 +205,28 @@ the correct aspect ratio (2:3, typical of box-art covers). The choice is
 persisted per screen. The backlog grid does not support manual reordering
 (drag-to-reorder), which is only available in list view. Implementation
 details in `CLAUDE.md`, section "Phase 8".
+
+### 3.12 Reviews/backlog import-export spec v2 ✅ completed
+
+`docs/reviews-backlog-import-export-spec-v2.md` was introduced as the
+authoritative behavior document for everything in 3.3/3.7/3.8, superseding
+prior assumptions where they diverged. Concretely, against what Phase 8
+had shipped:
+- Single-review Markdown export/import switched to a YAML front-matter
+  format (3.3) and single-review import moved from a library-level
+  "always create new" action to a form-level "replace form content"
+  action (3.7) — a real behavior change, not just a format change.
+- Multi-review ZIP export/import is new (3.3/3.7): round-trip importable,
+  content-atomic validation, images always best-effort.
+- The backlog export/import (3.8) — already implemented — gained a
+  best-effort `reviewId` round-trip and had its "images folder only if
+  at least one cover exists" rule verified (already correct).
+- A `PdfTemplateProvider` seam was added to the PDF renderer (3.3) for a
+  future custom template, with no behavior change today.
+
+Implementation details in `CLAUDE.md`, section "Phase 8" (the "Fixes after
+real-device verification" subsections), and
+`docs/implementation-decisions.md`.
 
 ---
 
@@ -248,10 +325,13 @@ case like yours.
 8. **Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid
    views** ✅: Markdown review import, export/import of the entire backlog
    (always additive), HowLongToBeat time estimates in the backlog and in
-   statistics, grid view for library and backlog. See `CLAUDE.md` for
-   implementation details and `docs/implementation-decisions.md` for the
-   full reasoning, including the known fragility of the HowLongToBeat
-   integration.
+   statistics, grid view for library and backlog. Later revisited against
+   `docs/reviews-backlog-import-export-spec-v2.md` (front-matter Markdown
+   format, multi-review ZIP export/import, form-level single import,
+   backlog `reviewId` round-trip, PDF template seam — see 3.12). See
+   `CLAUDE.md` for implementation details and
+   `docs/implementation-decisions.md` for the full reasoning, including
+   the known fragility of the HowLongToBeat integration.
 
 Phase 5 closed out this document's original roadmap; Phases 6-8 extend it
 at explicit request in later sessions. DOCX export remains **not

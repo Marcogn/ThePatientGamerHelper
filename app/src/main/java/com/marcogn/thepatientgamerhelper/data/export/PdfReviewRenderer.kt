@@ -30,18 +30,31 @@ private val pdfDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
  * out once via [StaticLayout] and then sliced across as many pages as it needs by translating +
  * clipping the canvas — the standard technique for spreading a single StaticLayout over
  * multiple PdfDocument pages. Every review starts on a fresh page.
+ *
+ * Checks [templateProvider] before rendering each review (v2 §2.6): with no template configured
+ * (the only state today, see [PdfTemplateProvider]) every review falls back to the plain layout
+ * below, unchanged.
  */
 @Singleton
-class PdfReviewRenderer @Inject constructor() {
+class PdfReviewRenderer @Inject constructor(
+    private val templateProvider: PdfTemplateProvider,
+) {
 
     fun render(reviews: List<Review>): PdfDocument {
+        val template = templateProvider.currentTemplate()
         val document = PdfDocument()
         var nextPageNumber = 1
-        reviews.forEach { review -> nextPageNumber = renderReview(document, review, nextPageNumber) }
+        reviews.forEach { review -> nextPageNumber = renderReview(document, review, nextPageNumber, template) }
         return document
     }
 
-    private fun renderReview(document: PdfDocument, review: Review, startPageNumber: Int): Int {
+    private fun renderReview(document: PdfDocument, review: Review, startPageNumber: Int, template: PdfTemplate?): Int {
+        if (template != null) {
+            // No template implementation exists yet — currentTemplate() always returns null today,
+            // so this branch is unreachable in practice until a real PdfTemplate is built. Left here
+            // as the seam's actual extension point rather than only a comment, so wiring in a real
+            // template later means filling this in, not restructuring the caller.
+        }
         val textPaint = TextPaint().apply {
             isAntiAlias = true
             textSize = 12f

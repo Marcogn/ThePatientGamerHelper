@@ -6,6 +6,7 @@ import com.marcogn.thepatientgamerhelper.data.local.ThePatientGamerHelperDatabas
 import com.marcogn.thepatientgamerhelper.data.local.dao.BacklogDao
 import com.marcogn.thepatientgamerhelper.data.local.dao.GenreDao
 import com.marcogn.thepatientgamerhelper.data.local.dao.PlatformDao
+import com.marcogn.thepatientgamerhelper.data.local.dao.ReviewDao
 import com.marcogn.thepatientgamerhelper.data.local.dao.TagDao
 import com.marcogn.thepatientgamerhelper.data.local.entity.BacklogCommentEntity
 import com.marcogn.thepatientgamerhelper.data.local.entity.BacklogHistoryEntryEntity
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.map
 class BacklogRepositoryImpl @Inject constructor(
     private val database: ThePatientGamerHelperDatabase,
     private val backlogDao: BacklogDao,
+    private val reviewDao: ReviewDao,
     private val platformDao: PlatformDao,
     private val genreDao: GenreDao,
     private val tagDao: TagDao,
@@ -210,8 +212,11 @@ class BacklogRepositoryImpl @Inject constructor(
      * Imports whole lists from a backlog export (Fase 8): always additive, never a replace — every
      * imported list becomes a brand new list and every item gets a fresh id/position, comments and
      * history are re-inserted verbatim (no synthetic CREATO entry, the original one from the export
-     * is already in [ImportedBacklogList.items]'s history). `reviewId` is dropped: the linked review
-     * (if any) belongs to whichever library exported the file and may not exist on this device.
+     * is already in [ImportedBacklogList.items]'s history). [ImportedBacklogItem.reviewId] is
+     * best-effort, same principle as covers (v2 §4): linked back onto the item only if a review with
+     * that id already exists on *this* device, left null otherwise — it usually belongs to whichever
+     * library exported the file and won't exist here. No new history entry is synthesized for the
+     * link either way: if the source device had one, it's already in the re-inserted history above.
      */
     override suspend fun importLists(lists: List<ImportedBacklogList>) = database.withTransaction {
         lists.forEach { importedList ->
@@ -221,6 +226,7 @@ class BacklogRepositoryImpl @Inject constructor(
             )
             importedList.items.forEachIndexed { index, importedItem ->
                 val itemId = UUID.randomUUID().toString()
+                val linkedReviewId = importedItem.reviewId?.takeIf { reviewDao.getReviewEntity(it) != null }
                 backlogDao.upsertItem(
                     BacklogItemEntity(
                         id = itemId,
@@ -232,7 +238,7 @@ class BacklogRepositoryImpl @Inject constructor(
                         addedAt = importedItem.addedAt,
                         startDate = importedItem.startDate,
                         completedDate = importedItem.completedDate,
-                        reviewId = null,
+                        reviewId = linkedReviewId,
                         abandonNote = importedItem.abandonNote,
                         releaseYear = importedItem.releaseYear,
                         developer = importedItem.developer,
