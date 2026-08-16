@@ -136,7 +136,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
 
-private const val OAUTH_PLACEHOLDER = "[TO_COMPLETE]"
+private val OAUTH_PLACEHOLDER = "[TO_COMPLETE]"
 
 fun driveOAuthWebClientId(): String {
     val localProperties = Properties()
