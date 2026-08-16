@@ -430,21 +430,37 @@ was not tested against a SHA-1 registered only for the release keystore
 (or vice versa) — the two have different fingerprints and Google matches
 strictly.
 
-**Not yet confirmed** (no device/network access from this sandbox, same
-known limitation as every other phase) — instead of guessing a code fix
-for a cause that isn't code, added diagnostics so the next report is
-conclusive either way: `DriveAuthManager.signIn()`/`authorize()` now log
-(`Log.w`/`Log.i`, tag `DriveAuthManager`) and wrap any
-`GetCredentialException`/`ApiException` into a message that includes the
-exception's `type`/`statusCode` — if the button really is throwing an
-exception whose default `.message` happens to be blank or unhelpful, this
-will surface something readable in the Settings snackbar and in
-`adb logcat -s DriveAuthManager` next time. Also gave the login `Button` a
-visible `CircularProgressIndicator` while `isBusy` (it previously just
-disabled itself with no other feedback) in case the real issue turns out
-to be a slow/hanging call rather than a truly silent one. **Do not assume
-resolved** until the user reports back what the logcat tag or the
-snackbar now shows.
+Instead of guessing a code fix for a cause that isn't code, added
+diagnostics so the next report would be conclusive either way:
+`DriveAuthManager.signIn()`/`authorize()` log (`Log.w`/`Log.i`, tag
+`DriveAuthManager`) and wrap any `GetCredentialException`/`ApiException`
+into a message that includes the exception's `type`/`statusCode`. Also
+gave the login `Button` a visible `CircularProgressIndicator` while
+`isBusy` (it previously just disabled itself with no other feedback).
+
+**Confirmed by the diagnostics, and not the SHA-1 hypothesis above**: the
+user reported back the exact message surfaced by the new snackbar —
+**"No credentials available"** — which is `NoCredentialException`
+(a subtype of `GetCredentialException`), not the SHA-1/DEVELOPER_ERROR
+symptom the leading hypothesis predicted. Per the same official Google
+guide (re-checked for this specific exception type), `NoCredentialException`
+from the bottom-sheet flow (`GetGoogleIdOption`) is the **documented**
+trigger for falling back to the button-style flow
+(`GetSignInWithGoogleOption`) — Google lists "no Google accounts on the
+device" explicitly as one of the three conditions where the bottom-sheet
+flow can't help and the button flow is needed instead. `signIn()` now
+tries the bottom sheet first and, only on `NoCredentialException`, retries
+with `GetSignInWithGoogleOption` (same `serverClientId`, no other config
+needed — `GetSignInWithGoogleOption` has shipped in the already-present
+`googleid` artifact since 1.1.0, this project is on 1.1.1). Both options
+resolve to the same `GoogleIdTokenCredential` response type, so the
+parsing after the try/catch didn't need to change. **Still worth checking
+on the test device**: Settings > Accounts has at least one Google account
+added (the button flow can prompt to add one where the bottom sheet
+can't, but an emulator image with no Play Store at all won't have either
+provider) — if `NoCredentialException` persists even from the button flow,
+that's the next thing to verify. **Do not assume fully resolved** until
+the user confirms the picker now appears and login completes.
 
 ### Client ID kept out of version control
 

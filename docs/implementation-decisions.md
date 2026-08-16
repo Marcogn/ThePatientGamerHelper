@@ -679,14 +679,25 @@ in `data/drive/DriveApiClient.kt` — zero additional dependencies beyond
 Audited the whole login flow against Google's current official Credential
 Manager guide after a report that the button produces no visible effect at
 all (no picker, no error). Found no bug in the reviewed code path itself;
-the leading suspect is an external Google Cloud Console configuration gap
-(missing/mismatched companion "Android" OAuth client + SHA-1, distinct from
-the "Web application" client id) — a
-documented common cause of exactly this kind of silent failure. Added
-logging and richer exception messages (`type`/`statusCode` included) in
-`DriveAuthManager` instead of a speculative code fix, plus a visible
-progress indicator on the login button, so the next real-device report is
-conclusive. Not yet confirmed either way.
+the leading suspect at the time was an external Google Cloud Console
+configuration gap (missing/mismatched companion "Android" OAuth client +
+SHA-1). Added logging and richer exception messages (`type`/`statusCode`
+included) in `DriveAuthManager` instead of a speculative code fix, plus a
+visible progress indicator on the login button, so the next real-device
+report would be conclusive.
+
+**Follow-up, confirmed**: the diagnostics worked — the user reported back
+the exact message, "No credentials available" (`NoCredentialException`),
+not the SHA-1 symptom the leading hypothesis predicted. Per Google's guide,
+that specific exception from the bottom-sheet flow (`GetGoogleIdOption`) is
+the documented trigger for falling back to the button-style flow
+(`GetSignInWithGoogleOption`) — "no Google accounts on the device" is one
+of the three conditions Google lists for needing it. `signIn()` now tries
+the bottom sheet first and retries with the button flow only on
+`NoCredentialException`; both resolve to the same `GoogleIdTokenCredential`
+type so no other code needed to change. No new dependency — the
+`GetSignInWithGoogleOption` class has shipped in the already-present
+`googleid` artifact since version 1.1.0 (project is on 1.1.1).
 
 ### Client ID moved to `local.properties`, out of version control
 
