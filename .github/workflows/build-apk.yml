@@ -33,6 +33,13 @@ jobs:
         env:
           DRIVE_OAUTH_WEB_CLIENT_ID: ${{ secrets.DRIVE_OAUTH_WEB_CLIENT_ID }}
 
+      # The runner's debug keystore is freshly generated per run (not a fixed value shared with
+      # any developer machine), so its SHA-1 must be read off this specific build if the Android
+      # OAuth client in Google Cloud Console (Sign in with Google) needs registering/updating for
+      # this exact APK — see CLAUDE.md, "Phase 4" section, "Account reauth failed" note.
+      - name: Print debug keystore SHA-1 (for Google OAuth Android client setup)
+        run: ./gradlew signingReport --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:

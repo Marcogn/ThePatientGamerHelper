@@ -1028,6 +1028,20 @@ not the library's (2.7 covers the library's own zip import instead).
       this fallback). If it still fails even from the button flow, check
       whether the device/emulator has Google Play Store (not just "Google
       APIs") and a Google account actually added.
+- [ ] **SET-36c (edge)** If the account picker appears and picking an
+      account fails with "\[16\] Account reauth failed" (a
+      `GetCredentialCancellationException`): this is a confirmed symptom
+      (matched against external Google Sign-In bug reports, not guessed)
+      of the companion **Android** OAuth client's SHA-1 not matching the
+      keystore that signed the installed APK. Get the SHA-1 of the actual
+      APK under test — `./gradlew signingReport` for a local build, or the
+      "Print debug keystore SHA-1" step's log in the `build-apk.yml` run
+      for a CI-built one (its debug keystore is freshly generated per run,
+      not shared with any developer machine) — and register/correct it on
+      the Android-type OAuth client in the same Google Cloud Console
+      project as the Web client configured via `local.properties`. See
+      CLAUDE.md, "Phase 4" section, for the full writeup. Not yet confirmed
+      fixed end-to-end.
 - [ ] **SET-37** Fresh checkout with no `local.properties` (or one missing
       `DRIVE_OAUTH_WEB_CLIENT_ID`): `./gradlew assembleDebug` still
       succeeds (falls back to the `[TO_COMPLETE]` placeholder), and the app
