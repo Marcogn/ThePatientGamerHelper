@@ -462,6 +462,35 @@ provider) — if `NoCredentialException` persists even from the button flow,
 that's the next thing to verify. **Do not assume fully resolved** until
 the user confirms the picker now appears and login completes.
 
+**Follow-up, progress and a newly confirmed root cause**: the button-flow
+fallback worked — the account picker now appears and the user can select
+an account (real progress from the previous two rounds, where nothing
+reached this point at all). But choosing an account now fails with
+`GetCredentialCancellationException`, message **"\[16\] Account reauth
+failed"**. Researched externally (this exact message, verbatim, turns up
+in multiple independent Google Sign-In bug reports — a Flutter issue and
+others) rather than guessing: it is the **documented symptom of a SHA-1
+fingerprint mismatch** on the companion **Android** OAuth client — i.e.
+exactly the leading hypothesis from the very first "does nothing" report,
+now corroborated by a second, more specific piece of evidence instead of
+just a documentation cross-reference. This is external Google Cloud
+Console configuration, not app code: the fix is registering (or
+correcting) the Android-type OAuth client's SHA-1 to match the *exact*
+keystore that signed the APK actually installed on the test device/phone —
+concretely, either `~/.android/debug.keystore` for an Android-Studio-run
+build (get its SHA-1 via the Gradle "signingReport" task, or `keytool -list
+-v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass
+android -keypass android`), or the CI runner's own ephemeral debug
+keystore for an `app-debug.apk` downloaded from `build-apk.yml` (its SHA-1
+is **not** the same as any developer's local one — AGP generates a fresh
+random debug keystore per machine when none exists, it is not a fixed
+well-known value — so it must be read off the actual APK, e.g.
+`apksigner verify --print-certs app-debug.apk` or `keytool -printcert
+-jarfile app-debug.apk`, not assumed). **Still not confirmed end-to-end**:
+this explains the specific error message per external reports, but has not
+yet been verified against this project's actual Google Cloud Console state
+nor confirmed fixed by the user.
+
 ### Client ID kept out of version control
 
 Follow-up request, unrelated to whether the "does nothing" report above
