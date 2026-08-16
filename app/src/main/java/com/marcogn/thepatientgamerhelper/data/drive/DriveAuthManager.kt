@@ -8,6 +8,7 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
@@ -15,6 +16,7 @@ import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.marcogn.thepatientgamerhelper.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -68,19 +70,42 @@ class DriveAuthManager @Inject constructor(
     /** Must be called with an Activity [context] — Credential Manager shows a system bottom sheet. */
     suspend fun signIn(context: Context): String {
         Log.i(TAG, "signIn: launching Credential Manager (serverClientId configured=${isConfigured()})")
-        val option = GetGoogleIdOption.Builder()
-            .setServerClientId(requireWebClientId())
-            .setFilterByAuthorizedAccounts(false)
+        val credentialManager = CredentialManager.create(context)
+        val bottomSheetRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(
+                GetGoogleIdOption.Builder()
+                    .setServerClientId(requireWebClientId())
+                    .setFilterByAuthorizedAccounts(false)
+                    .build(),
+            )
             .build()
-        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
         val response = try {
-            CredentialManager.create(context).getCredential(context, request)
+            credentialManager.getCredential(context, bottomSheetRequest)
+        } catch (e: NoCredentialException) {
+            // Per Google's own "Sign in with Google" implementation guide: NoCredentialException
+            // ("No credentials available") from the bottom-sheet flow above is exactly the
+            // documented case for falling back to the explicit-button flow below (GetGoogleIdOption
+            // relies on Play Services' account picker, which some devices/emulators — no Google
+            // account added, outdated Play Services — never populate; GetSignInWithGoogleOption
+            // triggers a different, more permissive system chooser). Both return the same
+            // GoogleIdTokenCredential type, so the parsing below is unchanged either way.
+            Log.i(TAG, "signIn: no credential for the bottom-sheet flow, retrying with the button flow")
+            val buttonRequest = GetCredentialRequest.Builder()
+                .addCredentialOption(GetSignInWithGoogleOption.Builder(requireWebClientId()).build())
+                .build()
+            try {
+                credentialManager.getCredential(context, buttonRequest)
+            } catch (e2: GetCredentialException) {
+                Log.w(TAG, "signIn failed (button flow): type=${e2.type} message=${e2.message}", e2)
+                throw Exception("Google sign-in failed (${e2.type}): ${e2.message ?: "no detail"}", e2)
+            }
         } catch (e: GetCredentialException) {
-            // Most common real-world cause: no matching "Android" OAuth client (SHA-1 of the
-            // signing certificate + applicationId) registered in the same Google Cloud project
-            // as the "Web application" client id used above — see CLAUDE.md, "Phase 4" section,
-            // "External configuration required". e.type carries the underlying reason
-            // (e.g. TYPE_NO_CREDENTIAL) that e.message alone sometimes doesn't make obvious.
+            // Another common real-world cause of a non-NoCredentialException failure here: no
+            // matching "Android" OAuth client (SHA-1 of the signing certificate + applicationId)
+            // registered in the same Google Cloud project as the "Web application" client id used
+            // above — see CLAUDE.md, "Phase 4" section, "External configuration required". e.type
+            // carries the underlying reason (e.g. TYPE_NO_CREDENTIAL) that e.message alone
+            // sometimes doesn't make obvious.
             Log.w(TAG, "signIn failed: type=${e.type} message=${e.message}", e)
             throw Exception("Google sign-in failed (${e.type}): ${e.message ?: "no detail"}", e)
         }

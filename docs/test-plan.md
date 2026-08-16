@@ -1017,7 +1017,17 @@ not the library's (2.7 covers the library's own zip import instead).
       Google Cloud project as the "Web application" client id configured
       via `local.properties` — see CLAUDE.md, "Phase 4" section, "Device
       report: 'Sign in with Google' button does nothing" for the full
-      writeup. This is not yet a confirmed root cause.
+      writeup.
+- [ ] **SET-36b (edge)** A device/emulator with **no Google account added**
+      (Settings > Accounts): the bottom-sheet flow should fail internally
+      with `NoCredentialException` ("No credentials available") and
+      `signIn()` should transparently retry with the button-style
+      `GetSignInWithGoogleOption` flow instead — verify the picker still
+      appears (rather than the snackbar showing the raw "No credentials
+      available" message, which was the confirmed real report that led to
+      this fallback). If it still fails even from the button flow, check
+      whether the device/emulator has Google Play Store (not just "Google
+      APIs") and a Google account actually added.
 - [ ] **SET-37** Fresh checkout with no `local.properties` (or one missing
       `DRIVE_OAUTH_WEB_CLIENT_ID`): `./gradlew assembleDebug` still
       succeeds (falls back to the `[TO_COMPLETE]` placeholder), and the app
