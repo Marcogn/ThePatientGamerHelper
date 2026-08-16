@@ -370,18 +370,21 @@ needing the Android SDK or Robolectric.
   (`DriveNotConfiguredCard`, localized IT/EN strings) a card that
   explains what is missing and where it needs to be configured — instead of a generic
   error after pressing login. The OAuth client ID remains the only thing
-  that **must** live in a resource file: it is the app's one-time
-  registration on Google Cloud Console (tied to SHA-1 + `applicationId`), not
-  a per-user piece of data — no Google API allows creating it from code at
-  runtime, so it cannot be moved behind a login button.
+  that **must** be supplied outside the app's own runtime UI: it is the
+  app's one-time registration on Google Cloud Console (tied to SHA-1 +
+  `applicationId`), not a per-user piece of data — no Google API allows
+  creating it from code at runtime, so it cannot be moved behind a login
+  button. (It is, however, **not** committed to the repository — see the
+  "Client ID kept out of version control" note below.)
 - **External configuration required** (out of scope for these
-  changes): `res/values/drive_config.xml` contains
-  `google_oauth_web_client_id` with the placeholder `[TO_COMPLETE]` — it must be
-  replaced with the "Web application" OAuth client ID created in Google
-  Cloud Console (project with the consent screen in testing mode,
-  Android client ID with the SHA-1 of the signing certificate). If left at the
-  placeholder, `DriveAuthManager` throws `DriveNotConfiguredException` with
-  an explicit message instead of attempting sign-in.
+  changes): the "Web application" OAuth client ID created in Google Cloud
+  Console (project with the consent screen in testing mode, Android
+  client ID with the SHA-1 of the signing certificate) must be set as
+  `DRIVE_OAUTH_WEB_CLIENT_ID=<id>` in the repo-root `local.properties`
+  (gitignored, not committed — see below). If absent, `app/build.gradle.kts`
+  falls back to the placeholder `[TO_COMPLETE]` and `DriveAuthManager`
+  throws `DriveNotConfiguredException` with an explicit message instead of
+  attempting sign-in.
 - **Cannot be meaningfully tested via Robolectric**: the `HttpURLConnection`
   calls to `googleapis.com`, Credential Manager, and
   `AuthorizationClient` require real network/Play Services — same discussion
@@ -392,6 +395,97 @@ needing the Android SDK or Robolectric.
   (`data/repository/ReviewRepositoryImplTest.kt`, Robolectric). The
   authentication/authorization flow must be verified by hand on a device/emulator with
   Play Services, after configuring the OAuth client.
+
+### Device report: "Sign in with Google" button does nothing (no error, no bottom sheet)
+
+Reported after the user filled in a real `google_oauth_web_client_id` and
+rebuilt: tapping "Accedi con Google" produces no visible effect at all —
+no account picker, no snackbar, no crash. Reviewed the whole flow
+(`DriveAuthManager.signIn()`/`authorize()`, `SettingsViewModel.onLoginClick()`,
+`SettingsScreen`'s `GoogleLoginCard`) line by line against the current
+official Credential Manager "Sign in with Google" implementation guide
+(fetched during this session, since Google's Identity APIs have already
+proven to shift under this project — see the Phase 6/8 TheGamesDB/
+HowLongToBeat sections): the code matches the documented pattern
+(`GetGoogleIdOption` + `setFilterByAuthorizedAccounts(false)` +
+`CredentialManager.getCredential(activityContext, request)`, an Activity
+`LocalContext.current` from inside `setContent {}`), and `onLoginClick`'s
+`try/catch` in `runBusy` does surface `e.message` (or a fallback string)
+via a snackbar on any thrown exception — so a literal "nothing, not even
+an error" is not explained by a bug in the code path checked so far.
+
+**Leading hypothesis, external to the code**: per the same official guide,
+"missing or incorrect SHA-1 [fingerprint]" registered as a companion
+**Android** OAuth client (as opposed to the "Web application" client
+configured via `local.properties`, see the bullet above)
+is documented as a common cause of exactly this kind of *silent* failure —
+distinct from the Drive `AuthorizationClient` scope consent (step two),
+which already has its own configured-vs-not branch
+(`DriveNotConfiguredCard`). Two concrete things worth checking on the
+Google Cloud Console project before assuming a code bug: (1) that an
+**Android**-type OAuth client also exists there (not just the Web one),
+registered with `com.marcogn.thepatientgamerhelper` and the SHA-1 of
+*the exact keystore used to build the tested APK*; (2) that a debug build
+was not tested against a SHA-1 registered only for the release keystore
+(or vice versa) — the two have different fingerprints and Google matches
+strictly.
+
+**Not yet confirmed** (no device/network access from this sandbox, same
+known limitation as every other phase) — instead of guessing a code fix
+for a cause that isn't code, added diagnostics so the next report is
+conclusive either way: `DriveAuthManager.signIn()`/`authorize()` now log
+(`Log.w`/`Log.i`, tag `DriveAuthManager`) and wrap any
+`GetCredentialException`/`ApiException` into a message that includes the
+exception's `type`/`statusCode` — if the button really is throwing an
+exception whose default `.message` happens to be blank or unhelpful, this
+will surface something readable in the Settings snackbar and in
+`adb logcat -s DriveAuthManager` next time. Also gave the login `Button` a
+visible `CircularProgressIndicator` while `isBusy` (it previously just
+disabled itself with no other feedback) in case the real issue turns out
+to be a slow/hanging call rather than a truly silent one. **Do not assume
+resolved** until the user reports back what the logcat tag or the
+snackbar now shows.
+
+### Client ID kept out of version control
+
+Follow-up request, unrelated to whether the "does nothing" report above
+turns out to be fixed: the repository is public, and the OAuth web client
+ID had been committed verbatim in `res/values/drive_config.xml` (added
+while configuring Drive, see PR history). The user separately deleted and
+regenerated that client ID in Google Cloud Console specifically to
+invalidate the one already exposed in git history — a git history rewrite
+(BFG/`git filter-repo` + force-push) was **explicitly declined** as
+overkill for a value Google itself doesn't require to be kept
+confidential (it ends up baked into the APK and visible in network
+requests either way); regenerating it was judged sufficient.
+
+Going forward, the client ID is no longer a committed resource at all:
+`app/build.gradle.kts` reads `DRIVE_OAUTH_WEB_CLIENT_ID` from the
+repo-root `local.properties` (already gitignored, same file Android
+Studio uses for `sdk.dir`) and injects it via `resValue("string",
+"google_oauth_web_client_id", ...)` in `defaultConfig` — falling back to
+the placeholder `[TO_COMPLETE]` when the value is absent from every
+source. `res/values/drive_config.xml` was deleted — keeping both the XML
+resource and the generated one would have been a duplicate resource build
+error, not just redundant. Each developer machine needs its own
+`local.properties` line: `DRIVE_OAUTH_WEB_CLIENT_ID=<web client id>`.
+
+**CI needs the same value too**: `local.properties` is gitignored and
+therefore never checked out on a GitHub Actions runner, but
+`build-apk.yml`'s `assembleDebug` is what produces the installable
+`app-debug.apk` artifact the user actually side-loads onto a device — if
+CI built with only the placeholder, every APK downloaded from there would
+show "Drive not configured" regardless of what's in a developer's local
+file. So `driveOAuthWebClientId()` checks a `DRIVE_OAUTH_WEB_CLIENT_ID`
+**environment variable** first, before falling back to
+`local.properties`; both `build-apk.yml` and `android-ci.yml` pass it to
+the `assembleDebug`/`assembleDebug`-invoking step from a
+`DRIVE_OAUTH_WEB_CLIENT_ID` **GitHub Actions repository secret**
+(Settings > Secrets and variables > Actions > New repository secret, same
+name), which must be added once, by hand, on GitHub — no tool available
+in these sessions can create a repository secret from code, same
+"one-time app registration, not settable from a runtime login button"
+kind of external step already true for the client ID itself.
 
 ## Phase 5 — Internationalization, theme, and documentation
 

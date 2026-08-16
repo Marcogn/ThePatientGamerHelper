@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -19,6 +22,17 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // OAuth 2.0 "Web application" client ID (Google Cloud Console > APIs & Services >
+        // Credentials, same project as the Drive appdata scope + the companion Android OAuth
+        // client's SHA-1 — see CLAUDE.md, "Phase 4" section). Used by Credential Manager
+        // (GetGoogleIdOption.serverClientId) for "Sign in with Google". Not a secret in the
+        // strictest sense (Google doesn't require it kept confidential, and it ends up baked
+        // into the APK regardless), but kept out of version control on request: read from the
+        // gitignored local.properties (key DRIVE_OAUTH_WEB_CLIENT_ID) rather than a committed
+        // resource. Falls back to the placeholder DriveAuthManager.isConfigured() already knows
+        // how to detect when the property is absent (e.g. on CI, which has no local.properties).
+        resValue("string", "google_oauth_web_client_id", driveOAuthWebClientId())
     }
 
     buildTypes {
@@ -120,4 +134,24 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+}
+
+// Local dev builds read local.properties; CI has no such file (it's gitignored, never checked
+// out) so it instead passes the same value via the DRIVE_OAUTH_WEB_CLIENT_ID env var, sourced
+// from a GitHub Actions repository secret — see .github/workflows/build-apk.yml and
+// android-ci.yml. Either source missing/blank falls back to the existing placeholder. The
+// placeholder is inlined rather than a top-level val: android { defaultConfig { ... } } above
+// evaluates immediately, before the script reaches any later top-level property's initializer,
+// so a top-level val referenced from here would still be null at that point (a real bug hit in
+// CI — see CLAUDE.md, "Phase 4" section).
+fun driveOAuthWebClientId(): String {
+    val fromEnv = System.getenv("DRIVE_OAUTH_WEB_CLIENT_ID")
+    if (!fromEnv.isNullOrBlank()) return fromEnv
+
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        FileInputStream(localPropertiesFile).use { localProperties.load(it) }
+    }
+    return localProperties.getProperty("DRIVE_OAUTH_WEB_CLIENT_ID") ?: "[TO_COMPLETE]"
 }

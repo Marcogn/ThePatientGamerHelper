@@ -1006,6 +1006,25 @@ not the library's (2.7 covers the library's own zip import instead).
 - [ ] **SET-29 (edge)** Logging out and then logging back in with a
       **different** Google account: the backup list must reflect the
       current account, not show/mix backups from the previous one.
+- [ ] **SET-36 (edge)** If SET-12 fails with no visible picker and no
+      error message at all: check `adb logcat -s DriveAuthManager` — it
+      now logs at every `signIn()`/`authorize()` step, and wraps
+      `GetCredentialException`/`ApiException` with their `type`/
+      `statusCode`. Report the exact tag output; if it says something like
+      "no matching credential" or a `DEVELOPER_ERROR` status, the likely
+      cause is a missing/mismatched companion **Android** OAuth client
+      (SHA-1 of the exact keystore used for the tested build) in the same
+      Google Cloud project as the "Web application" client id configured
+      via `local.properties` — see CLAUDE.md, "Phase 4" section, "Device
+      report: 'Sign in with Google' button does nothing" for the full
+      writeup. This is not yet a confirmed root cause.
+- [ ] **SET-37** Fresh checkout with no `local.properties` (or one missing
+      `DRIVE_OAUTH_WEB_CLIENT_ID`): `./gradlew assembleDebug` still
+      succeeds (falls back to the `[TO_COMPLETE]` placeholder), and the app
+      shows `DriveNotConfiguredCard` rather than crashing or silently
+      attempting sign-in — same behavior SET-11 already covers, now also
+      exercised via the Gradle-injected path instead of a committed
+      resource.
 
 ### 7.4 TheGamesDB API key
 

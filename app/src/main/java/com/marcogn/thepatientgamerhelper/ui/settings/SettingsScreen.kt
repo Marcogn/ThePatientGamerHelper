@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -26,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -252,7 +254,15 @@ private fun GoogleLoginCard(isBusy: Boolean, onLoginClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Button(onClick = onLoginClick, enabled = !isBusy, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Filled.AccountCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            if (isBusy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp).size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = LocalContentColor.current,
+                )
+            } else {
+                Icon(Icons.Filled.AccountCircle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            }
             Text(stringResource(R.string.settings_login_with_google))
         }
     }
