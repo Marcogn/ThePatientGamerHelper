@@ -73,7 +73,7 @@
     <string name="language_english">English</string>
 
     <string name="settings_drive_not_configured_title">Drive backup not configured yet</string>
-    <string name="settings_drive_not_configured_description">The app\'s OAuth client ID is missing. It\'s a one-time setup in Google Cloud Console (a \"Web application\" client, same project as the consent screen and the Android client with your signing SHA-1) pasted into res/values/drive_config.xml, field google_oauth_web_client_id — it\'s not user data, it\'s the app\'s own registration: Google requires it for every app using Google sign-in, it can\'t be configured from a runtime login button.</string>
+    <string name="settings_drive_not_configured_description">The app\'s OAuth client ID is missing. It\'s a one-time setup in Google Cloud Console (a \"Web application\" client, same project as the consent screen and the Android client with your signing SHA-1) added to local.properties (not version-controlled) as DRIVE_OAUTH_WEB_CLIENT_ID=... — it\'s not user data, it\'s the app\'s own registration: Google requires it for every app using Google sign-in, it can\'t be configured from a runtime login button.</string>
     <string name="settings_drive_login_description">Sign in with your Google account to enable backup on Drive (the app\'s private folder, not visible or shareable from the Drive interface).</string>
     <string name="settings_login_with_google">Sign in with Google</string>
     <string name="settings_connected_to_drive">Connected to Google Drive</string>

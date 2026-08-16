@@ -35,7 +35,7 @@ private const val DRIVE_APPDATA_SCOPE = "https://www.googleapis.com/auth/drive.a
 private const val OAUTH_PLACEHOLDER = "[TO_COMPLETE]"
 
 class DriveNotConfiguredException :
-    Exception("Set google_oauth_web_client_id (res/values/drive_config.xml) before using Drive backup")
+    Exception("Set DRIVE_OAUTH_WEB_CLIENT_ID in local.properties before using Drive backup")
 
 sealed interface DriveAuthorization {
     data class Authorized(val accessToken: String) : DriveAuthorization

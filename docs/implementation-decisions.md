@@ -403,11 +403,12 @@ must be fillable **inside the app** at runtime, no placeholder in the
 build. Hence `TheGamesDbPreferences` (see below) instead of the
 `[TO_COMPLETE]` pattern already used for Drive in Phase 4.
 
-### Why not the same pattern as `drive_config.xml`
+### Why not the same pattern as the Drive OAuth client id
 
-The Drive OAuth client id (Phase 4) is a value the user replaces **in
-source code before the build** (`res/values/drive_config.xml`, placeholder
-`[TO_COMPLETE]`), because it's tied to the app's registration on Google
+The Drive OAuth client id (Phase 4) is a value the user replaces **before
+the build**, outside of source control (`local.properties`, key
+`DRIVE_OAUTH_WEB_CLIENT_ID`, placeholder `[TO_COMPLETE]` when absent),
+because it's tied to the app's registration on Google
 Cloud Console — an application-level configuration value, not an
 end-user one. The TheGamesDB API key is instead personal to the account
 the user registers on the site: two different users of the same APK would
@@ -680,12 +681,25 @@ Manager guide after a report that the button produces no visible effect at
 all (no picker, no error). Found no bug in the reviewed code path itself;
 the leading suspect is an external Google Cloud Console configuration gap
 (missing/mismatched companion "Android" OAuth client + SHA-1, distinct from
-the "Web application" client id already in `drive_config.xml`) — a
+the "Web application" client id) — a
 documented common cause of exactly this kind of silent failure. Added
 logging and richer exception messages (`type`/`statusCode` included) in
 `DriveAuthManager` instead of a speculative code fix, plus a visible
 progress indicator on the login button, so the next real-device report is
 conclusive. Not yet confirmed either way.
+
+### Client ID moved to `local.properties`, out of version control
+
+Separate follow-up: the repo is public and the client ID had been
+committed verbatim to `res/values/drive_config.xml`. The user regenerated
+the client ID in Google Cloud Console (invalidating the one already in
+git history) and explicitly declined a git-history rewrite as unnecessary
+for a value Google doesn't require to be kept confidential. Going forward
+`app/build.gradle.kts` reads it from the gitignored `local.properties`
+(`DRIVE_OAUTH_WEB_CLIENT_ID`) and injects it via `resValue` instead of a
+committed XML resource — `drive_config.xml` was deleted (keeping both
+would have been a duplicate-resource build error). See CLAUDE.md, same
+section, "Client ID kept out of version control", for the full detail.
 
 ### Automatic backup cadence not configurable
 

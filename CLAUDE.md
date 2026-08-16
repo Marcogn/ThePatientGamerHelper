@@ -370,18 +370,21 @@ needing the Android SDK or Robolectric.
   (`DriveNotConfiguredCard`, localized IT/EN strings) a card that
   explains what is missing and where it needs to be configured — instead of a generic
   error after pressing login. The OAuth client ID remains the only thing
-  that **must** live in a resource file: it is the app's one-time
-  registration on Google Cloud Console (tied to SHA-1 + `applicationId`), not
-  a per-user piece of data — no Google API allows creating it from code at
-  runtime, so it cannot be moved behind a login button.
+  that **must** be supplied outside the app's own runtime UI: it is the
+  app's one-time registration on Google Cloud Console (tied to SHA-1 +
+  `applicationId`), not a per-user piece of data — no Google API allows
+  creating it from code at runtime, so it cannot be moved behind a login
+  button. (It is, however, **not** committed to the repository — see the
+  "Client ID kept out of version control" note below.)
 - **External configuration required** (out of scope for these
-  changes): `res/values/drive_config.xml` contains
-  `google_oauth_web_client_id` with the placeholder `[TO_COMPLETE]` — it must be
-  replaced with the "Web application" OAuth client ID created in Google
-  Cloud Console (project with the consent screen in testing mode,
-  Android client ID with the SHA-1 of the signing certificate). If left at the
-  placeholder, `DriveAuthManager` throws `DriveNotConfiguredException` with
-  an explicit message instead of attempting sign-in.
+  changes): the "Web application" OAuth client ID created in Google Cloud
+  Console (project with the consent screen in testing mode, Android
+  client ID with the SHA-1 of the signing certificate) must be set as
+  `DRIVE_OAUTH_WEB_CLIENT_ID=<id>` in the repo-root `local.properties`
+  (gitignored, not committed — see below). If absent, `app/build.gradle.kts`
+  falls back to the placeholder `[TO_COMPLETE]` and `DriveAuthManager`
+  throws `DriveNotConfiguredException` with an explicit message instead of
+  attempting sign-in.
 - **Cannot be meaningfully tested via Robolectric**: the `HttpURLConnection`
   calls to `googleapis.com`, Credential Manager, and
   `AuthorizationClient` require real network/Play Services — same discussion
@@ -413,8 +416,8 @@ an error" is not explained by a bug in the code path checked so far.
 
 **Leading hypothesis, external to the code**: per the same official guide,
 "missing or incorrect SHA-1 [fingerprint]" registered as a companion
-**Android** OAuth client (as opposed to the "Web application" client whose
-ID is the only one pasted into `drive_config.xml`, see the bullet above)
+**Android** OAuth client (as opposed to the "Web application" client
+configured via `local.properties`, see the bullet above)
 is documented as a common cause of exactly this kind of *silent* failure —
 distinct from the Drive `AuthorizationClient` scope consent (step two),
 which already has its own configured-vs-not branch
@@ -442,6 +445,33 @@ disabled itself with no other feedback) in case the real issue turns out
 to be a slow/hanging call rather than a truly silent one. **Do not assume
 resolved** until the user reports back what the logcat tag or the
 snackbar now shows.
+
+### Client ID kept out of version control
+
+Follow-up request, unrelated to whether the "does nothing" report above
+turns out to be fixed: the repository is public, and the OAuth web client
+ID had been committed verbatim in `res/values/drive_config.xml` (added
+while configuring Drive, see PR history). The user separately deleted and
+regenerated that client ID in Google Cloud Console specifically to
+invalidate the one already exposed in git history — a git history rewrite
+(BFG/`git filter-repo` + force-push) was **explicitly declined** as
+overkill for a value Google itself doesn't require to be kept
+confidential (it ends up baked into the APK and visible in network
+requests either way); regenerating it was judged sufficient.
+
+Going forward, the client ID is no longer a committed resource at all:
+`app/build.gradle.kts` reads `DRIVE_OAUTH_WEB_CLIENT_ID` from the
+repo-root `local.properties` (already gitignored, same file Android
+Studio uses for `sdk.dir`) and injects it via `resValue("string",
+"google_oauth_web_client_id", ...)` in `defaultConfig` — falling back to
+the placeholder `[TO_COMPLETE]` when the property is absent (e.g. on a
+fresh checkout, or on CI, which has no `local.properties` and therefore
+correctly builds with Drive backup shown as "not configured", the same
+behavior as before). `res/values/drive_config.xml` was deleted — keeping
+both the XML resource and the generated one would have been a duplicate
+resource build error, not just redundant. Each developer/build machine
+now needs its own `local.properties` line:
+`DRIVE_OAUTH_WEB_CLIENT_ID=<web client id>`.
 
 ## Phase 5 — Internationalization, theme, and documentation
 
