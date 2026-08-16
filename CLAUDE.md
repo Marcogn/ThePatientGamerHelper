@@ -384,7 +384,21 @@ needing the Android SDK or Robolectric.
   (gitignored, not committed — see below). If absent, `app/build.gradle.kts`
   falls back to the placeholder `[TO_COMPLETE]` and `DriveAuthManager`
   throws `DriveNotConfiguredException` with an explicit message instead of
-  attempting sign-in.
+  attempting sign-in. Two more one-time Cloud Console steps, both easy to
+  miss because they fail late (only once an actual Drive REST call is
+  made, i.e. after sign-in/authorize already succeeded, not at login
+  time): (1) the Google account doing the OAuth consent must be added as
+  a **test user** (APIs & Services > OAuth consent screen > Audience/Test
+  users) as long as the consent screen stays in "Testing" publish status —
+  otherwise Google blocks with "Accesso bloccato ... Errore 403:
+  access_denied" on the consent screen itself, before the app ever gets a
+  token; (2) the **Google Drive API** must be explicitly enabled on the
+  project (APIs & Services > Library > "Google Drive API" > Enable) —
+  otherwise every Drive REST call (list/upload/download) fails with HTTP
+  403 `SERVICE_DISABLED`/`accessNotConfigured` even though sign-in and
+  authorization both already succeeded (confirmed by a real device
+  report: the user had a valid session — "Esci"/logout showing — and
+  still got this error from `DriveApiClient`).
 - **Cannot be meaningfully tested via Robolectric**: the `HttpURLConnection`
   calls to `googleapis.com`, Credential Manager, and
   `AuthorizationClient` require real network/Play Services — same discussion
