@@ -464,14 +464,28 @@ Going forward, the client ID is no longer a committed resource at all:
 repo-root `local.properties` (already gitignored, same file Android
 Studio uses for `sdk.dir`) and injects it via `resValue("string",
 "google_oauth_web_client_id", ...)` in `defaultConfig` — falling back to
-the placeholder `[TO_COMPLETE]` when the property is absent (e.g. on a
-fresh checkout, or on CI, which has no `local.properties` and therefore
-correctly builds with Drive backup shown as "not configured", the same
-behavior as before). `res/values/drive_config.xml` was deleted — keeping
-both the XML resource and the generated one would have been a duplicate
-resource build error, not just redundant. Each developer/build machine
-now needs its own `local.properties` line:
-`DRIVE_OAUTH_WEB_CLIENT_ID=<web client id>`.
+the placeholder `[TO_COMPLETE]` when the value is absent from every
+source. `res/values/drive_config.xml` was deleted — keeping both the XML
+resource and the generated one would have been a duplicate resource build
+error, not just redundant. Each developer machine needs its own
+`local.properties` line: `DRIVE_OAUTH_WEB_CLIENT_ID=<web client id>`.
+
+**CI needs the same value too**: `local.properties` is gitignored and
+therefore never checked out on a GitHub Actions runner, but
+`build-apk.yml`'s `assembleDebug` is what produces the installable
+`app-debug.apk` artifact the user actually side-loads onto a device — if
+CI built with only the placeholder, every APK downloaded from there would
+show "Drive not configured" regardless of what's in a developer's local
+file. So `driveOAuthWebClientId()` checks a `DRIVE_OAUTH_WEB_CLIENT_ID`
+**environment variable** first, before falling back to
+`local.properties`; both `build-apk.yml` and `android-ci.yml` pass it to
+the `assembleDebug`/`assembleDebug`-invoking step from a
+`DRIVE_OAUTH_WEB_CLIENT_ID` **GitHub Actions repository secret**
+(Settings > Secrets and variables > Actions > New repository secret, same
+name), which must be added once, by hand, on GitHub — no tool available
+in these sessions can create a repository secret from code, same
+"one-time app registration, not settable from a runtime login button"
+kind of external step already true for the client ID itself.
 
 ## Phase 5 — Internationalization, theme, and documentation
 

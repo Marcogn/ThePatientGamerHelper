@@ -30,6 +30,8 @@ jobs:
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
+        env:
+          DRIVE_OAUTH_WEB_CLIENT_ID: ${{ secrets.DRIVE_OAUTH_WEB_CLIENT_ID }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v7

@@ -136,13 +136,22 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
 
-private val OAUTH_PLACEHOLDER = "[TO_COMPLETE]"
-
+// Local dev builds read local.properties; CI has no such file (it's gitignored, never checked
+// out) so it instead passes the same value via the DRIVE_OAUTH_WEB_CLIENT_ID env var, sourced
+// from a GitHub Actions repository secret — see .github/workflows/build-apk.yml and
+// android-ci.yml. Either source missing/blank falls back to the existing placeholder. The
+// placeholder is inlined rather than a top-level val: android { defaultConfig { ... } } above
+// evaluates immediately, before the script reaches any later top-level property's initializer,
+// so a top-level val referenced from here would still be null at that point (a real bug hit in
+// CI — see CLAUDE.md, "Phase 4" section).
 fun driveOAuthWebClientId(): String {
+    val fromEnv = System.getenv("DRIVE_OAUTH_WEB_CLIENT_ID")
+    if (!fromEnv.isNullOrBlank()) return fromEnv
+
     val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
         FileInputStream(localPropertiesFile).use { localProperties.load(it) }
     }
-    return localProperties.getProperty("DRIVE_OAUTH_WEB_CLIENT_ID") ?: OAUTH_PLACEHOLDER
+    return localProperties.getProperty("DRIVE_OAUTH_WEB_CLIENT_ID") ?: "[TO_COMPLETE]"
 }
