@@ -673,6 +673,20 @@ download by id). I wrote a minimal client with `java.net.HttpURLConnection`
 in `data/drive/DriveApiClient.kt` — zero additional dependencies beyond
 `kotlinx.serialization` (already present) for parsing JSON responses.
 
+### "Sign in with Google" reported as doing nothing (see CLAUDE.md, same section, for the full detail)
+
+Audited the whole login flow against Google's current official Credential
+Manager guide after a report that the button produces no visible effect at
+all (no picker, no error). Found no bug in the reviewed code path itself;
+the leading suspect is an external Google Cloud Console configuration gap
+(missing/mismatched companion "Android" OAuth client + SHA-1, distinct from
+the "Web application" client id already in `drive_config.xml`) — a
+documented common cause of exactly this kind of silent failure. Added
+logging and richer exception messages (`type`/`statusCode` included) in
+`DriveAuthManager` instead of a speculative code fix, plus a visible
+progress indicator on the login button, so the next real-device report is
+conclusive. Not yet confirmed either way.
+
 ### Automatic backup cadence not configurable
 
 WorkManager supports a minimum interval of 15 minutes for periodic work; I

@@ -3,12 +3,15 @@ package com.marcogn.thepatientgamerhelper.data.drive
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -20,6 +23,8 @@ import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
+
+private const val TAG = "DriveAuthManager"
 
 /**
  * appDataFolder is per-app private storage, invisible in the Drive UI — this is the only scope
@@ -62,18 +67,31 @@ class DriveAuthManager @Inject constructor(
 
     /** Must be called with an Activity [context] — Credential Manager shows a system bottom sheet. */
     suspend fun signIn(context: Context): String {
+        Log.i(TAG, "signIn: launching Credential Manager (serverClientId configured=${isConfigured()})")
         val option = GetGoogleIdOption.Builder()
             .setServerClientId(requireWebClientId())
             .setFilterByAuthorizedAccounts(false)
             .build()
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
-        val response = CredentialManager.create(context).getCredential(context, request)
+        val response = try {
+            CredentialManager.create(context).getCredential(context, request)
+        } catch (e: GetCredentialException) {
+            // Most common real-world cause: no matching "Android" OAuth client (SHA-1 of the
+            // signing certificate + applicationId) registered in the same Google Cloud project
+            // as the "Web application" client id used above — see CLAUDE.md, "Phase 4" section,
+            // "External configuration required". e.type carries the underlying reason
+            // (e.g. TYPE_NO_CREDENTIAL) that e.message alone sometimes doesn't make obvious.
+            Log.w(TAG, "signIn failed: type=${e.type} message=${e.message}", e)
+            throw Exception("Google sign-in failed (${e.type}): ${e.message ?: "no detail"}", e)
+        }
 
         val credential = response.credential
         require(credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             "Unexpected credential from Credential Manager"
         }
-        return GoogleIdTokenCredential.createFrom(credential.data).id
+        return GoogleIdTokenCredential.createFrom(credential.data).id.also {
+            Log.i(TAG, "signIn: succeeded")
+        }
     }
 
     /**
@@ -85,7 +103,14 @@ class DriveAuthManager @Inject constructor(
         val request = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
             .build()
-        return Identity.getAuthorizationClient(context).authorize(request).awaitTask().toDriveAuthorization()
+        return try {
+            Identity.getAuthorizationClient(context).authorize(request).awaitTask().toDriveAuthorization().also {
+                Log.i(TAG, "authorize: resolved as ${it::class.simpleName}")
+            }
+        } catch (e: ApiException) {
+            Log.w(TAG, "authorize failed: statusCode=${e.statusCode} message=${e.message}", e)
+            throw Exception("Drive authorization failed (status ${e.statusCode}): ${e.message ?: "no detail"}", e)
+        }
     }
 
     /** Completes authorization after the caller launched [DriveAuthorization.ConsentRequired].pendingIntent. */
