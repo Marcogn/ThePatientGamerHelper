@@ -35,6 +35,23 @@ android {
         resValue("string", "google_oauth_web_client_id", driveOAuthWebClientId())
     }
 
+    // The release keystore's SHA-1 is what's registered on the Android OAuth client in Google
+    // Cloud Console (Sign in with Google) — unlike a machine-local debug.keystore (regenerated,
+    // with a different SHA-1, every time it's missing), this one is generated once and stored as
+    // a GitHub Actions secret so build-apk.yml produces the same signature on every run. See
+    // CLAUDE.md, "Phase 4" section, "Persistent release signing" note.
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("RELEASE_KEYSTORE_PATH")
+            if (!keystorePath.isNullOrBlank()) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Enables the debug-only seed data flow (see debug/DebugSeeder.kt).
@@ -47,6 +64,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Left unsigned (Android's default) when the release secrets aren't present — e.g. a
+            // local ./gradlew assembleRelease with no CI secrets — same graceful-fallback pattern
+            // as driveOAuthWebClientId() below, rather than failing the build outright.
+            if (!System.getenv("RELEASE_KEYSTORE_PATH").isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

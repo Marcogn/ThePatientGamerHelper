@@ -712,6 +712,20 @@ committed XML resource — `drive_config.xml` was deleted (keeping both
 would have been a duplicate-resource build error). See CLAUDE.md, same
 section, "Client ID kept out of version control", for the full detail.
 
+### Persistent release signing (see CLAUDE.md, same section, for the full detail)
+
+`build-apk.yml` built `assembleDebug`, whose keystore AGP regenerates
+from scratch on every clean CI run — so the SHA-1 registered for Sign in
+with Google would go stale on the very next build, not just once. Fixed
+by adding a real `signingConfigs["release"]` (env-var driven, same
+graceful-fallback pattern as the OAuth client id) and switching the
+workflow to `assembleRelease`, signed with a dedicated keystore generated
+once and delivered directly to the user (never committed) plus stored as
+four `RELEASE_KEYSTORE_*`/`RELEASE_KEY_*` GitHub Actions secrets.
+`android-ci.yml` intentionally still builds `assembleDebug` — it only
+verifies the build compiles, it isn't a distributed artifact, so it has
+no need for a stable signature.
+
 ### Automatic backup cadence not configurable
 
 WorkManager supports a minimum interval of 15 minutes for periodic work; I

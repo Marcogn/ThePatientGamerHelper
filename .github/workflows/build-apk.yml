@@ -28,20 +28,35 @@ jobs:
       - name: Make gradlew eseguibile
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      # A debug build's keystore is freshly generated per run (not a fixed value shared with any
+      # developer machine), so its SHA-1 — and therefore the Android OAuth client's Sign in with
+      # Google registration in Google Cloud Console — would need updating on every single run.
+      # Decoding a persistent release keystore (stored once as a repo secret, see CLAUDE.md,
+      # "Phase 4" section, "Persistent release signing") avoids that: same signature every time.
+      - name: Decode release keystore
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
         env:
           DRIVE_OAUTH_WEB_CLIENT_ID: ${{ secrets.DRIVE_OAUTH_WEB_CLIENT_ID }}
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
-      # The runner's debug keystore is freshly generated per run (not a fixed value shared with
-      # any developer machine), so its SHA-1 must be read off this specific build if the Android
-      # OAuth client in Google Cloud Console (Sign in with Google) needs registering/updating for
-      # this exact APK — see CLAUDE.md, "Phase 4" section, "Account reauth failed" note.
-      - name: Print debug keystore SHA-1 (for Google OAuth Android client setup)
+      - name: Print release keystore SHA-1 (for Google OAuth Android client setup)
         run: ./gradlew signingReport --no-daemon
+        env:
+          RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk

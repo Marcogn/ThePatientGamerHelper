@@ -384,7 +384,21 @@ needing the Android SDK or Robolectric.
   (gitignored, not committed — see below). If absent, `app/build.gradle.kts`
   falls back to the placeholder `[TO_COMPLETE]` and `DriveAuthManager`
   throws `DriveNotConfiguredException` with an explicit message instead of
-  attempting sign-in.
+  attempting sign-in. Two more one-time Cloud Console steps, both easy to
+  miss because they fail late (only once an actual Drive REST call is
+  made, i.e. after sign-in/authorize already succeeded, not at login
+  time): (1) the Google account doing the OAuth consent must be added as
+  a **test user** (APIs & Services > OAuth consent screen > Audience/Test
+  users) as long as the consent screen stays in "Testing" publish status —
+  otherwise Google blocks with "Accesso bloccato ... Errore 403:
+  access_denied" on the consent screen itself, before the app ever gets a
+  token; (2) the **Google Drive API** must be explicitly enabled on the
+  project (APIs & Services > Library > "Google Drive API" > Enable) —
+  otherwise every Drive REST call (list/upload/download) fails with HTTP
+  403 `SERVICE_DISABLED`/`accessNotConfigured` even though sign-in and
+  authorization both already succeeded (confirmed by a real device
+  report: the user had a valid session — "Esci"/logout showing — and
+  still got this error from `DriveApiClient`).
 - **Cannot be meaningfully tested via Robolectric**: the `HttpURLConnection`
   calls to `googleapis.com`, Credential Manager, and
   `AuthorizationClient` require real network/Play Services — same discussion
@@ -531,6 +545,47 @@ name), which must be added once, by hand, on GitHub — no tool available
 in these sessions can create a repository secret from code, same
 "one-time app registration, not settable from a runtime login button"
 kind of external step already true for the client ID itself.
+
+### Persistent release signing
+
+Follow-up once login was confirmed working end-to-end on device (see the
+"Account reauth failed" note above): `build-apk.yml` built with
+`assembleDebug`, whose keystore (`~/.android/debug.keystore`) is
+generated fresh by AGP on every run when missing — which it always is on
+a clean GitHub Actions runner. That means the SHA-1 registered on the
+Android OAuth client would go stale again on the very next CI build,
+breaking Sign in with Google every time a new APK is downloaded from
+Actions — not a one-off glitch but a structural problem with using an
+ephemeral debug keystore in CI.
+
+Fix: a real `signingConfigs { create("release") { ... } }` block in
+`app/build.gradle.kts`, reading `RELEASE_KEYSTORE_PATH`/
+`RELEASE_KEYSTORE_PASSWORD`/`RELEASE_KEY_ALIAS`/`RELEASE_KEY_PASSWORD`
+from the environment (same graceful-fallback pattern as
+`driveOAuthWebClientId()` — left unsigned, not a build failure, when
+absent, so a local `./gradlew assembleRelease` with no secrets still
+works). Generated a dedicated keystore for this project (RSA 2048,
+10000-day validity, alias `thepatientgamerhelper`) with `keytool` and
+delivered the `.jks` file + its passwords directly to the user (not
+committed, not printed anywhere retrievable afterward) — this is a
+credential that must be kept safe indefinitely: losing it means losing
+the ability to ever again produce a build with the same signature, which
+would break Sign in with Google a third time and require yet another
+SHA-1 re-registration.
+
+`build-apk.yml` now decodes a base64-encoded copy of that keystore from a
+`RELEASE_KEYSTORE_BASE64` GitHub Actions secret into `$RUNNER_TEMP` (never
+into the git workspace) and runs `assembleRelease` instead of
+`assembleDebug`, uploading `app-release.apk`. `android-ci.yml` is
+untouched — it only needs `assembleDebug` to verify the build compiles on
+every push/PR, it doesn't produce a side-loadable artifact, so it has no
+need for a stable signature. Four new repository secrets needed, same
+one-time manual GitHub step as `DRIVE_OAUTH_WEB_CLIENT_ID`:
+`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`,
+`RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`. The resulting SHA-1 needs
+registering once on the Android OAuth client in Google Cloud Console —
+after that, since the keystore no longer changes, it never needs
+re-registering again.
 
 ## Phase 5 — Internationalization, theme, and documentation
 
