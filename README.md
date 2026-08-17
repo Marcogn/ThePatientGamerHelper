@@ -1,6 +1,5 @@
 # ThePatientGamerHelper
 
-[![Android CI](https://github.com/Marcogn/ThePatientGamerHelper/actions/workflows/android-ci.yml/badge.svg)](https://github.com/Marcogn/ThePatientGamerHelper/actions/workflows/android-ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Marcogn/ThePatientGamerHelper?label=release)](https://github.com/Marcogn/ThePatientGamerHelper/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![minSdk 26](https://img.shields.io/badge/minSdk-26-brightgreen.svg)](app/build.gradle.kts)
