@@ -157,8 +157,18 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                             // Opened from the backlog's "want to write a review?" prompt: leaving
                             // (with or without an implicit draft save, see ReviewFormViewModel.onBackPressed)
                             // should land on the reviews library, not back into the Backlog stack it came from.
+                            // Deliberately NOT saveState = true here: this popUpTo always pops the
+                            // Backlog -> BacklogListDetail -> BacklogItemDetail -> Form chain we're
+                            // discarding on purpose, and NavController's saveState/restoreState keys
+                            // saved back-stack "islands" by the id of the *first* entry above the
+                            // popUpTo target (Backlog here) with a write-once guard per key. Saving it
+                            // poisoned the drawer's "Backlog" entry: the next drawer tap to Backlog
+                            // (restoreState = true in navigateFromDrawer) restored this exact stale
+                            // chain wholesale, landing back on this Form/Detail screen instead of the
+                            // Backlog list, popping straight back past it on the next back press. See
+                            // REG-13 in docs/test-plan.md.
                             navController.navigate(Destination.Library) {
-                                popUpTo(Destination.Home) { saveState = true }
+                                popUpTo(Destination.Home)
                                 launchSingleTop = true
                                 restoreState = true
                             }

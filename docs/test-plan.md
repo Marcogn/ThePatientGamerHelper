@@ -1326,6 +1326,22 @@ review alone — all the more reason not to skip them in future test rounds.
       "the same bug as before": read the in-app diagnostic message
       (`hltb_status_error`, which includes the URL and the `source`) and
       report it in full.
+- [ ] **REG-13** Cancelling the "write a review" form opened from a
+      backlog item (Backlog → list → item → "write a review" → cancel/
+      system back) no longer poisons the drawer's "Backlog" entry: verify
+      that opening that flow and cancelling out of it, then tapping
+      "Backlog" in the drawer from Library/Stats/Settings, lands on the
+      Backlog list every time (not on the leftover form/review screen,
+      which previously only self-corrected on a *second* tap). Root
+      cause: that `onCancel` branch popped up to `Home` with
+      `saveState = true` while discarding the whole
+      Backlog → BacklogListDetail → BacklogItemDetail → Form chain;
+      `NavController` keys saved back-stack state by the id of the first
+      entry above the `popUpTo` target with a write-once guard per key,
+      so that discarded chain got saved under the "Backlog" key and was
+      restored wholesale on the next drawer tap to Backlog. Fix: drop
+      `saveState = true` from that specific `popUpTo(Destination.Home)`
+      call, since the chain is meant to be discarded, not preserved.
 
 ---
 
@@ -1344,3 +1360,10 @@ review alone — all the more reason not to skip them in future test rounds.
   manually verified on device (see each phase's own "Build status" note in
   `CLAUDE.md`) — no new "Known regressions" entries added, since none of
   this has been through real-device verification yet.
+- 2026-08-17 — REG-13 added: a real navigation bug reported from device
+  use (cancelling the backlog "write a review" form could make the
+  drawer's "Backlog" item open a stale leftover screen instead of the
+  Backlog list, self-correcting only on a second tap), root-caused to a
+  `saveState = true` on a `popUpTo(Destination.Home)` call that should
+  have discarded the popped back stack instead of saving it, and fixed in
+  `ThePatientGamerHelperNavGraph.kt`.
