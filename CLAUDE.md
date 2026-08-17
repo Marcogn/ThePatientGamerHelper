@@ -960,6 +960,39 @@ coordinated change.
   only from the drawer, with a back arrow in its own top bar — it is "at
   the bottom" of the drawer, not one of the three main sections.
 
+### Device report: Google Drive login lost on every visit to Settings, not just app restart
+
+Reported after the Drive login saga (see "Phase 4" section) was finally
+confirmed working: sign-in and restore worked, but navigating away from
+Settings to **any** other screen and back required signing in again every
+single time — not just after an app restart, which was the only case the
+original design ("in-memory only in the ViewModel... an app restart
+requires a new login") was meant to cover.
+
+**Root cause**: `composable<Destination.Settings> { SettingsScreen(onBack
+= { navController.popBackStack() }) }` used a bare `popBackStack()`,
+which destroys the entry (and its `ViewModelStore`, and therefore
+`SettingsViewModel`'s in-memory `signedInEmail`) outright — unlike every
+drawer entry, which navigates with `popUpTo(Destination.Home) { saveState
+= true }` + `restoreState = true` specifically to *preserve* a
+destination's `ViewModelStore` across round-trips (the whole point of
+that pattern, see the bullet above). Since Settings is reachable only
+from the drawer and leaveable only via its own back arrow, this bare pop
+fired on every single visit, not an edge case.
+
+Fix: `Destination.Settings`'s `onBack` now navigates to `Destination.Home`
+with the same `popUpTo(Destination.Home) { saveState = true }` +
+`launchSingleTop = true` + `restoreState = true` triple already used by
+`navigateFromDrawer`, instead of a plain pop — mirroring the drawer's own
+save/restore semantics so `SettingsViewModel` survives the round-trip.
+Also added a `BackHandler(onBack = onBack)` in `SettingsScreen.kt`: the
+system back gesture/button bypasses a screen's `onBack` lambda entirely
+by default (a bare `popBackStack()`, the exact same class of bug already
+found and fixed in `ReviewFormScreen`, Phase 8's "Fifth device
+verification") — without it, swiping back would still destroy the login
+state the tap-target fix above just preserved. **Not yet verified on
+device** — same sandbox limitation as every other phase.
+
 ### TheGamesDB search always-failed fix
 
 - **Certain and corrected cause**: `GameMetadataSearchCoordinator.search()`

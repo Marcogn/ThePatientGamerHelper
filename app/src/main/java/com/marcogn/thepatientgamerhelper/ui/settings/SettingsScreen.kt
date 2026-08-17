@@ -1,5 +1,6 @@
 package com.marcogn.thepatientgamerhelper.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,12 @@ fun SettingsScreen(
     val consentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
     ) { result -> viewModel.onConsentResult(result) }
+
+    // Compose Navigation's default back gesture/button bypasses onBack (a bare popBackStack(),
+    // same class of bug already found and fixed in ReviewFormScreen, Phase 8) — without this, the
+    // system back gesture would still destroy the Drive login state onBack was just changed to
+    // preserve.
+    BackHandler(onBack = onBack)
 
     LaunchedEffect(consentRequest) {
         consentRequest?.let { consentLauncher.launch(it) }
