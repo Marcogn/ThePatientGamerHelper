@@ -946,6 +946,28 @@ not the library's (2.7 covers the library's own zip import instead).
 - [ ] **SET-12** With a valid configuration: "Sign in with Google" opens
       the system account picker (Credential Manager), then the consent
       request for the `drive.appdata` scope (`AuthorizationClient`).
+      **Confirmed working end-to-end** on a real device — see CLAUDE.md,
+      "Phase 4" section, "Confirmed working end-to-end", for the full
+      story of what it took to get here (SET-36 through SET-36c below).
+- [ ] **SET-12b** The Google account signing in must be listed under
+      Google Cloud Console > OAuth consent screen > Audience/Test users
+      (the consent screen intentionally stays in "Testing" publish
+      status — a deliberate decision, not a bug, see CLAUDE.md). An
+      account **not** on that list gets a hard-blocking Google page
+      ("Accesso bloccato: l'app ... non ha completato la procedura di
+      verifica di Google ... Errore 403: access_denied") **before** the
+      app ever receives a token — this is not something the app's own
+      error handling can intercept or improve, it never reaches
+      `DriveAuthManager`.
+- [ ] **SET-12c** Even after a fully successful sign-in + authorization
+      (valid session, "Esci"/logout showing), the **first** Drive REST
+      call can still fail with HTTP 403
+      `SERVICE_DISABLED`/`accessNotConfigured` ("Google Drive API has not
+      been used in project ... or it is disabled") if the **Google Drive
+      API** itself was never explicitly enabled for the project under
+      APIs & Services > Library — confirmed by a real device report. This
+      is unrelated to authentication and happens later in the flow
+      (backup/list/restore), not at login time.
 - [ ] **SET-13** After a successful login: the account's email is shown
       ("Connected to Google Drive"), the Backup/Restore sections become
       visible (previously hidden).
@@ -1035,13 +1057,12 @@ not the library's (2.7 covers the library's own zip import instead).
       of the companion **Android** OAuth client's SHA-1 not matching the
       keystore that signed the installed APK. Get the SHA-1 of the actual
       APK under test — `./gradlew signingReport` for a local build, or the
-      "Print debug keystore SHA-1" step's log in the `build-apk.yml` run
-      for a CI-built one (its debug keystore is freshly generated per run,
-      not shared with any developer machine) — and register/correct it on
-      the Android-type OAuth client in the same Google Cloud Console
-      project as the Web client configured via `local.properties`. See
-      CLAUDE.md, "Phase 4" section, for the full writeup. Not yet confirmed
-      fixed end-to-end.
+      "Print release keystore SHA-1" step's log in the `build-apk.yml` run
+      for a CI-built one — and register/correct it on the Android-type
+      OAuth client in the same Google Cloud Console project as the Web
+      client configured via `local.properties`. See CLAUDE.md, "Phase 4"
+      section, for the full writeup. **Confirmed fixed**: registering the
+      correct SHA-1 resolved this on the user's real device.
 - [ ] **SET-37** Fresh checkout with no `local.properties` (or one missing
       `DRIVE_OAUTH_WEB_CLIENT_ID`): `./gradlew assembleDebug` still
       succeeds (falls back to the `[TO_COMPLETE]` placeholder), and the app
@@ -1049,6 +1070,29 @@ not the library's (2.7 covers the library's own zip import instead).
       attempting sign-in — same behavior SET-11 already covers, now also
       exercised via the Gradle-injected path instead of a committed
       resource.
+- [ ] **SET-38** Running `build-apk.yml` manually (Actions > Build APK >
+      Run workflow) with the four `RELEASE_KEYSTORE_*`/`RELEASE_KEY_*`
+      secrets set: produces a signed `app-release.apk` artifact (not
+      `app-debug.apk`), `BuildConfig.SEED_DEBUG_DATA` is `false` (no demo
+      data seeded on first launch), and the "Print release keystore SHA-1"
+      step's log always reports the **same** SHA-1 across separate runs —
+      confirming the keystore is now persistent, not regenerated per run.
+- [ ] **SET-38b (edge)** Installing that release APK over a previously
+      side-loaded **debug** build of the same app (different signing
+      keys): the install is rejected (signature mismatch) — uninstall the
+      old debug build first. Not a bug, an expected Android platform
+      behavior worth knowing about before testing.
+- [ ] **SET-39 (edge, long-running — not yet reproduced)** The OAuth
+      consent screen intentionally stays in "Testing" publish status
+      (see CLAUDE.md, "Confirmed working end-to-end"), and Google expires
+      the underlying authorization grant after **7 days** for any app in
+      that status, regardless of scope. Leave the app installed with
+      automatic backup enabled and **no** manual login for more than a
+      week, then check Settings: "Last error" on the backup section
+      should reflect the automatic worker's failure (`Result.failure()`,
+      silent by design — see SET-20), not a crash or a stuck "in
+      progress" state. A manual login should re-establish it. If this
+      never actually happens in practice, downgrade/remove this item.
 
 ### 7.4 TheGamesDB API key
 
