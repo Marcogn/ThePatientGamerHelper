@@ -1093,6 +1093,18 @@ not the library's (2.7 covers the library's own zip import instead).
       silent by design — see SET-20), not a crash or a stuck "in
       progress" state. A manual login should re-establish it. If this
       never actually happens in practice, downgrade/remove this item.
+- [ ] **SET-40** After logging in (SET-13), navigate away from Settings —
+      via the drawer to any other section, **and** separately via the
+      back arrow/system back gesture — and back to Settings again: the
+      account should still show as connected ("Esci" visible,
+      Backup/Restore sections visible), **not** back to the
+      "Accedi con Google" button. A real bug (fixed, not yet verified on
+      device): the back arrow used to destroy `SettingsViewModel`'s
+      in-memory login state on every single visit, not just on an app
+      restart — see CLAUDE.md, "Phase 7" section, "Google Drive login
+      lost on every visit to Settings". Test **both** the tap-target back
+      arrow and the system back gesture/button separately — they were two
+      different bugs with two different fixes.
 
 ### 7.4 TheGamesDB API key
 

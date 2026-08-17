@@ -119,7 +119,21 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                 StatsScreen(onMenuClick = openDrawer)
             }
             composable<Destination.Settings> {
-                SettingsScreen(onBack = { navController.popBackStack() })
+                SettingsScreen(
+                    onBack = {
+                        // Not a plain popBackStack(): that destroys the entry outright, clearing
+                        // SettingsViewModel's in-memory Drive login state (signedInEmail) on every
+                        // single visit, since Settings is reachable only from the drawer and its
+                        // back arrow is the only way to leave it. Mirrors navigateFromDrawer's
+                        // popUpTo/saveState/restoreState so the entry (and its login state) is
+                        // preserved across drawer round-trips, same as Library/Backlog/Stats.
+                        navController.navigate(Destination.Home) {
+                            popUpTo(Destination.Home) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
             composable<Destination.Detail> {
                 DetailScreen(
