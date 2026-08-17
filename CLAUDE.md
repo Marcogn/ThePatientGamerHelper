@@ -494,16 +494,19 @@ keystore that signed the APK actually installed on the test device/phone —
 concretely, either `~/.android/debug.keystore` for an Android-Studio-run
 build (get its SHA-1 via the Gradle "signingReport" task, or `keytool -list
 -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass
-android -keypass android`), or the CI runner's own ephemeral debug
-keystore for an `app-debug.apk` downloaded from `build-apk.yml` (its SHA-1
-is **not** the same as any developer's local one — AGP generates a fresh
-random debug keystore per machine when none exists, it is not a fixed
-well-known value — so it must be read off the actual APK, e.g.
-`apksigner verify --print-certs app-debug.apk` or `keytool -printcert
--jarfile app-debug.apk`, not assumed). **Still not confirmed end-to-end**:
-this explains the specific error message per external reports, but has not
-yet been verified against this project's actual Google Cloud Console state
-nor confirmed fixed by the user.
+android -keypass android`), or (at the time) the CI runner's own ephemeral
+debug keystore for an `app-debug.apk` downloaded from `build-apk.yml` —
+its SHA-1 was **not** the same as any developer's local one, since AGP
+generates a fresh random debug keystore per machine when none exists, it
+is not a fixed well-known value. (`build-apk.yml` no longer builds a debug
+APK at all — see "Persistent release signing" below, which fixed this
+same instability for good.)
+
+**Confirmed**: registering the correct SHA-1 on the Android OAuth client
+resolved "Account reauth failed" — the user reported the account picker
+completing sign-in successfully afterward (see "Persistent release
+signing" and "Confirmed working end-to-end" below for what happened
+next).
 
 ### Client ID kept out of version control
 
@@ -531,14 +534,15 @@ error, not just redundant. Each developer machine needs its own
 
 **CI needs the same value too**: `local.properties` is gitignored and
 therefore never checked out on a GitHub Actions runner, but
-`build-apk.yml`'s `assembleDebug` is what produces the installable
-`app-debug.apk` artifact the user actually side-loads onto a device — if
+`build-apk.yml` is what produces the installable APK artifact the user
+actually side-loads onto a device (`app-debug.apk` at the time this was
+written; `app-release.apk` since "Persistent release signing" below) — if
 CI built with only the placeholder, every APK downloaded from there would
 show "Drive not configured" regardless of what's in a developer's local
 file. So `driveOAuthWebClientId()` checks a `DRIVE_OAUTH_WEB_CLIENT_ID`
 **environment variable** first, before falling back to
 `local.properties`; both `build-apk.yml` and `android-ci.yml` pass it to
-the `assembleDebug`/`assembleDebug`-invoking step from a
+their respective `assembleRelease`/`assembleDebug`-invoking step from a
 `DRIVE_OAUTH_WEB_CLIENT_ID` **GitHub Actions repository secret**
 (Settings > Secrets and variables > Actions > New repository secret, same
 name), which must be added once, by hand, on GitHub — no tool available
@@ -586,6 +590,43 @@ one-time manual GitHub step as `DRIVE_OAUTH_WEB_CLIENT_ID`:
 registering once on the Android OAuth client in Google Cloud Console —
 after that, since the keystore no longer changes, it never needs
 re-registering again.
+
+### Confirmed working end-to-end — final state of the Google Drive login saga
+
+Closing out the multi-round investigation above: the user confirmed the
+full flow now works on a real device — account picker → account chosen →
+authorization granted → Drive REST calls succeeding, backup/restore
+usable. `build-apk.yml` produces `app-release.apk`, signed with the
+persistent keystore, `BuildConfig.SEED_DEBUG_DATA = false` (no demo data).
+Two things worth remembering as the deliberate, current state rather than
+open problems:
+
+- **The Google Cloud OAuth consent screen stays in "Testing" publish
+  status** — a decision, not an oversight. For a single-user personal
+  app this costs nothing functionally (the 100-test-user cap is
+  irrelevant), it just means: (1) the account signing in must be added
+  under OAuth consent screen > Audience/Test users first (already
+  documented above), and (2) Google shows an "app isn't verified"
+  interstitial on every fresh consent, which the test user can click
+  through — expected, not a bug to fix.
+- **Known consequence of staying in "Testing", not yet addressed**:
+  Google expires the underlying authorization grant after **7 days** for
+  *any* app in Testing publish status, regardless of scope sensitivity —
+  this is unrelated to `drive.appdata` specifically. The interactive
+  "Accedi con Google" flow is unaffected (it just re-prompts), but the
+  **daily automatic `BackupWorker`** relies on `authorize()` resolving
+  silently; past 7 days without an interactive re-login it would start
+  failing silently (`Result.failure()`, by design — see the
+  "Automatic backup" bullet above), until the user opens Settings and
+  backs up manually again. Not yet reproduced or fixed — flagged here so
+  a future "automatic backup stopped working" report isn't re-diagnosed
+  from scratch. `drive.appdata` is classified by Google as a
+  **non-sensitive** scope, so moving the consent screen to "In
+  production" (Google Cloud Console > Audience > Publish app) should not
+  require Google's full manual security-review verification the way a
+  sensitive/restricted scope would — but this has **not been done**, is
+  entirely optional, and is a console action for the user to take, not a
+  code change.
 
 ## Phase 5 — Internationalization, theme, and documentation
 

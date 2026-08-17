@@ -726,6 +726,21 @@ four `RELEASE_KEYSTORE_*`/`RELEASE_KEY_*` GitHub Actions secrets.
 verifies the build compiles, it isn't a distributed artifact, so it has
 no need for a stable signature.
 
+### Google Cloud OAuth consent screen left in "Testing", deliberately (see CLAUDE.md, same section, "Confirmed working end-to-end")
+
+Once the login flow was confirmed working end-to-end, chose **not** to
+also publish the OAuth consent screen to "In production" — for a
+single-user personal app the Testing-mode caps (100 test users, an
+"unverified app" interstitial) cost nothing real. Documented instead of
+silently leaving it implicit: Testing-status apps get their authorization
+grant expired by Google after 7 days regardless of scope, which could
+make the *daily automatic backup* fail silently after a week without an
+interactive re-login — not yet reproduced, flagged for a future report.
+`drive.appdata` is a non-sensitive scope, so publishing later, if ever
+wanted, shouldn't need Google's full manual verification — but that's a
+Google Cloud Console action for the user, not something this codebase can
+do or needs to.
+
 ### Automatic backup cadence not configurable
 
 WorkManager supports a minimum interval of 15 minutes for periodic work; I
