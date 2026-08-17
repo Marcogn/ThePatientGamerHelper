@@ -199,6 +199,9 @@ anything substantial to avoid wasted effort. To report a security
 vulnerability, see [`SECURITY.md`](SECURITY.md) instead of opening a
 public issue.
 
+## About this project
+ThePatientGamerHelper is an independent project, built by marcogn in close collaboration with Claude, Anthropic's AI coding assistant — Claude wrote and reviewed most of the code, under direct human design and review at every step.
+
 ## License
 
 MIT, see [`LICENSE`](LICENSE).
