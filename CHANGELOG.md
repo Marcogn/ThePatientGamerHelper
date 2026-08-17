@@ -4,6 +4,25 @@ All notable changes to ThePatientGamerHelper are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
+## [Unreleased]
+
+## [1.0.1] - 2026-08-17
+
+### Fixed
+
+- Drawer "Backlog" navigation could land on a stale review/edit-form
+  screen instead of the Backlog list after cancelling the backlog's
+  "write a review" flow, self-correcting only on a second tap. Caused by
+  an unnecessary `saveState = true` on a back-stack pop that was meant
+  to discard that back stack, not preserve it for later restoration.
+
+### Changed
+
+- Google Drive backup retention: only the most recent backup is now
+  kept in the private appDataFolder. Every successful backup (manual or
+  automatic) deletes older ones, including any pile left over from
+  before this change.
+
 ## [1.0.0] - 2026-08-17
 
 First public release.

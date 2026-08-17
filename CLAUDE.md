@@ -719,6 +719,32 @@ Play Services, or native PDF rendering (Drive, TheGamesDB, HowLongToBeat,
 Robolectric and needs manual on-device verification instead — see
 `docs/test-plan.md`.
 
+## Changelog and release process
+
+`CHANGELOG.md` (repo root) is the release notes source of truth — the
+`Release` GitHub Actions workflow (`.github/workflows/release.yml`,
+manual `workflow_dispatch` only, never runs on push/PR) reads
+`app/build.gradle.kts`'s `versionName`, looks for the matching
+`## [x.y.z]` section in `CHANGELOG.md`, and publishes it verbatim as the
+GitHub Release notes. It refuses to overwrite an existing release/tag,
+so re-running it requires bumping `versionName` (and `versionCode`)
+again first.
+
+**Policy: every change gets a `CHANGELOG.md` entry when it's made, not
+deferred to release time.** Add it under a `## [Unreleased]` section at
+the top of the file (create one if it isn't there). This keeps the
+changelog always accurate, so cutting a release is never a scramble to
+reconstruct what changed since the last one.
+
+Cutting an actual release (a deliberate, human-directed action, not
+something to do unprompted):
+1. Rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` for the new
+   version, and leave a fresh empty `## [Unreleased]` above it for the
+   next round of changes.
+2. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
+   to match.
+3. Manually trigger the `Release` workflow from GitHub Actions.
+
 ## Code conventions
 
 - No mock data in the final UI: all screens read from Room via
