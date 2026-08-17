@@ -30,6 +30,7 @@ class BackupManager @Inject constructor(
         val reviews = reviewRepository.observeAll().first()
         val archive = archiveBuilder.build(reviews.toBackupPayload())
         val result = driveApiClient.uploadBackup(accessToken, suggestedBackupFileName(), archive)
+        pruneOldBackups(accessToken, keepId = result.id)
         preferences.lastBackupAt = Instant.now()
         preferences.lastBackupError = null
         result
@@ -40,6 +41,20 @@ class BackupManager @Inject constructor(
 
     suspend fun listBackups(accessToken: String): List<BackupFile> =
         driveApiClient.listBackups(accessToken).sortedByDescending { it.createdAt ?: Instant.EPOCH }
+
+    /**
+     * Single-user app: each backup is a full snapshot, so there's no value in letting them pile
+     * up in the private appDataFolder (invisible in the Drive UI, so the user can't clean it up
+     * by hand). Keeps only the one just uploaded, deleting every other backup found on Drive.
+     * Best-effort per file — a stray deletion failure doesn't fail the backup that already
+     * succeeded; the next run tries again.
+     */
+    private suspend fun pruneOldBackups(accessToken: String, keepId: String) {
+        val existing = driveApiClient.listBackups(accessToken)
+        existing.filter { it.id != keepId }.forEach { backup ->
+            runCatching { driveApiClient.deleteBackup(accessToken, backup.id) }
+        }
+    }
 
     /** Full overwrite of local data — single-user app, no merge/conflict handling. */
     suspend fun restoreBackup(accessToken: String, backup: BackupFile) {

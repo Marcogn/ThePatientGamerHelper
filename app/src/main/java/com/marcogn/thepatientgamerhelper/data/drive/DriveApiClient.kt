@@ -81,6 +81,11 @@ class DriveApiClient @Inject constructor() {
         connection.inputStream.use { it.readBytes() }
     }
 
+    suspend fun deleteBackup(accessToken: String, fileId: String): Unit = withContext(Dispatchers.IO) {
+        val connection = openConnection(url = "$FILES_URL/$fileId", method = "DELETE", accessToken = accessToken)
+        connection.ensureSuccessful(connection.readTextBody())
+    }
+
     private fun openConnection(url: String, method: String, accessToken: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method

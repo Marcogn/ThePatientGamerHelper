@@ -278,6 +278,19 @@ needing the Android SDK or Robolectric.
   transaction that deletes and re-inserts everything, preserving
   `id`/`createdAt`/`updatedAt`. **No merge/conflict handling**: single-user
   app, a restore is a full overwrite.
+- **Retention: only the latest backup is kept on Drive.** Each backup is
+  a full snapshot, so a single-user app has no use for a growing history
+  of them, and the private `appDataFolder` isn't visible/manageable from
+  the regular Drive UI (the app is the only way to clean it up).
+  `BackupManager.createBackup()` uploads, then calls
+  `pruneOldBackups()`, which lists the folder and deletes every file
+  except the one just uploaded (best-effort per file via
+  `DriveApiClient.deleteBackup()` — `DELETE /drive/v3/files/{id}`; a
+  failed deletion doesn't fail the backup that already succeeded, the
+  next run just tries again). This applies to both manual and automatic
+  (`BackupWorker`) backups, and also cleans up any backlog of old backups
+  left over from before this was added — no separate "clean up now"
+  action needed, the next backup does it.
 - **Automatic backup**: `BackupWorker` (`@HiltWorker`, WorkManager), fixed
   daily cadence (`BackupScheduler`, `NetworkType.CONNECTED`), no UI to
   configure the interval. `ThePatientGamerHelperApplication` implements
@@ -705,6 +718,32 @@ Play Services, or native PDF rendering (Drive, TheGamesDB, HowLongToBeat,
 `PdfDocument` pagination) can't be meaningfully exercised by
 Robolectric and needs manual on-device verification instead — see
 `docs/test-plan.md`.
+
+## Changelog and release process
+
+`CHANGELOG.md` (repo root) is the release notes source of truth — the
+`Release` GitHub Actions workflow (`.github/workflows/release.yml`,
+manual `workflow_dispatch` only, never runs on push/PR) reads
+`app/build.gradle.kts`'s `versionName`, looks for the matching
+`## [x.y.z]` section in `CHANGELOG.md`, and publishes it verbatim as the
+GitHub Release notes. It refuses to overwrite an existing release/tag,
+so re-running it requires bumping `versionName` (and `versionCode`)
+again first.
+
+**Policy: every change gets a `CHANGELOG.md` entry when it's made, not
+deferred to release time.** Add it under a `## [Unreleased]` section at
+the top of the file (create one if it isn't there). This keeps the
+changelog always accurate, so cutting a release is never a scramble to
+reconstruct what changed since the last one.
+
+Cutting an actual release (a deliberate, human-directed action, not
+something to do unprompted):
+1. Rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` for the new
+   version, and leave a fresh empty `## [Unreleased]` above it for the
+   next round of changes.
+2. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
+   to match.
+3. Manually trigger the `Release` workflow from GitHub Actions.
 
 ## Code conventions
 
