@@ -980,6 +980,16 @@ not the library's (2.7 covers the library's own zip import instead).
 - [ ] **SET-16** "Back up now": creates a zip archive on Drive (the
       private `appDataFolder`), shows "Backup complete", updates "Last
       successful backup: ...".
+- [ ] **SET-16b** Retention: after "Back up now" completes, "Refresh
+      backup list" shows **only one** file — the one just created. If
+      several backups already exist on Drive from before this feature
+      (a pile of `the-patient-gamer-helper-backup-*.zip` in the private
+      `appDataFolder`, not visible/manageable from the Drive UI since it
+      requires the `drive.appdata` scope), the very next backup — manual
+      or automatic — deletes all of them except the one it just
+      uploaded, with no separate "clean up now" action needed. Also
+      verify the automatic worker (SET-19) prunes the same way, not just
+      a manual backup.
 - [ ] **SET-17 (edge)** Backing up with an **empty** library: still
       succeeds (a valid zip with an empty `data.json` and no images), not
       an error.

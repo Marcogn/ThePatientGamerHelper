@@ -278,6 +278,19 @@ needing the Android SDK or Robolectric.
   transaction that deletes and re-inserts everything, preserving
   `id`/`createdAt`/`updatedAt`. **No merge/conflict handling**: single-user
   app, a restore is a full overwrite.
+- **Retention: only the latest backup is kept on Drive.** Each backup is
+  a full snapshot, so a single-user app has no use for a growing history
+  of them, and the private `appDataFolder` isn't visible/manageable from
+  the regular Drive UI (the app is the only way to clean it up).
+  `BackupManager.createBackup()` uploads, then calls
+  `pruneOldBackups()`, which lists the folder and deletes every file
+  except the one just uploaded (best-effort per file via
+  `DriveApiClient.deleteBackup()` — `DELETE /drive/v3/files/{id}`; a
+  failed deletion doesn't fail the backup that already succeeded, the
+  next run just tries again). This applies to both manual and automatic
+  (`BackupWorker`) backups, and also cleans up any backlog of old backups
+  left over from before this was added — no separate "clean up now"
+  action needed, the next backup does it.
 - **Automatic backup**: `BackupWorker` (`@HiltWorker`, WorkManager), fixed
   daily cadence (`BackupScheduler`, `NetworkType.CONNECTED`), no UI to
   configure the interval. `ThePatientGamerHelperApplication` implements
