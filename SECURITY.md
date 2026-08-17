@@ -29,5 +29,6 @@ Drive, TheGamesDB, HowLongToBeat) that aren't caused by this app's code.
 
 ## Supported versions
 
-This project has no stable release yet (`versionName 0.1.0`); only the
-latest code on `main` is supported.
+Only the latest published release is supported; older releases don't
+receive backported fixes. See the
+[Releases](../../releases) page for the current version.
