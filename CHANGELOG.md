@@ -6,6 +6,17 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Changed
+
+- The `Release` GitHub Actions workflow now cuts the version itself:
+  the manual dispatch form takes a `version` input (validated to be
+  greater than the current `versionName`, no auto-computed default),
+  and the workflow renames `CHANGELOG.md`'s `[Unreleased]` section,
+  bumps `versionCode`/`versionName` in `app/build.gradle.kts`, and
+  pushes that commit straight to `main` before building/signing/
+  publishing — no more manually editing those two files by hand before
+  triggering a release.
+
 ### Fixed
 
 - HowLongToBeat estimate lookups (backlog "search online") always came
