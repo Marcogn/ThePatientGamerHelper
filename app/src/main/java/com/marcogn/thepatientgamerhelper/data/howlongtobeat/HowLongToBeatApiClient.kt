@@ -55,18 +55,27 @@ private val hltbJson = Json { ignoreUnknownKeys = true }
  * right before the search, *and* the same key/value pair injected as an extra property inside the
  * search body itself (see [buildSearchBody] — this was the bug that made every search silently
  * return nothing even once the headers were correctly set). This client implements that full flow:
- *  1. GET the homepage, find the Next.js `_app-*.js` bundle reference.
- *  2. GET that bundle, regex out the `/api/...` path used by the frontend's own search `fetch()`.
- *  3. GET `<path>/init` and pull the token/key/val fields out of whatever JSON it returns.
+ *  1. GET the homepage, scan every same-origin `<script src>` it references (HowLongToBeat's build
+ *     moved to Turbopack at some point, so there's no longer a conveniently-named `_app-*.js`
+ *     bundle to look for specifically — see [fetchAuth]).
+ *  2. GET each candidate script until one regex-matches the `/api/...` path used by the frontend's
+ *     own search `fetch()`.
+ *  3. GET `<path>/init` (with a `Referer` header — this endpoint 403s without one, unlike the
+ *     static chunk requests) and pull the token/key/val fields out of whatever JSON it returns.
  *  4. POST the actual search to `<path>` with those headers attached and the key/value pair also
  *     folded into the JSON body.
  *
  * **This is inherently fragile** — a reverse-engineered technique against an undocumented,
- * unversioned target, not a stable contract. It could not be exercised against the real
- * `howlongtobeat.com` from this sandbox (no network access, see CLAUDE.md's sandbox limitation
- * note), so treat it as unverified until checked on a real device. Every failure mode (HTML/JS
- * shape changed, endpoint blocked, response schema changed, anti-bot challenge) is swallowed by the
- * caller
+ * unversioned target, not a stable contract, confirmed by the fact steps 1-3 above were only
+ * discovered by re-diagnosing a real on-device failure after the previous fix. Steps 1-3 were
+ * re-verified against the live `howlongtobeat.com` from this environment; step 4 could only be
+ * confirmed to reach the right endpoint with a structurally valid request — HowLongToBeat's `/init`
+ * token embeds the caller's IP (base64: `<timestamp>::<ip>|<user-agent>|...`) and the search POST
+ * is rejected with `{"error":"Session expired or invalid fingerprint"}` if it arrives from a
+ * different IP than the `/init` call did, which this environment's outbound proxy doesn't
+ * guarantee across requests — a real device on one stable connection shouldn't hit that, but it's
+ * unverified end-to-end until checked on one. Every failure mode (HTML/JS shape changed, endpoint
+ * blocked, response schema changed, anti-bot challenge) is swallowed by the caller
  * ([com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator.searchHowLongToBeat])
  * and simply yields no estimate — this integration must never block or crash the "cerca online"
  * flow it rides on. Every step logs a warning with `LOG_TAG` on failure, since a fully silent
@@ -84,10 +93,9 @@ class HowLongToBeatApiClient @Inject constructor() {
         val auth = resolveAuth()
         val authField = if (auth.hpKey != null && auth.hpVal != null) auth.hpKey to auth.hpVal else null
         val body = buildSearchBody(title, authField)
+        // Referer/Origin are set unconditionally by request() itself now — see there for why.
         val headers = buildMap {
             put("Content-Type", "application/json")
-            put("Referer", "$BASE_URL/")
-            put("Origin", BASE_URL)
             auth.token?.let { put("x-auth-token", it) }
             auth.hpKey?.let { put("x-hp-key", it) }
             auth.hpVal?.let { put("x-hp-val", it) }
@@ -120,19 +128,35 @@ class HowLongToBeatApiClient @Inject constructor() {
 
     private fun fetchAuth(): HltbAuth {
         val homepage = request(BASE_URL, method = "GET").readTextBody()
-        val scriptSrc = Regex("""/_next/static/[^"'\s]*?_app-[a-zA-Z0-9]+\.js""").find(homepage)?.value
-        if (scriptSrc == null) {
-            Log.w(LOG_TAG, "Could not find the _app-*.js bundle reference in the homepage HTML")
-            return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (bundle _app-*.js non trovato)")
+        // HowLongToBeat moved its build to Turbopack at some point after this client was first
+        // written: chunk file names are now opaque hashes (e.g. "1knrxcebl5umx.js") with no "_app-"
+        // bundle at all, confirmed by fetching the real homepage — searching only for that one
+        // magic name (this client's previous version) always missed and fell back to the dead
+        // legacy "/api/s/" endpoint. Scan every same-origin script the homepage references instead,
+        // same fallback strategy as the reference ScrappyCocco/HowLongToBeat-PythonAPI uses
+        // (send_website_request_getcode(parse_all_scripts=True)) — but any script whose name still
+        // happens to contain "_app-" is tried first, since that's cheaper in the case a future
+        // deploy reintroduces a dedicated bundle.
+        val scriptSrcs = Regex("""<script[^>]*\bsrc=["']([^"']+)["']""").findAll(homepage)
+            .map { it.groupValues[1] }
+            .filter { it.startsWith("/") && !it.startsWith("//") }
+            .distinct()
+            .sortedByDescending { it.contains("_app-") }
+            .toList()
+        if (scriptSrcs.isEmpty()) {
+            Log.w(LOG_TAG, "Could not find any same-origin <script src> in the homepage HTML")
+            return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (nessuno script same-origin trovato in home)")
         }
 
-        val script = request("$BASE_URL$scriptSrc", method = "GET").readTextBody()
         // Requiring `method: "POST"` inside the same fetch(...) call is load-bearing, not cosmetic:
         // without it this regex can (and, on a real device, did — see CLAUDE.md, Fase 8) latch onto
-        // an unrelated GET fetch() elsewhere in the bundle, silently resolving to a nonexistent path
-        // and 404ing the search on every title. Ported from the actively-maintained
-        // ScrappyCocco/HowLongToBeat-PythonAPI (HTMLRequests.py), whose broader regex this is a
-        // direct translation of — not a fresh guess.
+        // an unrelated GET fetch() elsewhere in a chunk, silently resolving to a nonexistent path and
+        // 404ing the search on every title (this repo's chunks have several unrelated POST fetch()
+        // calls, e.g. an error-reporting "/api/error" one — the method+braces requirement is what
+        // tells those apart from the real search endpoint, whatever odd name it currently has;
+        // HowLongToBeat is known to rotate it through deliberately unrelated-sounding words). Ported
+        // from the actively-maintained ScrappyCocco/HowLongToBeat-PythonAPI (HTMLRequests.py), whose
+        // broader regex this is a direct translation of — not a fresh guess.
         //
         // The reference implementation truncates a captured suffix like "search/v2" down to just its
         // first segment ("search") and never appends a trailing slash to the resulting "/api/search" —
@@ -140,23 +164,30 @@ class HowLongToBeatApiClient @Inject constructor() {
         // slash, potentially hitting a route that doesn't exist. FALLBACK_SEARCH_PATH intentionally
         // keeps its own trailing slash ("/api/s/"): that's the legacy endpoint shape, distinct from
         // the current bundle-derived one.
-        val rawSuffix = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1)
-        val basePath = rawSuffix?.substringBefore("/")
-        val searchPath = basePath?.let { "/api/$it" } ?: FALLBACK_SEARCH_PATH
-        val source = if (basePath == null) {
-            Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
-            "fallback (nessun /api/... trovato nel bundle)"
+        var searchPath: String? = null
+        for (src in scriptSrcs) {
+            val script = runCatching { request("$BASE_URL$src", method = "GET").readTextBody() }
+                .onFailure { Log.w(LOG_TAG, "GET $BASE_URL$src failed", it) }
+                .getOrNull() ?: continue
+            val rawSuffix = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1) ?: continue
+            searchPath = "/api/${rawSuffix.substringBefore("/")}"
+            break
+        }
+        val resolvedSearchPath = searchPath ?: FALLBACK_SEARCH_PATH
+        val source = if (searchPath == null) {
+            Log.w(LOG_TAG, "Scanned ${scriptSrcs.size} script(s), none had a POST /api/... fetch(); using fallback $FALLBACK_SEARCH_PATH")
+            "fallback (nessun /api/... trovato in ${scriptSrcs.size} script analizzati)"
         } else {
-            "bundle ($searchPath)"
+            "bundle ($resolvedSearchPath)"
         }
 
-        val initUrl = "$BASE_URL$searchPath${if (searchPath.endsWith("/")) "" else "/"}init?t=${System.currentTimeMillis()}"
+        val initUrl = "$BASE_URL$resolvedSearchPath${if (resolvedSearchPath.endsWith("/")) "" else "/"}init?t=${System.currentTimeMillis()}"
         val initBody = runCatching { request(initUrl, method = "GET").readTextBody() }
             .onFailure { Log.w(LOG_TAG, "GET $initUrl failed", it) }
             .getOrNull()
         val auth = initBody?.let(::extractAuthFields) ?: AuthFields(null, null, null)
 
-        return HltbAuth(searchPath = searchPath, token = auth.token, hpKey = auth.hpKey, hpVal = auth.hpVal, source = source)
+        return HltbAuth(searchPath = resolvedSearchPath, token = auth.token, hpKey = auth.hpKey, hpVal = auth.hpVal, source = source)
     }
 
     private fun extractAuthFields(json: String): AuthFields = runCatching {
@@ -224,6 +255,11 @@ class HowLongToBeatApiClient @Inject constructor() {
      * (and the request method) are replayed unchanged against the redirect target, which is the
      * correct behavior for 307/308 and the safest choice for 301/302/303 too, since this client
      * always expects a JSON response either way.
+     *
+     * `Referer`/`Origin` are set unconditionally (not just on the final search POST): confirmed
+     * against the real site that the `/init` endpoint alone returns a bare 403 `{"error":"Access
+     * Denied"}` without a `Referer` header, even though the static `/_next/static/...` chunk
+     * requests don't care — an inconsistency worth re-checking if HowLongToBeat changes again.
      */
     private fun request(
         url: String,
@@ -241,6 +277,8 @@ class HowLongToBeatApiClient @Inject constructor() {
                 setRequestProperty("Accept", "application/json, text/html;q=0.8, */*;q=0.5")
                 setRequestProperty("Accept-Language", "en-US,en;q=0.9")
                 setRequestProperty("User-Agent", USER_AGENT)
+                setRequestProperty("Referer", "$BASE_URL/")
+                setRequestProperty("Origin", BASE_URL)
                 headers.forEach { (key, value) -> setRequestProperty(key, value) }
                 if (body != null) doOutput = true
             }
