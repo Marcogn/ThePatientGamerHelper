@@ -42,6 +42,17 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
     (`CoverImageReconciler`) that reclaims any cover file no longer
     referenced by a review or backlog item, so cancelling never breaks
     an existing reference.
+- HowLongToBeat estimate lookups still failed after the previous fix
+  (#45), now with an "HTTP 404" reported in the app's error message
+  instead of silently missing. Root cause, confirmed by fetching the
+  real site: HowLongToBeat's build moved to Turbopack, so its bundle no
+  longer has the `_app-*.js` chunk this client looked for specifically
+  — it now scans every same-origin script the homepage references
+  instead, same fallback strategy the actively-maintained
+  ScrappyCocco/HowLongToBeat-PythonAPI reference uses. Also added the
+  `Referer` header to every request, not just the final search POST:
+  confirmed against the real site that the `/init` endpoint alone
+  403s ("Access Denied") without it, unlike the static chunk requests.
 
 ## [1.0.3] - 2026-08-18
 
