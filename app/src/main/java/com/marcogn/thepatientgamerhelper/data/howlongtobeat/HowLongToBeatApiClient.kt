@@ -31,10 +31,12 @@ private const val READ_TIMEOUT_MS = 12_000
 private const val MAX_REDIRECTS = 5
 private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 // Ported from ScrappyCocco/HowLongToBeat-PythonAPI's HTMLRequests.py (actively maintained, checked
-// as recently as mid-2026): requiring `method: "POST"` in the same fetch(...) call is the part a
-// looser regex (this client's previous version) is missing — see the call site for why that matters.
+// as recently as mid-2026, PyPI release 1.0.22 in June 2026): requiring `method: "POST"` in the same
+// fetch(...) call is the part a looser regex (this client's previous version) is missing — see the
+// call site for why that matters. The captured group deliberately excludes the "/api/" prefix (see
+// fetchAuth(), which truncates to the first path segment the same way the reference implementation does).
 private val SEARCH_ENDPOINT_REGEX =
-    Regex("""fetch\s*\(\s*["'](/api/[a-zA-Z0-9_/]+)[^"']*["']\s*,\s*\{[^}]*method:\s*["']POST["'][^}]*\}""")
+    Regex("""fetch\s*\(\s*["']/api/([a-zA-Z0-9_/]+)[^"']*["']\s*,\s*\{[^}]*method:\s*["']POST["'][^}]*\}""")
 
 private val hltbJson = Json { ignoreUnknownKeys = true }
 
@@ -50,11 +52,14 @@ private val hltbJson = Json { ignoreUnknownKeys = true }
  * technique documented by actively-maintained wrappers (ScrappyCocco/HowLongToBeat-PythonAPI), a
  * bare POST to the search endpoint is no longer enough — the response also needs a handful of
  * headers (`x-auth-token`/`x-hp-key`/`x-hp-val`) obtained from a `GET <searchPath>/init` call made
- * right before the search. This client implements that full flow:
+ * right before the search, *and* the same key/value pair injected as an extra property inside the
+ * search body itself (see [buildSearchBody] — this was the bug that made every search silently
+ * return nothing even once the headers were correctly set). This client implements that full flow:
  *  1. GET the homepage, find the Next.js `_app-*.js` bundle reference.
  *  2. GET that bundle, regex out the `/api/...` path used by the frontend's own search `fetch()`.
- *  3. GET `<path>init` and pull the token/key/val fields out of whatever JSON it returns.
- *  4. POST the actual search to `<path>` with those headers attached.
+ *  3. GET `<path>/init` and pull the token/key/val fields out of whatever JSON it returns.
+ *  4. POST the actual search to `<path>` with those headers attached and the key/value pair also
+ *     folded into the JSON body.
  *
  * **This is inherently fragile** — a reverse-engineered technique against an undocumented,
  * unversioned target, not a stable contract. It could not be exercised against the real
@@ -77,7 +82,8 @@ class HowLongToBeatApiClient @Inject constructor() {
 
     suspend fun search(title: String): HowLongToBeatEstimate? = withContext(Dispatchers.IO) {
         val auth = resolveAuth()
-        val body = buildSearchBody(title)
+        val authField = if (auth.hpKey != null && auth.hpVal != null) auth.hpKey to auth.hpVal else null
+        val body = buildSearchBody(title, authField)
         val headers = buildMap {
             put("Content-Type", "application/json")
             put("Referer", "$BASE_URL/")
@@ -127,17 +133,26 @@ class HowLongToBeatApiClient @Inject constructor() {
         // and 404ing the search on every title. Ported from the actively-maintained
         // ScrappyCocco/HowLongToBeat-PythonAPI (HTMLRequests.py), whose broader regex this is a
         // direct translation of — not a fresh guess.
-        val rawPath = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1)
-        val searchPath = (rawPath ?: FALLBACK_SEARCH_PATH).let { if (it.endsWith("/")) it else "$it/" }
-        val source = if (rawPath == null) {
+        //
+        // The reference implementation truncates a captured suffix like "search/v2" down to just its
+        // first segment ("search") and never appends a trailing slash to the resulting "/api/search" —
+        // unlike this client's previous version, which kept any subpath and always forced a trailing
+        // slash, potentially hitting a route that doesn't exist. FALLBACK_SEARCH_PATH intentionally
+        // keeps its own trailing slash ("/api/s/"): that's the legacy endpoint shape, distinct from
+        // the current bundle-derived one.
+        val rawSuffix = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1)
+        val basePath = rawSuffix?.substringBefore("/")
+        val searchPath = basePath?.let { "/api/$it" } ?: FALLBACK_SEARCH_PATH
+        val source = if (basePath == null) {
             Log.w(LOG_TAG, "Could not extract the search endpoint from the bundle, using fallback $FALLBACK_SEARCH_PATH")
             "fallback (nessun /api/... trovato nel bundle)"
         } else {
             "bundle ($searchPath)"
         }
 
-        val initBody = runCatching { request("$BASE_URL${searchPath}init", method = "GET").readTextBody() }
-            .onFailure { Log.w(LOG_TAG, "GET ${searchPath}init failed", it) }
+        val initUrl = "$BASE_URL$searchPath${if (searchPath.endsWith("/")) "" else "/"}init?t=${System.currentTimeMillis()}"
+        val initBody = runCatching { request(initUrl, method = "GET").readTextBody() }
+            .onFailure { Log.w(LOG_TAG, "GET $initUrl failed", it) }
             .getOrNull()
         val auth = initBody?.let(::extractAuthFields) ?: AuthFields(null, null, null)
 
@@ -163,11 +178,22 @@ class HowLongToBeatApiClient @Inject constructor() {
         AuthFields(null, null, null)
     }
 
-    private fun buildSearchBody(title: String): String =
-        """{"searchType":"games","searchTerms":${title.trim().split(Regex("\\s+")).toJsonStringArray()},""" +
+    /**
+     * [authField] is the (fieldName, fieldValue) pair pulled out of the `/init` response
+     * (see [extractAuthFields]) — the reference implementation doesn't just send it as the
+     * `x-hp-key`/`x-hp-val` headers, it *also* injects it as an extra top-level property into this
+     * JSON body, keyed by the field name itself (e.g. a response field `"content": "abc123"` becomes
+     * `"abc123"` as *both* a header value and this body's literal property name). Omitting this was
+     * the actual bug in this client's previous version: the search silently returned nothing even
+     * with all three headers correctly set, because the anti-bot check also inspects the body.
+     */
+    private fun buildSearchBody(title: String, authField: Pair<String, String>?): String {
+        val extra = authField?.let { (name, value) -> ""","${name.jsonEscaped()}":"${value.jsonEscaped()}"""" }.orEmpty()
+        return """{"searchType":"games","searchTerms":${title.trim().split(Regex("\\s+")).toJsonStringArray()},""" +
             """"searchPage":1,"size":20,"searchOptions":{"games":{"userId":0,"platform":"","sortCategory":"popular",""" +
             """"rangeCategory":"main","modifier":""},"users":{"sortCategory":"postcount"},"filter":"","sort":0,""" +
-            """"randomizer":0}}"""
+            """"randomizer":0},"useCache":true$extra}"""
+    }
 
     private fun parseBestMatch(responseText: String, title: String): HowLongToBeatEstimate? {
         val root = hltbJson.parseToJsonElement(responseText).jsonObject
@@ -247,7 +273,9 @@ private fun Long?.toHoursOrNull(): Double? =
     this?.takeIf { it > 0 }?.let { seconds -> Math.round(seconds / 3600.0 * 10) / 10.0 }
 
 private fun List<String>.toJsonStringArray(): String =
-    joinToString(prefix = "[", postfix = "]") { term -> "\"" + term.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
+    joinToString(prefix = "[", postfix = "]") { term -> "\"${term.jsonEscaped()}\"" }
+
+private fun String.jsonEscaped(): String = replace("\\", "\\\\").replace("\"", "\\\"")
 
 private fun HttpURLConnection.readTextBody(): String =
     (if (responseCode in 200..299) inputStream else errorStream)
