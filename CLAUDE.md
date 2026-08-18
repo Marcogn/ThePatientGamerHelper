@@ -739,12 +739,11 @@ Robolectric and needs manual on-device verification instead — see
 
 `CHANGELOG.md` (repo root) is the release notes source of truth — the
 `Release` GitHub Actions workflow (`.github/workflows/release.yml`,
-manual `workflow_dispatch` only, never runs on push/PR) reads
+manual `workflow_dispatch` only, never runs on push/PR) cuts the version
+bump itself (see below), then reads the resulting
 `app/build.gradle.kts`'s `versionName`, looks for the matching
 `## [x.y.z]` section in `CHANGELOG.md`, and publishes it verbatim as the
-GitHub Release notes. It refuses to overwrite an existing release/tag,
-so re-running it requires bumping `versionName` (and `versionCode`)
-again first.
+GitHub Release notes. It refuses to overwrite an existing release/tag.
 
 **Policy: every change gets a `CHANGELOG.md` entry when it's made, not
 deferred to release time.** Add it under a `## [Unreleased]` section at
@@ -753,13 +752,23 @@ changelog always accurate, so cutting a release is never a scramble to
 reconstruct what changed since the last one.
 
 Cutting an actual release (a deliberate, human-directed action, not
-something to do unprompted):
-1. Rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` for the new
-   version, and leave a fresh empty `## [Unreleased]` above it for the
-   next round of changes.
-2. Bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
+something to do unprompted) is a single step: manually trigger the
+`Release` workflow from GitHub Actions, typing the new version (e.g.
+`1.0.2`) into the `version` input. The workflow itself:
+1. Validates the typed version is a plain `x.y.z`, greater than the
+   current `versionName`, and that `CHANGELOG.md`'s `[Unreleased]`
+   section actually has something in it (fails the run otherwise,
+   before touching any file).
+2. Renames `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (today, UTC)
+   and leaves a fresh empty `## [Unreleased]` above it.
+3. Bumps `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
    to match.
-3. Manually trigger the `Release` workflow from GitHub Actions.
+4. Commits and pushes that bump straight to `main`, then proceeds to
+   build/sign/publish the release from those same files.
+
+There is no auto-computed default for the `version` input — GitHub's
+manual dispatch form can't pre-fill a value computed from repo state, so
+it's always typed by hand and only validated, never suggested.
 
 ## Code conventions
 
