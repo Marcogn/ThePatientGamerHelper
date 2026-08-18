@@ -6,37 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
-## [1.0.3] - 2026-08-18
-
-### Changed
-
-- The `Release` GitHub Actions workflow now cuts the version itself:
-  the manual dispatch form takes a `version` input (validated to be
-  greater than the current `versionName`, no auto-computed default),
-  and the workflow renames `CHANGELOG.md`'s `[Unreleased]` section,
-  bumps `versionCode`/`versionName` in `app/build.gradle.kts`, and
-  pushes that commit straight to `main` before building/signing/
-  publishing — no more manually editing those two files by hand before
-  triggering a release. The push authenticates with a `RELEASE_PUSH_TOKEN`
-  fine-grained PAT (repo-scoped, `Contents: read/write`) instead of the
-  default `GITHUB_TOKEN`, needed to actually bypass `main`'s branch
-  protection: the default token's `github-actions[bot]` identity isn't
-  covered by an "admins bypass required pull requests" exception the
-  way a repo admin's own PAT is.
-
 ### Fixed
 
-- HowLongToBeat estimate lookups (backlog "search online") always came
-  back empty, even when the endpoint/auth extraction succeeded. Diffed
-  this client against the actively-maintained
-  ScrappyCocco/HowLongToBeat-PythonAPI reference and found the actual
-  cause: the key/value pair pulled from the `/init` response must also
-  be injected as an extra property in the search request's JSON body,
-  not just sent as the `x-hp-key`/`x-hp-val` headers — HowLongToBeat's
-  anti-bot check inspects both. Also fixed the bundle-derived search
-  path to match the reference's shape (truncate to the first path
-  segment, no forced trailing slash) instead of a variant that could
-  point at a nonexistent route.
 - **Google Drive backup/restore silently excluded the entire backlog.**
   Only the review library was ever written to `data.json` or restored —
   every backlog list, item, comment and history entry was permanently
@@ -71,6 +42,38 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
     (`CoverImageReconciler`) that reclaims any cover file no longer
     referenced by a review or backlog item, so cancelling never breaks
     an existing reference.
+
+## [1.0.3] - 2026-08-18
+
+### Changed
+
+- The `Release` GitHub Actions workflow now cuts the version itself:
+  the manual dispatch form takes a `version` input (validated to be
+  greater than the current `versionName`, no auto-computed default),
+  and the workflow renames `CHANGELOG.md`'s `[Unreleased]` section,
+  bumps `versionCode`/`versionName` in `app/build.gradle.kts`, and
+  pushes that commit straight to `main` before building/signing/
+  publishing — no more manually editing those two files by hand before
+  triggering a release. The push authenticates with a `RELEASE_PUSH_TOKEN`
+  fine-grained PAT (repo-scoped, `Contents: read/write`) instead of the
+  default `GITHUB_TOKEN`, needed to actually bypass `main`'s branch
+  protection: the default token's `github-actions[bot]` identity isn't
+  covered by an "admins bypass required pull requests" exception the
+  way a repo admin's own PAT is.
+
+### Fixed
+
+- HowLongToBeat estimate lookups (backlog "search online") always came
+  back empty, even when the endpoint/auth extraction succeeded. Diffed
+  this client against the actively-maintained
+  ScrappyCocco/HowLongToBeat-PythonAPI reference and found the actual
+  cause: the key/value pair pulled from the `/init` response must also
+  be injected as an extra property in the search request's JSON body,
+  not just sent as the `x-hp-key`/`x-hp-val` headers — HowLongToBeat's
+  anti-bot check inspects both. Also fixed the bundle-derived search
+  path to match the reference's shape (truncate to the first path
+  segment, no forced trailing slash) instead of a variant that could
+  point at a nonexistent route.
 
 ## [1.0.1] - 2026-08-17
 
