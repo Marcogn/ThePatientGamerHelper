@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-08-18
+
 ### Fixed
 
 - **Google Drive backup/restore silently excluded the entire backlog.**
