@@ -15,7 +15,12 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
   bumps `versionCode`/`versionName` in `app/build.gradle.kts`, and
   pushes that commit straight to `main` before building/signing/
   publishing — no more manually editing those two files by hand before
-  triggering a release.
+  triggering a release. The push authenticates with a `RELEASE_PUSH_TOKEN`
+  fine-grained PAT (repo-scoped, `Contents: read/write`) instead of the
+  default `GITHUB_TOKEN`, needed to actually bypass `main`'s branch
+  protection: the default token's `github-actions[bot]` identity isn't
+  covered by an "admins bypass required pull requests" exception the
+  way a repo admin's own PAT is.
 
 ### Fixed
 
