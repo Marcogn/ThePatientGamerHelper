@@ -114,20 +114,18 @@ class BacklogItemFormViewModel @Inject constructor(
     fun onGenresChange(value: List<String>) = updateDraft { it.copy(genreNames = value) }
     fun onTagsChange(value: List<String>) = updateDraft { it.copy(tagNames = value) }
 
+    // Cover files replaced/removed here are deliberately not deleted immediately: the change isn't
+    // committed until save(), and the user can still cancel back to the item's current cover.
+    // CoverImageReconciler (run at app startup) reclaims whatever ends up unreferenced.
     fun onCoverImagePicked(uri: Uri) {
         viewModelScope.launch {
-            val previousPath = draft.value.coverImagePath
             val newPath = imageStorage.persist(uri)
             updateDraft { it.copy(coverImagePath = newPath) }
-            imageStorage.delete(previousPath)
         }
     }
 
     fun onRemoveCoverImage() {
-        viewModelScope.launch {
-            imageStorage.delete(draft.value.coverImagePath)
-            updateDraft { it.copy(coverImagePath = null) }
-        }
+        updateDraft { it.copy(coverImagePath = null) }
     }
 
     fun onSearchQueryChange(value: String) {
@@ -159,7 +157,6 @@ class BacklogItemFormViewModel @Inject constructor(
             val coverPath = searchCoordinator.downloadCoverLocally(result)
             val hltbOutcome = searchCoordinator.searchHowLongToBeat(result.title)
             val hltbEstimate = (hltbOutcome as? GameMetadataSearchCoordinator.HltbOutcome.Found)?.estimate
-            val previousPath = draft.value.coverImagePath
             val newDraft = draft.value.copy(
                 title = result.title,
                 platformNames = listOfNotNull(result.platformName).ifEmpty { draft.value.platformNames },
@@ -172,7 +169,6 @@ class BacklogItemFormViewModel @Inject constructor(
                 hltbCompletionistHours = hltbEstimate?.completionistHours,
             )
             onDraftReplaced(newDraft)
-            if (coverPath != null && previousPath != null) imageStorage.delete(previousPath)
             search.value = SearchState()
             hltbMessage.value = when (hltbOutcome) {
                 is GameMetadataSearchCoordinator.HltbOutcome.Found -> appContext.getString(R.string.hltb_status_found)

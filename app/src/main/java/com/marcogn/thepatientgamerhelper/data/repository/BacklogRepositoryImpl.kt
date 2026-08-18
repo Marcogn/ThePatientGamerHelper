@@ -261,6 +261,65 @@ class BacklogRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * Drive backup restore (see `BackupManager.restoreBackup()`): wipes every list — cascading
+     * through items/comments/history/cross-refs — and re-inserts [lists]/[items] with their
+     * original ids/timestamps preserved, same "restore, not merge" semantics as
+     * `ReviewRepositoryImpl.replaceAll()`. Deliberately does **not** wipe
+     * `platformDao`/`genreDao`/`tagDao` the way the review restore does: those lookup tables are
+     * shared with reviews (see CLAUDE.md), and the review restore that always runs first in the
+     * same backup/restore already wiped and repopulated them from the reviews' own platform/genre/
+     * tag names — wiping them again here would delete rows the review restore just wrote.
+     * [writeRelations] below still resolves each item's names via `getOrCreate()`, so a
+     * platform/genre/tag referenced only by backlog items (never by a review) is recreated too.
+     */
+    override suspend fun replaceAll(lists: List<BacklogList>, items: List<BacklogItem>) = database.withTransaction {
+        backlogDao.deleteAllLists()
+        lists.forEach { list ->
+            backlogDao.insertList(
+                BacklogListEntity(
+                    id = list.id,
+                    name = list.name,
+                    position = list.position,
+                    createdAt = list.createdAt,
+                    systemKind = list.systemKind,
+                ),
+            )
+        }
+        items.forEach { item ->
+            backlogDao.upsertItem(
+                BacklogItemEntity(
+                    id = item.id,
+                    listId = item.listId,
+                    title = item.title,
+                    coverImagePath = item.coverImagePath,
+                    status = item.status,
+                    position = item.position,
+                    addedAt = item.addedAt,
+                    startDate = item.startDate,
+                    completedDate = item.completedDate,
+                    reviewId = item.reviewId,
+                    abandonNote = item.abandonNote,
+                    releaseYear = item.releaseYear,
+                    developer = item.developer,
+                    hltbMainStoryHours = item.hltbMainStoryHours,
+                    hltbMainExtraHours = item.hltbMainExtraHours,
+                    hltbCompletionistHours = item.hltbCompletionistHours,
+                    updatedAt = item.addedAt,
+                ),
+            )
+            writeRelations(item.id, item.platforms.map { it.name }, item.genres.map { it.name }, item.tags.map { it.name })
+            item.comments.forEach { comment ->
+                backlogDao.insertComment(BacklogCommentEntity(id = comment.id, itemId = item.id, text = comment.text, timestamp = comment.timestamp))
+            }
+            item.history.forEach { entry ->
+                backlogDao.insertHistoryEntry(
+                    BacklogHistoryEntryEntity(id = entry.id, itemId = item.id, eventType = entry.type, timestamp = entry.timestamp, detail = entry.detail),
+                )
+            }
+        }
+    }
+
     /** Resolves lookup names to ids and writes cross-refs for an item that already exists. */
     private suspend fun writeRelations(itemId: String, platformNames: List<String>, genreNames: List<String>, tagNames: List<String>) {
         val platformIds = distinctNames(platformNames).map { platformDao.getOrCreate(it) }

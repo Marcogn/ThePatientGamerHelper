@@ -51,4 +51,13 @@ interface BacklogRepository {
 
     /** Additive import from a backlog export (Fase 8) — see `BacklogRepositoryImpl` for the exact semantics. */
     suspend fun importLists(lists: List<ImportedBacklogList>)
+
+    /**
+     * Full-overwrite restore from a Drive backup — deletes every existing list (cascading through
+     * items/comments/history/cross-refs) and re-inserts [lists]/[items] verbatim, preserving every
+     * id (including [BacklogList.systemKind]) and timestamp instead of generating fresh ones. Same
+     * "restore, not merge" semantics as `ReviewRepository.replaceAll()`, and always called alongside
+     * it in the same restore so [BacklogItem.reviewId] resolves against reviews already restored.
+     */
+    suspend fun replaceAll(lists: List<BacklogList>, items: List<BacklogItem>)
 }

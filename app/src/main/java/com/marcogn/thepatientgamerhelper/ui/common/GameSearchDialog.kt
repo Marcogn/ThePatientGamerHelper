@@ -100,9 +100,10 @@ private fun GameSearchResultRow(result: GameMetadataSearchResult, onClick: () ->
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (result.coverImageUrl != null) {
+        val previewUrl = result.coverThumbnailUrl ?: result.coverImageUrl
+        if (previewUrl != null) {
             AsyncImage(
-                model = result.coverImageUrl,
+                model = previewUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

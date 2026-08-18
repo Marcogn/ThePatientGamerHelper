@@ -2,10 +2,11 @@ package com.marcogn.thepatientgamerhelper.data.backup
 
 import com.marcogn.thepatientgamerhelper.data.drive.DriveApiClient
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
+import com.marcogn.thepatientgamerhelper.domain.backup.buildBackupPayload
 import com.marcogn.thepatientgamerhelper.domain.backup.suggestedBackupFileName
-import com.marcogn.thepatientgamerhelper.domain.backup.toBackupPayload
 import com.marcogn.thepatientgamerhelper.domain.backup.toDomain
 import com.marcogn.thepatientgamerhelper.domain.model.BackupFile
+import com.marcogn.thepatientgamerhelper.domain.repository.BacklogRepository
 import com.marcogn.thepatientgamerhelper.domain.repository.ReviewRepository
 import java.time.Instant
 import javax.inject.Inject
@@ -15,11 +16,14 @@ import kotlinx.coroutines.flow.first
 /**
  * Orchestrates a backup/restore round trip: Room + covers <-> zip archive <-> Drive appDataFolder.
  * Takes an already-obtained [accessToken] — see [com.marcogn.thepatientgamerhelper.data.drive.DriveAuthManager]
- * for how callers (UI or the periodic worker) get one.
+ * for how callers (UI or the periodic worker) get one. Backs up (and restores) both the review
+ * library and the whole backlog (every list, with its items and their comments/history) — the
+ * backlog used to be silently excluded entirely, see `docs/implementation-decisions.md`.
  */
 @Singleton
 class BackupManager @Inject constructor(
     private val reviewRepository: ReviewRepository,
+    private val backlogRepository: BacklogRepository,
     private val imageStorage: ImageStorage,
     private val archiveBuilder: BackupArchiveBuilder,
     private val archiveReader: BackupArchiveReader,
@@ -28,7 +32,9 @@ class BackupManager @Inject constructor(
 ) {
     suspend fun createBackup(accessToken: String): BackupFile = try {
         val reviews = reviewRepository.observeAll().first()
-        val archive = archiveBuilder.build(reviews.toBackupPayload())
+        val backlogLists = backlogRepository.observeLists().first()
+        val backlogItems = backlogRepository.observeAllItems().first()
+        val archive = archiveBuilder.build(buildBackupPayload(reviews, backlogLists, backlogItems))
         val result = driveApiClient.uploadBackup(accessToken, suggestedBackupFileName(), archive)
         pruneOldBackups(accessToken, keepId = result.id)
         preferences.lastBackupAt = Instant.now()
@@ -56,19 +62,32 @@ class BackupManager @Inject constructor(
         }
     }
 
-    /** Full overwrite of local data — single-user app, no merge/conflict handling. */
+    /**
+     * Full overwrite of local data — single-user app, no merge/conflict handling. Reviews are
+     * restored before the backlog: `BacklogItemEntity.reviewId` has a foreign key onto `reviews`,
+     * and restored backlog items trust their DTO's `reviewId` outright (see `BackupPayload.kt`'s
+     * doc comment) rather than checking it exists first, so the review it points at must already
+     * be in place.
+     */
     suspend fun restoreBackup(accessToken: String, backup: BackupFile) {
         val content = archiveReader.read(driveApiClient.downloadBackup(accessToken, backup.id))
         imageStorage.clearAll()
         val restoredReviews = content.payload.reviews.map { dto ->
-            val coverFileName = dto.coverImageFileName
-            val coverImagePath = if (coverFileName == null) {
-                null
-            } else {
-                content.images[coverFileName]?.let { bytes -> imageStorage.writeBytes(coverFileName, bytes) }
-            }
-            dto.toDomain(resolvedCoverImagePath = coverImagePath)
+            dto.toDomain(resolvedCoverImagePath = resolveCoverPath(content, dto.coverImageFileName))
         }
         reviewRepository.replaceAll(restoredReviews)
+
+        val restoredLists = content.payload.backlogLists.map { it.toDomain() }
+        val restoredItems = content.payload.backlogLists.flatMap { listDto ->
+            listDto.items.map { itemDto ->
+                itemDto.toDomain(resolvedCoverImagePath = resolveCoverPath(content, itemDto.coverImageFileName))
+            }
+        }
+        backlogRepository.replaceAll(restoredLists, restoredItems)
+    }
+
+    private suspend fun resolveCoverPath(content: BackupArchiveContent, fileName: String?): String? {
+        if (fileName == null) return null
+        return content.images[fileName]?.let { bytes -> imageStorage.writeBytes(fileName, bytes) }
     }
 }

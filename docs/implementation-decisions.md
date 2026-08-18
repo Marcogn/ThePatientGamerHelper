@@ -971,3 +971,145 @@ there was never a JSON/CSV *import* path to begin with. Left untouched —
 in scope for this session was only what v2 §2/§3 actually describes
 (single/multi-review Markdown, backlog JSON+zip), not a general audit of
 every export format.
+
+## Google Drive backup/restore silently excluded the entire backlog
+
+Found while investigating the backup-size report below: `BackupManager.createBackup()`
+only ever called `reviewRepository.observeAll()`, and `domain/backup/BackupPayload.kt`
+had no backlog fields at all — `data.json` never carried a single backlog
+list, item, comment, or history entry, and `restoreBackup()` never
+touched `BacklogRepository`. A Drive backup was never actually a backup
+of "the library" despite Phase 4's docs describing it that way; it
+silently only ever covered reviews. Given this app's whole premise is
+tracking a backlog through to a review, losing the backlog on a device
+loss/restore is a real, not hypothetical, data-loss gap — fixed outright
+rather than filed as a known limitation.
+
+Fix, mirroring the existing review restore's "preserve ids, full
+overwrite" semantics exactly (deliberately **not** the separate, additive
+`domain/export/BacklogExportDto.kt` format's semantics — that one is a
+portable share/merge file with regenerated ids; this is the same device's
+own data coming back):
+
+- `domain/model/Backlog.kt`'s `BacklogList` gained a `systemKind: String? = null`
+  field (mirrored from `BacklogListEntity.systemKind`, previously dropped
+  entirely at the entity→domain mapping boundary since nothing needed it
+  before). Without this, restoring the backlog would silently turn the
+  "Completed with review" system list back into an ordinary list —
+  `getOrCreateSystemList()` matches by `systemKind`, not by name, so it
+  would just create a *second* "Completed with review" list the next
+  time that flow runs post-restore, splitting history across two lists.
+- `domain/backup/BackupPayload.kt` gained `BackupBacklogListDto`/
+  `BackupBacklogItemDto`/comment/history DTOs and a `backlogLists` field
+  on `BackupPayload` (default `emptyList()`, so every backup taken before
+  this change still decodes — kotlinx.serialization's default only
+  covers a *missing* key, which this is). IDs round-trip exactly like
+  `BackupReviewDto`'s. `BackupBacklogItemDto.reviewId` is trusted
+  directly with no "does this review exist here" check, unlike the
+  export format's best-effort relink — safe specifically *because*
+  `BackupManager.restoreBackup()` always restores reviews before backlog
+  in the same operation, so the referenced review is guaranteed to exist
+  by construction, not merely likely to.
+- `BacklogRepository` gained `replaceAll(lists, items)`, implemented in
+  `BacklogRepositoryImpl` the same way `ReviewRepositoryImpl.replaceAll()`
+  works: wipe, then re-insert with explicit (non-zero) ids so Room's
+  `autoGenerate` doesn't reassign them. Wiping is a single
+  `BacklogDao.deleteAllLists()` — `backlog_items` has an `ON DELETE
+  CASCADE` foreign key on `listId`, and comments/history/cross-refs
+  cascade again from there, so deleting every list is enough to clear
+  everything under it in one query. Deliberately does **not** also wipe
+  `platformDao`/`genreDao`/`tagDao` the way `ReviewRepositoryImpl.replaceAll()`
+  does: those lookup tables are shared with reviews, the review restore
+  that always runs first already wiped and repopulated them from the
+  reviews' own platform/genre/tag names, and wiping them again here would
+  delete rows that restore just wrote. Each item's own
+  `writeRelations()` call still resolves its names via `getOrCreate()`,
+  so a platform/genre/tag referenced only by backlog items (never by any
+  review) gets recreated too.
+- `BackupManager.createBackup()`/`restoreBackup()` now read/write both
+  repositories; restore order is reviews first, backlog second, for the
+  foreign-key reason above.
+
+## Cover image storage/backup bloat (TheGamesDB covers)
+
+Reported after real use: ~20 reviews+backlog items with covers produced
+a >30MB Drive backup, and the app's on-device storage grew to nearly
+300MB after searching TheGamesDB for most of the library. Root-caused to
+four independent issues, all in the TheGamesDB cover path — none in the
+photo-picker path, which was already reasonably sized before this:
+
+- `BackupArchiveBuilder.build()` used to zip *every* file in
+  `ImageStorage`'s `covers/` folder unconditionally, including files
+  orphaned by a cancelled form (see the last point below). Fixed by
+  filtering `imageStorage.listAll()` down to the cover file names
+  actually referenced by what's going into the payload before zipping —
+  a targeted fix at the one place that builds the archive, not a general
+  "clean up everything" pass, since the payload's own reference list is
+  the ground truth for what a backup needs. This was originally
+  investigated and fixed *before* the backlog-backup gap immediately
+  below was found — at that point `BackupManager` only ever backed up
+  reviews, so every backlog item's cover was *also* unconditionally
+  swept into the zip despite `data.json` having nothing to restore it
+  against. That's a separate bug from "zips literally everything on
+  disk," now fixed by making the backup include the backlog for real
+  (previous section) rather than by excluding its covers.
+- Covers were persisted to disk exactly as downloaded/picked, and
+  TheGamesDB's boxart `include=boxart` response only ever gave this app
+  the `original`-resolution image — often several MB, far more than any
+  screen in this app (56dp list thumbnail, grid tile, detail view)
+  displays. `ImageStorage` now downsamples (via `BitmapFactory.Options.inSampleSize`,
+  powers-of-two, cheap) to a 900px longest edge and re-encodes as JPEG at
+  quality 85 before writing — applied uniformly to photo-picker picks
+  (`persist()`) and TheGamesDB downloads (new `persistDownloadedCover()`),
+  not just the latter, since an unprocessed high-res phone photo has the
+  same problem. 900px/quality 85 are not from a spec, just a generous
+  "clearly enough for anything this app renders, clearly smaller than a
+  multi-MB source" choice — revisit if a real device report ever shows
+  visible quality loss. `writeBytes()` (restore/zip-import paths) is
+  deliberately left writing raw bytes: those bytes are already something
+  this app previously wrote (or a v2-export/backup counterpart's), so
+  they're already sized reasonably; recompressing on every restore would
+  only add lossy generations for no size benefit.
+- `GameSearchDialog`'s result list rendered each candidate's cover via
+  Coil pointed straight at the same `original` URL used for the final
+  download — a 48dp row icon paying for and Coil-disk-caching a
+  multi-MB image, repeated for every result on every search. This is
+  the most likely dominant contributor to the ~300MB figure specifically
+  (Coil's disk cache lives outside `covers/`, isn't touched by the
+  reconciler below, and accumulates across every search performed, not
+  just the games actually kept). `TheGamesDbApiClient` now also reads
+  `include.boxart.base_url.thumb` from the same response (a small crop
+  TheGamesDB already returns alongside `original`, unused until now) and
+  exposes it as `GameMetadataSearchResult.coverThumbnailUrl`;
+  `GameSearchDialog` renders that instead, falling back to
+  `coverImageUrl` if `thumb` is ever absent from the response — the
+  `thumb` key's existence is inferred from TheGamesDB API v1's
+  documented `base_url` shape, not verified against a live response
+  while offline, hence the fallback rather than a hard assumption.
+- `ReviewFormViewModel`/`BacklogItemFormViewModel` used to call
+  `imageStorage.delete(previousPath)` the instant a cover was
+  picked/replaced/removed/imported — immediately, before the form was
+  ever saved. Two problems: (a) a cover downloaded while exploring
+  "cerca online" and then abandoned by cancelling the form was already
+  orphaned on disk with nothing to clean it up, and (b) replacing an
+  *existing* review's cover and then cancelling deleted the file the
+  review's still-unsaved-change *and* its still-current DB row both
+  pointed at — a real "cover silently disappears" bug, not just a size
+  issue. Fixed by removing every eager delete from both ViewModels and
+  adding `CoverImageReconciler` (`data/image/`): it diffs
+  `imageStorage.listAll()` against every `coverImagePath` currently on a
+  `Review` or `BacklogItem`, deletes what's unreferenced, and runs once
+  from `ThePatientGamerHelperApplication.onCreate()` on a background
+  coroutine (same pattern as `DebugSeeder.seedIfEmpty()`). Startup-only,
+  not also wired into every save, on the judgement that a personal
+  single-user library's stray files between app launches aren't worth a
+  reconcile pass (repository listing + file diff) on every single save;
+  revisit if a real session report shows meaningful growth within one
+  long-running app session.
+
+Not done as part of this pass: limiting or configuring Coil's own disk
+cache size/location (no custom `ImageLoader` exists in this app; Coil
+uses its library default). The `thumb`-URL fix above should remove most
+of the pressure that was filling it, and CLAUDE.md's dependency-
+minimalism weighs against adding a custom `ImageLoader`/cache
+configuration without a follow-up report showing it's still needed.

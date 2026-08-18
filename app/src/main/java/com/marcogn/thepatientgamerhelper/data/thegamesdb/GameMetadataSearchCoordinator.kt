@@ -8,7 +8,6 @@ import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import com.marcogn.thepatientgamerhelper.domain.model.GameMetadataSearchResult
 import com.marcogn.thepatientgamerhelper.domain.model.HowLongToBeatEstimate
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.UUID
 import javax.inject.Inject
 
 private const val LOG_TAG = "GameMetadataSearch"
@@ -68,7 +67,7 @@ class GameMetadataSearchCoordinator @Inject constructor(
     suspend fun downloadCoverLocally(result: GameMetadataSearchResult): String? {
         val url = result.coverImageUrl ?: return null
         return runCatching {
-            imageStorage.writeBytes("${UUID.randomUUID()}.jpg", apiClient.downloadCoverBytes(url))
+            imageStorage.persistDownloadedCover(apiClient.downloadCoverBytes(url))
         }.getOrNull()
     }
 

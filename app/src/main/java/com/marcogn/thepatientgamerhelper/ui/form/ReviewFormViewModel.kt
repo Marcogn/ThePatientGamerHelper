@@ -169,20 +169,18 @@ class ReviewFormViewModel @Inject constructor(
     fun onConsChange(value: List<String>) = updateDraft { it.copy(cons = value) }
     fun onReviewTextChange(value: String) = updateDraft { it.copy(reviewText = value) }
 
+    // Cover files replaced/removed here are deliberately not deleted immediately: the change isn't
+    // committed until save(), and the user can still cancel back to the review's current cover.
+    // CoverImageReconciler reclaims whatever ends up unreferenced.
     fun onCoverImagePicked(uri: Uri) {
         viewModelScope.launch {
-            val previousPath = draft.value.coverImagePath
             val newPath = imageStorage.persist(uri)
             updateDraft { it.copy(coverImagePath = newPath) }
-            imageStorage.delete(previousPath)
         }
     }
 
     fun onRemoveCoverImage() {
-        viewModelScope.launch {
-            imageStorage.delete(draft.value.coverImagePath)
-            updateDraft { it.copy(coverImagePath = null) }
-        }
+        updateDraft { it.copy(coverImagePath = null) }
     }
 
     fun onSearchQueryChange(value: String) {
@@ -211,7 +209,6 @@ class ReviewFormViewModel @Inject constructor(
     fun onSearchResultSelected(result: GameMetadataSearchResult) {
         viewModelScope.launch {
             val coverPath = searchCoordinator.downloadCoverLocally(result)
-            val previousPath = draft.value.coverImagePath
             updateDraft {
                 it.copy(
                     title = result.title,
@@ -220,7 +217,6 @@ class ReviewFormViewModel @Inject constructor(
                     coverImagePath = coverPath ?: it.coverImagePath,
                 )
             }
-            if (coverPath != null && previousPath != null) imageStorage.delete(previousPath)
             search.value = SearchState()
         }
     }
@@ -236,9 +232,9 @@ class ReviewFormViewModel @Inject constructor(
      * overwritten. Full pre-parse validation: on any failure, the form is left completely untouched
      * and [importMessage] carries the specific reason. A referenced cover image is never resolvable
      * from a single standalone `.md` pick (no accompanying image bytes), so it always degrades to
-     * "no cover" per the image-is-always-best-effort rule — the previous cover file, if any, is
-     * deleted the same way [onRemoveCoverImage] does, so a re-imported review doesn't leave an
-     * orphaned file behind.
+     * "no cover" per the image-is-always-best-effort rule — the previous cover file, if any,
+     * becomes unreferenced and is reclaimed by [CoverImageReconciler] rather than deleted here
+     * (the import itself isn't saved yet, so the form can still be cancelled back to it).
      */
     fun importMarkdown(source: Uri) {
         viewModelScope.launch {
@@ -246,11 +242,7 @@ class ReviewFormViewModel @Inject constructor(
                 val content = importFileReader.readText(source)
                 parseReviewBackupMarkdown(content).getOrThrow().toFormDraft(resolvedCoverImagePath = null)
             }
-            outcome.onSuccess { newDraft ->
-                val previousCoverPath = draft.value.coverImagePath
-                updateDraft { newDraft }
-                if (previousCoverPath != null) imageStorage.delete(previousCoverPath)
-            }
+            outcome.onSuccess { newDraft -> updateDraft { newDraft } }
             _importMessage.value = outcome.fold(
                 onSuccess = { appContext.getString(R.string.import_completed) },
                 onFailure = { appContext.getString(R.string.import_failed, it.message.orEmpty()) },

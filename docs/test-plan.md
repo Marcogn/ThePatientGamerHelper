@@ -420,13 +420,29 @@ point.
 - [ ] **FORM-33 (edge)** Cancelling the photo picker (back/cancel button):
       the previous cover (if present, in edit mode) stays unchanged, no
       "broken" cover.
+- [ ] **FORM-33b (edge, regression check)** Edit an existing review that
+      already has a cover; pick a *different* cover (photo picker or a
+      "Search online" result — FORM-39), then leave the form via
+      back/cancel **without saving**. Re-open the review: the **original**
+      cover must still display correctly, not be missing/broken. (Before
+      the cover-storage fix, the old file was deleted the instant a
+      replacement was picked, before the change was ever saved — cancelling
+      left the review pointing at a deleted file.)
 - [ ] **FORM-34 (edge)** Replacing an existing cover with a new one several
       times in a row: no visible accumulation of orphaned files to the
       user (not verifiable from the UI, but verify the final preview is
       always the correct one and performance doesn't degrade).
+- [ ] **FORM-34b (edge)** Pick a cover, then cancel out of a **brand new**
+      (never-saved) review entirely. Restart the app (so
+      `CoverImageReconciler` runs) — no functional check possible from the
+      UI, but this is the scenario the startup sweep exists for; if disk
+      usage is being tracked (SET-16c below), verify it doesn't keep
+      growing across repeated cancels like this.
 - [ ] **FORM-35 (edge)** Selecting a very large image (e.g. a 12MP+ photo
       straight from the camera): copied/displayed with no OOM and no
-      noticeable excessive delay.
+      noticeable excessive delay, and the resulting cover file on disk is
+      well under the original photo's size (downsampled/compressed, not a
+      byte-for-byte copy).
 - [ ] **FORM-36 (edge)** Selecting an image with extreme proportions (a
       very wide panorama, or very tall and narrow): the preview in the
       form and in the library grid view don't break the layout.
@@ -445,6 +461,16 @@ point.
       other fields already filled in by hand by the user (verify the
       actual behavior: if it overwrites already-filled fields, that's a
       case to flag).
+- [ ] **FORM-39b** The result list's row thumbnails and the final saved
+      cover both display correctly (no broken-image icon) — the list now
+      requests TheGamesDB's smaller "thumb" crop instead of the full-size
+      image, with a fallback to the full image if the API response doesn't
+      include one; if thumbnails are ever missing/broken across several
+      different searches, that fallback path is worth checking.
+- [ ] **FORM-39c** The cover saved locally after picking a result is
+      reasonably sized (well under a megabyte for a typical box art, not
+      several MB) — it's downsampled/re-encoded on save, not stored as
+      TheGamesDB's original download.
 - [ ] **FORM-40 (edge)** A search with no results at all: "No results
       found", the form remains fillable by hand.
 - [ ] **FORM-41 (edge)** A search that fails with a network/HTTP error
@@ -990,6 +1016,23 @@ not the library's (2.7 covers the library's own zip import instead).
       uploaded, with no separate "clean up now" action needed. Also
       verify the automatic worker (SET-19) prunes the same way, not just
       a manual backup.
+- [ ] **SET-16c** With a library of a couple dozen reviews **and** backlog
+      items that all have covers (a mix of photo-picker and "Search
+      online" covers), the reported backup size (SET-21) is on the order
+      of a few MB, not tens of MB. Both the review and backlog covers now
+      legitimately count toward this size (the backlog itself is
+      restorable, unlike before — see SET-23c/SET-24b below), so if it's
+      unexpectedly large, check whether the *individual* cover files are
+      unexpectedly large (would point at the downsample/compress step —
+      FORM-35, FORM-39c — regressing), not whether the backlog is
+      included at all.
+- [ ] **SET-16d (edge)** Leave a cover file orphaned on purpose (pick a
+      cover in the review or backlog item form, then cancel without
+      saving — FORM-33b's scenario), **without** restarting the app
+      first (so `CoverImageReconciler`'s startup sweep hasn't run yet).
+      Back up immediately after: the orphaned cover must **not** appear
+      in the backup size / bloat it, since `BackupArchiveBuilder` filters
+      to referenced covers regardless of whether the reconciler has run.
 - [ ] **SET-17 (edge)** Backing up with an **empty** library: still
       succeeds (a valid zip with an empty `data.json` and no images), not
       an error.
@@ -1012,26 +1055,54 @@ not the library's (2.7 covers the library's own zip import instead).
       on Drive", not a silently empty list indistinguishable from a
       network error.
 - [ ] **SET-23** Tapping "Restore this backup": confirmation dialog
-      "Restore this backup? All current local data (reviews and cover
-      images) will be replaced with the contents of '...'. This cannot be
-      undone." — "Restore" button.
+      "Restore this backup? All current local data (reviews, backlog,
+      and cover images) will be replaced with the contents of '...'.
+      This cannot be undone." — "Restore" button. (The dialog text
+      previously said just "reviews and cover images" — a real
+      inaccuracy from when the backlog wasn't actually included, fixed
+      alongside the backlog backup support itself.)
 - [ ] **SET-24** Confirming the restore: **all** current local
       reviews/covers are deleted and replaced with the chosen backup's
       contents (full overwrite, no merge) — "Restore complete".
+- [ ] **SET-24b (regression check)** Before backing up: note the backlog
+      in detail — list names, item titles/statuses/order, at least one
+      item's comments and history, at least one item in the
+      "Completed with review" system list, at least one item linked to a
+      review. Back up, then change the backlog significantly (add/rename/
+      delete lists, move/reorder/delete items, add comments), then
+      restore that earlier backup. Verify **every** noted detail is back
+      exactly as it was: lists (including the "Completed with review"
+      list still being recognized as that system list, not a duplicate
+      appearing the next time an item completes with a review — see
+      BKL-list-kind checks in §5.2), item order within each list,
+      statuses, comments in their original order, history entries, and
+      the review link. Also mark another item as completed-with-review
+      after the restore and confirm it lands in the **same** "Completed
+      with review" list that was restored, not a freshly created
+      duplicate (would indicate `BacklogList.systemKind` didn't survive
+      the round trip). This is the core scenario for the backlog backup
+      fix — until this session, none of it was restorable at all.
 - [ ] **SET-25 (edge)** ⚠️ **Destructive by design**: explicitly verify,
       on a local test dataset (not real data), that data created after
-      the last backup (reviews added, edited, deleted in the meantime)
-      **disappears** after a restore — this is expected behavior, not a
-      bug, but it must be confirmed there is no misleading message
-      suggesting a merge.
+      the last backup (reviews **and backlog items** added, edited,
+      deleted in the meantime) **disappears** after a restore — this is
+      expected behavior, not a bug, but it must be confirmed there is no
+      misleading message suggesting a merge.
 - [ ] **SET-26 (edge)** A restore interrupted mid-way (e.g. the app is
       closed or the network drops during archive download/decompression):
       verify the library's state afterwards — in the worst case, data
       partially deleted without being replaced would be a real data loss,
-      to report with high priority if reproduced.
+      to report with high priority if reproduced. Also check whether the
+      interruption landed between the review restore and the backlog
+      restore (two separate transactions, run back to back) — reviews
+      restored but the backlog still the old/deleted state (or vice
+      versa) would be a partial, inconsistent restore worth flagging even
+      though a *fully* interrupted restore's data loss is already covered
+      above.
 - [ ] **SET-27 (edge)** Restoring a backup that references covers that
       then actually get downloaded: verify the images show up correctly
-      in the library after the restore, not just the text data.
+      in the library after the restore, not just the text data — for
+      **both** reviews and backlog items.
 - [ ] **SET-28** "Sign out" (logout): goes back to the "not connected"
       state, backup/restore become hidden again; **no** local data is
       touched by a simple logout.
@@ -1396,3 +1467,23 @@ review alone — all the more reason not to skip them in future test rounds.
   `saveState = true` on a `popUpTo(Destination.Home)` call that should
   have discarded the popped back stack instead of saving it, and fixed in
   `ThePatientGamerHelperNavGraph.kt`.
+- 2026-08-18 — Cover image storage/backup bloat fix (see
+  `docs/implementation-decisions.md`): FORM-33b, FORM-34b, FORM-39b/c,
+  SET-16c added. Not yet manually verified on device — no "Known
+  regressions" entry added for the cover-deleted-on-cancel issue this fix
+  addresses, since it was found by code review, not device testing;
+  re-verify FORM-33b specifically on-device before considering it closed.
+- 2026-08-18 (same day, follow-up) — Found, while reviewing the above,
+  that Google Drive backup/restore had *never* actually covered the
+  backlog at all (reviews only) — a real data-loss gap, not a size issue,
+  fixed the same day (see `docs/implementation-decisions.md`, "Google
+  Drive backup/restore silently excluded the entire backlog"). SET-16c
+  reworded (backlog covers are legitimately part of the backup now, not
+  bloat to eliminate), SET-16d, SET-24b added, SET-23/24/25/26/27 updated
+  to also cover the backlog and the corrected confirmation-dialog text
+  (`settings_restore_confirm_message` used to say "reviews and cover
+  images", now says "reviews, backlog, and cover images" — it was already
+  inaccurate before this fix, in the direction of promising less than the
+  restore actually did to local data). Not yet manually verified on
+  device — SET-24b in particular (the actual backlog restore round trip)
+  needs real-device confirmation before this can be considered closed.
