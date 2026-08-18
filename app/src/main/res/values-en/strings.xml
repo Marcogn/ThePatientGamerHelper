@@ -94,7 +94,7 @@
     <string name="settings_backup_size_kb">%1$d KB</string>
     <string name="cd_restore_backup">Restore this backup</string>
     <string name="settings_restore_confirm_title">Restore this backup?</string>
-    <string name="settings_restore_confirm_message">All current local data (reviews and cover images) will be replaced with the contents of \"%1$s\". This cannot be undone.</string>
+    <string name="settings_restore_confirm_message">All current local data (reviews, backlog, and cover images) will be replaced with the contents of \"%1$s\". This cannot be undone.</string>
     <string name="settings_restore_confirm_button">Restore</string>
 
     <string name="settings_backup_completed">Backup complete</string>

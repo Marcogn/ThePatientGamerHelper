@@ -9,7 +9,8 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogHistoryEntry
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogItem
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
 
-fun BacklogListEntity.toDomain() = BacklogList(id = id, name = name, position = position, createdAt = createdAt)
+fun BacklogListEntity.toDomain() =
+    BacklogList(id = id, name = name, position = position, createdAt = createdAt, systemKind = systemKind)
 
 fun BacklogCommentEntity.toDomain() = BacklogComment(id = id, itemId = itemId, text = text, timestamp = timestamp)
 

@@ -8,12 +8,23 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ### Fixed
 
+- **Google Drive backup/restore silently excluded the entire backlog.**
+  Only the review library was ever written to `data.json` or restored —
+  every backlog list, item, comment and history entry was permanently
+  unrecoverable from a Drive backup, with no warning anywhere that this
+  was the case. A backup now also captures every backlog list with its
+  items (including comments, history, and each item's link back to its
+  review), and restoring a backup fully overwrites the local backlog the
+  same way it already did the review library, preserving every id and
+  timestamp. Old backups taken before this change still restore fine
+  (with an empty backlog, since they never had one to restore).
 - Google Drive backups and on-device storage were growing far larger than
   the library warranted, all traced back to TheGamesDB cover handling:
-  - Every backup zipped the *entire* `covers/` folder, including backlog
-    item covers (never restored by the backup format at all) and files
-    left behind by an abandoned form. Backups now only include covers the
-    reviews being backed up actually reference.
+  - Every backup zipped the *entire* `covers/` folder, including files
+    left behind by an abandoned form and — before the fix above — every
+    backlog item's cover despite the backup format never restoring it.
+    Backups now only include covers actually referenced by what's being
+    backed up (reviews and, now, backlog items alike).
   - Covers picked from the photo library or downloaded from TheGamesDB
     were saved to disk at full/original resolution (TheGamesDB's box art
     can be several MB each). They're now downsampled and re-encoded

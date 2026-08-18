@@ -140,10 +140,11 @@ com.marcogn.thepatientgamerhelper
 │   │                      # deliberate exception, matching the fixture's English shape. Also
 │   │                      # BacklogExportDto.kt (backlog export/import zip payload, format
 │   │                      # separate from domain/backup, +recensioneCollegataId round-trip)
-│   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto,
-│   │                      # Review<->DTO mapping, file naming — same pattern as domain/export
+│   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto/
+│   │                      # BackupBacklogListDto+ItemDto (reviews AND the whole backlog),
+│   │                      # DTO<->domain mapping, file naming — same pattern as domain/export
 │   └── repository/        # Repository interfaces (ReviewRepository, LookupRepository,
-│                          # BacklogRepository, importLists(), upsertImported())
+│                          # BacklogRepository, importLists()/upsertImported()/replaceAll())
 ├── di/                    # Hilt modules (Database, Repository)
 └── ui/
     ├── theme/             # Material 3 (Compose) theme + ThemeViewModel (reads ThemePreferences)
@@ -273,10 +274,22 @@ needing the Android SDK or Robolectric.
   `domain/export`: the export format has Italian labels and an absolute
   cover path (not restorable elsewhere); the backup format carries only
   the cover's file name, resolved to a new path at restore time.
+- **Backup/restore covers the whole library: reviews *and* the entire
+  backlog** (every list — including which are system lists via
+  `BacklogList.systemKind` — with its items, and each item's
+  comments/history/cover/link back to its review). This was **not** true
+  for a while after Phase 4 originally shipped: `BackupManager` only ever
+  read/wrote reviews, so the backlog was silently unrecoverable from a
+  Drive backup — found and fixed later, see
+  `docs/implementation-decisions.md`, "Google Drive backup/restore
+  silently excluded the entire backlog". `BackupPayload.backlogLists`
+  defaults to an empty list so backups taken before the fix still decode.
 - **Restore**: `BackupManager.restoreBackup()` decompresses, deletes all
-  local covers, calls `ReviewRepository.replaceAll()` — a single
-  transaction that deletes and re-inserts everything, preserving
-  `id`/`createdAt`/`updatedAt`. **No merge/conflict handling**: single-user
+  local covers, calls `ReviewRepository.replaceAll()` **then**
+  `BacklogRepository.replaceAll()` (reviews first: backlog items'
+  `reviewId` foreign key needs the review row to already exist) — each a
+  single transaction that deletes and re-inserts everything, preserving
+  every id and timestamp. **No merge/conflict handling**: single-user
   app, a restore is a full overwrite.
 - **Retention: only the latest backup is kept on Drive.** Each backup is
   a full snapshot, so a single-user app has no use for a growing history
@@ -332,10 +345,13 @@ needing the Android SDK or Robolectric.
 - **Cannot be meaningfully tested via Robolectric**: `HttpURLConnection`
   calls to `googleapis.com`, Credential Manager, and `AuthorizationClient`
   require real network/Play Services. What's unit-tested instead: DTO/JSON
-  mapping (`domain/backup/BackupPayloadTest.kt`), the zip archive
-  (`data/backup/BackupArchiveTest.kt`, Robolectric) and
-  `ReviewRepositoryImpl.replaceAll()` (Robolectric). The auth flow must be
-  verified by hand on a device/emulator with Play Services.
+  mapping (`domain/backup/BackupPayloadTest.kt`, including the backlog
+  DTOs), the zip archive (`data/backup/BackupArchiveTest.kt`, Robolectric)
+  and `ReviewRepositoryImpl.replaceAll()`/`BacklogRepositoryImpl.replaceAll()`
+  (Robolectric). The auth flow must be verified by hand on a device/
+  emulator with Play Services — so must the end-to-end backup→restore
+  round trip for a real backlog, since none of the above tests exercise
+  `BackupManager` itself.
 
 Full incident history for this phase (a multi-round "Sign in with Google"
 debugging saga, client-ID rotation, persistent-signing setup) is in

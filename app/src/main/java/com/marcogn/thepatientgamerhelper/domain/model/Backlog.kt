@@ -7,11 +7,18 @@ enum class BacklogItemStatus { DA_INIZIARE, IN_CORSO, COMPLETATO, ABBANDONATO, I
 
 enum class BacklogHistoryEventType { CREATO, CAMBIO_STATO, CAMBIO_LISTA, COMMENTO, RECENSIONE_COLLEGATA }
 
+/**
+ * [systemKind] mirrors `BacklogListEntity.systemKind` (see [BacklogListKind]) — carried on the
+ * domain model purely for Drive backup/restore round-trip fidelity, so a restored "Completed with
+ * review" list is still recognized as that system list instead of `getOrCreateSystemList()`
+ * creating a duplicate. `null` for a regular, user-created list.
+ */
 data class BacklogList(
     val id: Long,
     val name: String,
     val position: Int,
     val createdAt: Instant,
+    val systemKind: String? = null,
 )
 
 data class BacklogComment(

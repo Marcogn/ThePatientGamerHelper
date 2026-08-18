@@ -972,6 +972,64 @@ in scope for this session was only what v2 §2/§3 actually describes
 (single/multi-review Markdown, backlog JSON+zip), not a general audit of
 every export format.
 
+## Google Drive backup/restore silently excluded the entire backlog
+
+Found while investigating the backup-size report below: `BackupManager.createBackup()`
+only ever called `reviewRepository.observeAll()`, and `domain/backup/BackupPayload.kt`
+had no backlog fields at all — `data.json` never carried a single backlog
+list, item, comment, or history entry, and `restoreBackup()` never
+touched `BacklogRepository`. A Drive backup was never actually a backup
+of "the library" despite Phase 4's docs describing it that way; it
+silently only ever covered reviews. Given this app's whole premise is
+tracking a backlog through to a review, losing the backlog on a device
+loss/restore is a real, not hypothetical, data-loss gap — fixed outright
+rather than filed as a known limitation.
+
+Fix, mirroring the existing review restore's "preserve ids, full
+overwrite" semantics exactly (deliberately **not** the separate, additive
+`domain/export/BacklogExportDto.kt` format's semantics — that one is a
+portable share/merge file with regenerated ids; this is the same device's
+own data coming back):
+
+- `domain/model/Backlog.kt`'s `BacklogList` gained a `systemKind: String? = null`
+  field (mirrored from `BacklogListEntity.systemKind`, previously dropped
+  entirely at the entity→domain mapping boundary since nothing needed it
+  before). Without this, restoring the backlog would silently turn the
+  "Completed with review" system list back into an ordinary list —
+  `getOrCreateSystemList()` matches by `systemKind`, not by name, so it
+  would just create a *second* "Completed with review" list the next
+  time that flow runs post-restore, splitting history across two lists.
+- `domain/backup/BackupPayload.kt` gained `BackupBacklogListDto`/
+  `BackupBacklogItemDto`/comment/history DTOs and a `backlogLists` field
+  on `BackupPayload` (default `emptyList()`, so every backup taken before
+  this change still decodes — kotlinx.serialization's default only
+  covers a *missing* key, which this is). IDs round-trip exactly like
+  `BackupReviewDto`'s. `BackupBacklogItemDto.reviewId` is trusted
+  directly with no "does this review exist here" check, unlike the
+  export format's best-effort relink — safe specifically *because*
+  `BackupManager.restoreBackup()` always restores reviews before backlog
+  in the same operation, so the referenced review is guaranteed to exist
+  by construction, not merely likely to.
+- `BacklogRepository` gained `replaceAll(lists, items)`, implemented in
+  `BacklogRepositoryImpl` the same way `ReviewRepositoryImpl.replaceAll()`
+  works: wipe, then re-insert with explicit (non-zero) ids so Room's
+  `autoGenerate` doesn't reassign them. Wiping is a single
+  `BacklogDao.deleteAllLists()` — `backlog_items` has an `ON DELETE
+  CASCADE` foreign key on `listId`, and comments/history/cross-refs
+  cascade again from there, so deleting every list is enough to clear
+  everything under it in one query. Deliberately does **not** also wipe
+  `platformDao`/`genreDao`/`tagDao` the way `ReviewRepositoryImpl.replaceAll()`
+  does: those lookup tables are shared with reviews, the review restore
+  that always runs first already wiped and repopulated them from the
+  reviews' own platform/genre/tag names, and wiping them again here would
+  delete rows that restore just wrote. Each item's own
+  `writeRelations()` call still resolves its names via `getOrCreate()`,
+  so a platform/genre/tag referenced only by backlog items (never by any
+  review) gets recreated too.
+- `BackupManager.createBackup()`/`restoreBackup()` now read/write both
+  repositories; restore order is reviews first, backlog second, for the
+  foreign-key reason above.
+
 ## Cover image storage/backup bloat (TheGamesDB covers)
 
 Reported after real use: ~20 reviews+backlog items with covers produced
@@ -981,17 +1039,20 @@ four independent issues, all in the TheGamesDB cover path — none in the
 photo-picker path, which was already reasonably sized before this:
 
 - `BackupArchiveBuilder.build()` used to zip *every* file in
-  `ImageStorage`'s `covers/` folder unconditionally. `BackupManager`
-  only ever backs up **reviews** (`domain/backup/BackupPayload.kt` has
-  no backlog fields at all), so every backlog item's cover — and any
-  file orphaned by a cancelled form (next point) — was dead weight in
-  every backup: shipped to Drive, downloaded back on restore, and then
-  immediately unused since restore only resolves cover file names it
-  finds referenced in `data.json`. Fixed by filtering `imageStorage.listAll()`
-  down to `payload.reviews`' `coverImageFileName`s before zipping — a
-  targeted fix at the one place that builds the archive, not a general
-  "clean up everything" pass, since the backup's own reference list is
-  the ground truth for what a backup needs.
+  `ImageStorage`'s `covers/` folder unconditionally, including files
+  orphaned by a cancelled form (see the last point below). Fixed by
+  filtering `imageStorage.listAll()` down to the cover file names
+  actually referenced by what's going into the payload before zipping —
+  a targeted fix at the one place that builds the archive, not a general
+  "clean up everything" pass, since the payload's own reference list is
+  the ground truth for what a backup needs. This was originally
+  investigated and fixed *before* the backlog-backup gap immediately
+  below was found — at that point `BackupManager` only ever backed up
+  reviews, so every backlog item's cover was *also* unconditionally
+  swept into the zip despite `data.json` having nothing to restore it
+  against. That's a separate bug from "zips literally everything on
+  disk," now fixed by making the backup include the backlog for real
+  (previous section) rather than by excluding its covers.
 - Covers were persisted to disk exactly as downloaded/picked, and
   TheGamesDB's boxart `include=boxart` response only ever gave this app
   the `original`-resolution image — often several MB, far more than any

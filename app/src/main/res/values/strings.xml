@@ -94,7 +94,7 @@
     <string name="settings_backup_size_kb">%1$d KB</string>
     <string name="cd_restore_backup">Ripristina questo backup</string>
     <string name="settings_restore_confirm_title">Ripristinare questo backup?</string>
-    <string name="settings_restore_confirm_message">Tutti i dati locali attuali (recensioni e copertine) verranno sostituiti dal contenuto di \"%1$s\". L\'operazione non è reversibile.</string>
+    <string name="settings_restore_confirm_message">Tutti i dati locali attuali (recensioni, backlog e copertine) verranno sostituiti dal contenuto di \"%1$s\". L\'operazione non è reversibile.</string>
     <string name="settings_restore_confirm_button">Ripristina</string>
 
     <string name="settings_backup_completed">Backup completato</string>

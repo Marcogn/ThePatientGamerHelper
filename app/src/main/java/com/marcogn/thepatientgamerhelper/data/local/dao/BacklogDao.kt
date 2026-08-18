@@ -44,6 +44,10 @@ interface BacklogDao {
     @Query("DELETE FROM backlog_lists WHERE id = :id")
     suspend fun deleteList(id: Long)
 
+    /** Wipes every list — cascades (FK `ON DELETE CASCADE`) through items, comments, history and cross-refs. Used by [replaceAll]-style restore, not by the UI. */
+    @Query("DELETE FROM backlog_lists")
+    suspend fun deleteAllLists()
+
     @Query("UPDATE backlog_lists SET position = :position WHERE id = :id")
     suspend fun updateListPosition(id: Long, position: Int)
 
