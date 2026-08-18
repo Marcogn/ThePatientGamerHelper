@@ -1352,8 +1352,21 @@ review alone — all the more reason not to skip them in future test rounds.
       restored wholesale on the next drawer tap to Backlog. Fix: drop
       `saveState = true` from that specific `popUpTo(Destination.Home)`
       call, since the chain is meant to be discarded, not preserved.
-
----
+- [ ] **REG-14** HowLongToBeat search failed for every title with
+      `HowLongToBeat: ricerca non riuscita — HTTP 404 @
+      https://howlongtobeat.com/api/s` (reported from device use, screenshot
+      of the backlog item form). Root cause, confirmed by fetching the real
+      site: HowLongToBeat's build moved to Turbopack, so the homepage no
+      longer references a `_app-*.js` bundle at all (chunk names are now
+      opaque hashes) — the client's bundle-discovery step always missed and
+      fell back to the dead legacy `/api/s/` endpoint. Fix: scan every
+      same-origin `<script src>` the homepage references instead of only
+      one specifically-named file. A second, related bug found while
+      re-verifying end-to-end: the `/init` call 403s ("Access Denied")
+      without a `Referer` header, which this client previously only sent on
+      the final search POST — now sent on every request. Verify online
+      search from the backlog item form actually returns
+      `hltbMainStoryHours`/etc. instead of the 404/error message.
 
 ## Update history for this plan
 
@@ -1370,6 +1383,12 @@ review alone — all the more reason not to skip them in future test rounds.
   manually verified on device (see each phase's own "Build status" note in
   `CLAUDE.md`) — no new "Known regressions" entries added, since none of
   this has been through real-device verification yet.
+- 2026-08-18 — REG-14 added: HowLongToBeat search failing with a 404 on
+  every title, reported from device use. HowLongToBeat's build moved to
+  Turbopack, removing the `_app-*.js` bundle this client looked for by
+  name; fixed by scanning every same-origin script instead. Also fixed
+  the `/init` call 403ing without a `Referer` header, found while
+  re-verifying the fix against the real site.
 - 2026-08-17 — REG-13 added: a real navigation bug reported from device
   use (cancelling the backlog "write a review" form could make the
   drawer's "Backlog" item open a stale leftover screen instead of the
