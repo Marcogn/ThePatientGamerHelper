@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-08-18
+
 ### Changed
 
 - The `Release` GitHub Actions workflow now cuts the version itself:
