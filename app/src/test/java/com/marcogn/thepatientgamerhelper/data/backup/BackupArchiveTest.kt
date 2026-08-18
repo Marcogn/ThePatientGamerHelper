@@ -47,4 +47,17 @@ class BackupArchiveTest {
         assertEquals(payload, content.payload)
         assertTrue(content.images.isEmpty())
     }
+
+    @Test
+    fun `archive excludes cover files not referenced by any review in the payload`() = runTest {
+        val coverPath = imageStorage.writeBytes("cover-1.jpg", byteArrayOf(1, 2, 3))
+        // Simulates a backlog-item cover or an abandoned form's leftover: present on disk, but not
+        // referenced by any review going into this backup.
+        imageStorage.writeBytes("orphan.jpg", byteArrayOf(9, 9, 9))
+        val payload = listOf(sampleReview(id = "r1", coverImagePath = coverPath)).toBackupPayload()
+
+        val content = reader.read(builder.build(payload))
+
+        assertEquals(setOf("cover-1.jpg"), content.images.keys)
+    }
 }

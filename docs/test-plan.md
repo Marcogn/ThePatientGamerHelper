@@ -420,13 +420,29 @@ point.
 - [ ] **FORM-33 (edge)** Cancelling the photo picker (back/cancel button):
       the previous cover (if present, in edit mode) stays unchanged, no
       "broken" cover.
+- [ ] **FORM-33b (edge, regression check)** Edit an existing review that
+      already has a cover; pick a *different* cover (photo picker or a
+      "Search online" result — FORM-39), then leave the form via
+      back/cancel **without saving**. Re-open the review: the **original**
+      cover must still display correctly, not be missing/broken. (Before
+      the cover-storage fix, the old file was deleted the instant a
+      replacement was picked, before the change was ever saved — cancelling
+      left the review pointing at a deleted file.)
 - [ ] **FORM-34 (edge)** Replacing an existing cover with a new one several
       times in a row: no visible accumulation of orphaned files to the
       user (not verifiable from the UI, but verify the final preview is
       always the correct one and performance doesn't degrade).
+- [ ] **FORM-34b (edge)** Pick a cover, then cancel out of a **brand new**
+      (never-saved) review entirely. Restart the app (so
+      `CoverImageReconciler` runs) — no functional check possible from the
+      UI, but this is the scenario the startup sweep exists for; if disk
+      usage is being tracked (SET-16c below), verify it doesn't keep
+      growing across repeated cancels like this.
 - [ ] **FORM-35 (edge)** Selecting a very large image (e.g. a 12MP+ photo
       straight from the camera): copied/displayed with no OOM and no
-      noticeable excessive delay.
+      noticeable excessive delay, and the resulting cover file on disk is
+      well under the original photo's size (downsampled/compressed, not a
+      byte-for-byte copy).
 - [ ] **FORM-36 (edge)** Selecting an image with extreme proportions (a
       very wide panorama, or very tall and narrow): the preview in the
       form and in the library grid view don't break the layout.
@@ -445,6 +461,16 @@ point.
       other fields already filled in by hand by the user (verify the
       actual behavior: if it overwrites already-filled fields, that's a
       case to flag).
+- [ ] **FORM-39b** The result list's row thumbnails and the final saved
+      cover both display correctly (no broken-image icon) — the list now
+      requests TheGamesDB's smaller "thumb" crop instead of the full-size
+      image, with a fallback to the full image if the API response doesn't
+      include one; if thumbnails are ever missing/broken across several
+      different searches, that fallback path is worth checking.
+- [ ] **FORM-39c** The cover saved locally after picking a result is
+      reasonably sized (well under a megabyte for a typical box art, not
+      several MB) — it's downsampled/re-encoded on save, not stored as
+      TheGamesDB's original download.
 - [ ] **FORM-40 (edge)** A search with no results at all: "No results
       found", the form remains fillable by hand.
 - [ ] **FORM-41 (edge)** A search that fails with a network/HTTP error
@@ -990,6 +1016,16 @@ not the library's (2.7 covers the library's own zip import instead).
       uploaded, with no separate "clean up now" action needed. Also
       verify the automatic worker (SET-19) prunes the same way, not just
       a manual backup.
+- [ ] **SET-16c** With a library of a couple dozen reviews that all have
+      covers (a mix of photo-picker and "Search online" covers), the
+      reported backup size (SET-21) is on the order of a few MB, not tens
+      of MB — a backup used to also carry every backlog item's cover and
+      any orphaned cover left over from a cancelled form, neither of
+      which the backup ever restores. If it's still large, check whether
+      the backlog also has many items with covers (expected to *not*
+      inflate the backup any more) versus the review covers themselves
+      being unexpectedly large (would point at the downsample/compress
+      step regressing).
 - [ ] **SET-17 (edge)** Backing up with an **empty** library: still
       succeeds (a valid zip with an empty `data.json` and no images), not
       an error.
@@ -1377,3 +1413,9 @@ review alone — all the more reason not to skip them in future test rounds.
   `saveState = true` on a `popUpTo(Destination.Home)` call that should
   have discarded the popped back stack instead of saving it, and fixed in
   `ThePatientGamerHelperNavGraph.kt`.
+- 2026-08-18 — Cover image storage/backup bloat fix (see
+  `docs/implementation-decisions.md`): FORM-33b, FORM-34b, FORM-39b/c,
+  SET-16c added. Not yet manually verified on device — no "Known
+  regressions" entry added for the cover-deleted-on-cancel issue this fix
+  addresses, since it was found by code review, not device testing;
+  re-verify FORM-33b specifically on-device before considering it closed.

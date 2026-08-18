@@ -6,6 +6,32 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Google Drive backups and on-device storage were growing far larger than
+  the library warranted, all traced back to TheGamesDB cover handling:
+  - Every backup zipped the *entire* `covers/` folder, including backlog
+    item covers (never restored by the backup format at all) and files
+    left behind by an abandoned form. Backups now only include covers the
+    reviews being backed up actually reference.
+  - Covers picked from the photo library or downloaded from TheGamesDB
+    were saved to disk at full/original resolution (TheGamesDB's box art
+    can be several MB each). They're now downsampled and re-encoded
+    before being written, with no visible quality loss at any size the
+    app displays a cover.
+  - The "cerca online" result list loaded TheGamesDB's full-resolution
+    box art just to show a 48dp row icon, which Coil then disk-cached in
+    full — a likely major contributor to overall app storage growth
+    across many searches. It now uses TheGamesDB's small "thumb" crop for
+    the list, falling back to the full image only if that's unavailable.
+  - Replacing or removing a cover in the review/backlog item form used to
+    delete the previous file from disk immediately, before the change
+    was even saved — cancelling afterwards left the review pointing at a
+    deleted file. Deletion is now deferred to a startup sweep
+    (`CoverImageReconciler`) that reclaims any cover file no longer
+    referenced by a review or backlog item, so cancelling never breaks
+    an existing reference.
+
 ## [1.0.1] - 2026-08-17
 
 ### Fixed

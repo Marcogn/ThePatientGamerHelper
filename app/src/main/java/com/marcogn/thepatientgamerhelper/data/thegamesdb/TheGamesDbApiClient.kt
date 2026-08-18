@@ -83,7 +83,13 @@ class TheGamesDbApiClient @Inject constructor() {
                 .orEmpty()
 
             val boxart = root["include"]?.jsonObject?.get("boxart")?.jsonObject
-            val boxartBaseUrl = boxart?.get("base_url")?.jsonObject?.get("original")?.jsonPrimitive?.contentOrNull
+            val baseUrls = boxart?.get("base_url")?.jsonObject
+            val boxartBaseUrl = baseUrls?.get("original")?.jsonPrimitive?.contentOrNull
+            // "thumb" is a tiny crop meant for exactly this kind of picker row — falls back to the
+            // full-size url if TheGamesDB ever drops the key, same silent-degrade approach as the
+            // rest of this client. Using the full "original" image just to show a 48dp row icon was
+            // needlessly downloading (and Coil-disk-caching) several MB per search result.
+            val boxartThumbBaseUrl = baseUrls?.get("thumb")?.jsonPrimitive?.contentOrNull ?: boxartBaseUrl
             val boxartData = boxart?.get("data")?.jsonObject
 
             games.map { game ->
@@ -92,6 +98,7 @@ class TheGamesDbApiClient @Inject constructor() {
                     genreNamesById = genreNamesById,
                     developerNamesById = developerNamesById,
                     boxartBaseUrl = boxartBaseUrl,
+                    boxartThumbBaseUrl = boxartThumbBaseUrl,
                     boxartData = boxartData,
                 )
             }
@@ -167,6 +174,7 @@ private fun GameDto.toDomain(
     genreNamesById: Map<Long, String>,
     developerNamesById: Map<Long, String>,
     boxartBaseUrl: String?,
+    boxartThumbBaseUrl: String?,
     boxartData: JsonObject?,
 ): GameMetadataSearchResult {
     val images = boxartData?.get(id.toString())?.jsonArray
@@ -182,6 +190,7 @@ private fun GameDto.toDomain(
         genreNames = genres.orEmpty().mapNotNull { genreId -> genreNamesById[genreId] },
         developerName = developers.orEmpty().firstOrNull()?.let { developerNamesById[it] },
         coverImageUrl = if (boxartBaseUrl != null && filename != null) boxartBaseUrl + filename else null,
+        coverThumbnailUrl = if (boxartThumbBaseUrl != null && filename != null) boxartThumbBaseUrl + filename else null,
     )
 }
 

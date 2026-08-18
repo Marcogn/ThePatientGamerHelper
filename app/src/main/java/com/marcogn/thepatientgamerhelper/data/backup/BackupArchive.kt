@@ -17,23 +17,33 @@ import kotlinx.coroutines.withContext
 private const val DATA_ENTRY = "data.json"
 private const val IMAGES_PREFIX = "images/"
 
-/** A single archive holds `data.json` (the full library) plus every cover under `images/`. */
+/**
+ * A single archive holds `data.json` (the full library) plus the cover images the reviews in
+ * [payload] actually reference, under `images/`. `ImageStorage`'s `covers/` folder can also hold
+ * backlog-item covers and files left over from an abandoned form — neither is part of what this
+ * backup restores, so pulling in every file on disk unconditionally used to make backups (and
+ * their upload/download time) grow with everything ever downloaded, not with the library's actual
+ * size.
+ */
 @Singleton
 class BackupArchiveBuilder @Inject constructor(
     private val imageStorage: ImageStorage,
 ) {
     suspend fun build(payload: BackupPayload): ByteArray = withContext(Dispatchers.IO) {
+        val referencedFileNames = payload.reviews.mapNotNull { it.coverImageFileName }.toSet()
         val buffer = ByteArrayOutputStream()
         ZipOutputStream(buffer).use { zip ->
             zip.putNextEntry(ZipEntry(DATA_ENTRY))
             zip.write(payload.toJson().toByteArray(Charsets.UTF_8))
             zip.closeEntry()
 
-            imageStorage.listAll().forEach { file ->
-                zip.putNextEntry(ZipEntry("$IMAGES_PREFIX${file.name}"))
-                file.inputStream().use { it.copyTo(zip) }
-                zip.closeEntry()
-            }
+            imageStorage.listAll()
+                .filter { file -> file.name in referencedFileNames }
+                .forEach { file ->
+                    zip.putNextEntry(ZipEntry("$IMAGES_PREFIX${file.name}"))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
         }
         buffer.toByteArray()
     }

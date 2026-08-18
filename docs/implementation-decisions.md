@@ -971,3 +971,84 @@ there was never a JSON/CSV *import* path to begin with. Left untouched —
 in scope for this session was only what v2 §2/§3 actually describes
 (single/multi-review Markdown, backlog JSON+zip), not a general audit of
 every export format.
+
+## Cover image storage/backup bloat (TheGamesDB covers)
+
+Reported after real use: ~20 reviews+backlog items with covers produced
+a >30MB Drive backup, and the app's on-device storage grew to nearly
+300MB after searching TheGamesDB for most of the library. Root-caused to
+four independent issues, all in the TheGamesDB cover path — none in the
+photo-picker path, which was already reasonably sized before this:
+
+- `BackupArchiveBuilder.build()` used to zip *every* file in
+  `ImageStorage`'s `covers/` folder unconditionally. `BackupManager`
+  only ever backs up **reviews** (`domain/backup/BackupPayload.kt` has
+  no backlog fields at all), so every backlog item's cover — and any
+  file orphaned by a cancelled form (next point) — was dead weight in
+  every backup: shipped to Drive, downloaded back on restore, and then
+  immediately unused since restore only resolves cover file names it
+  finds referenced in `data.json`. Fixed by filtering `imageStorage.listAll()`
+  down to `payload.reviews`' `coverImageFileName`s before zipping — a
+  targeted fix at the one place that builds the archive, not a general
+  "clean up everything" pass, since the backup's own reference list is
+  the ground truth for what a backup needs.
+- Covers were persisted to disk exactly as downloaded/picked, and
+  TheGamesDB's boxart `include=boxart` response only ever gave this app
+  the `original`-resolution image — often several MB, far more than any
+  screen in this app (56dp list thumbnail, grid tile, detail view)
+  displays. `ImageStorage` now downsamples (via `BitmapFactory.Options.inSampleSize`,
+  powers-of-two, cheap) to a 900px longest edge and re-encodes as JPEG at
+  quality 85 before writing — applied uniformly to photo-picker picks
+  (`persist()`) and TheGamesDB downloads (new `persistDownloadedCover()`),
+  not just the latter, since an unprocessed high-res phone photo has the
+  same problem. 900px/quality 85 are not from a spec, just a generous
+  "clearly enough for anything this app renders, clearly smaller than a
+  multi-MB source" choice — revisit if a real device report ever shows
+  visible quality loss. `writeBytes()` (restore/zip-import paths) is
+  deliberately left writing raw bytes: those bytes are already something
+  this app previously wrote (or a v2-export/backup counterpart's), so
+  they're already sized reasonably; recompressing on every restore would
+  only add lossy generations for no size benefit.
+- `GameSearchDialog`'s result list rendered each candidate's cover via
+  Coil pointed straight at the same `original` URL used for the final
+  download — a 48dp row icon paying for and Coil-disk-caching a
+  multi-MB image, repeated for every result on every search. This is
+  the most likely dominant contributor to the ~300MB figure specifically
+  (Coil's disk cache lives outside `covers/`, isn't touched by the
+  reconciler below, and accumulates across every search performed, not
+  just the games actually kept). `TheGamesDbApiClient` now also reads
+  `include.boxart.base_url.thumb` from the same response (a small crop
+  TheGamesDB already returns alongside `original`, unused until now) and
+  exposes it as `GameMetadataSearchResult.coverThumbnailUrl`;
+  `GameSearchDialog` renders that instead, falling back to
+  `coverImageUrl` if `thumb` is ever absent from the response — the
+  `thumb` key's existence is inferred from TheGamesDB API v1's
+  documented `base_url` shape, not verified against a live response
+  while offline, hence the fallback rather than a hard assumption.
+- `ReviewFormViewModel`/`BacklogItemFormViewModel` used to call
+  `imageStorage.delete(previousPath)` the instant a cover was
+  picked/replaced/removed/imported — immediately, before the form was
+  ever saved. Two problems: (a) a cover downloaded while exploring
+  "cerca online" and then abandoned by cancelling the form was already
+  orphaned on disk with nothing to clean it up, and (b) replacing an
+  *existing* review's cover and then cancelling deleted the file the
+  review's still-unsaved-change *and* its still-current DB row both
+  pointed at — a real "cover silently disappears" bug, not just a size
+  issue. Fixed by removing every eager delete from both ViewModels and
+  adding `CoverImageReconciler` (`data/image/`): it diffs
+  `imageStorage.listAll()` against every `coverImagePath` currently on a
+  `Review` or `BacklogItem`, deletes what's unreferenced, and runs once
+  from `ThePatientGamerHelperApplication.onCreate()` on a background
+  coroutine (same pattern as `DebugSeeder.seedIfEmpty()`). Startup-only,
+  not also wired into every save, on the judgement that a personal
+  single-user library's stray files between app launches aren't worth a
+  reconcile pass (repository listing + file diff) on every single save;
+  revisit if a real session report shows meaningful growth within one
+  long-running app session.
+
+Not done as part of this pass: limiting or configuring Coil's own disk
+cache size/location (no custom `ImageLoader` exists in this app; Coil
+uses its library default). The `thumb`-URL fix above should remove most
+of the pressure that was filling it, and CLAUDE.md's dependency-
+minimalism weighs against adding a custom `ImageLoader`/cache
+configuration without a follow-up report showing it's still needed.

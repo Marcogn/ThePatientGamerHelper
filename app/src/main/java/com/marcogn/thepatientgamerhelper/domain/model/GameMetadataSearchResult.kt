@@ -12,4 +12,6 @@ data class GameMetadataSearchResult(
     val genreNames: List<String>,
     val developerName: String?,
     val coverImageUrl: String?,
+    /** Small crop for the search-result row preview — falls back to [coverImageUrl] if unavailable. */
+    val coverThumbnailUrl: String? = coverImageUrl,
 )
