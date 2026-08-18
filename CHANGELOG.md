@@ -6,6 +6,20 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Fixed
+
+- HowLongToBeat estimate lookups (backlog "search online") always came
+  back empty, even when the endpoint/auth extraction succeeded. Diffed
+  this client against the actively-maintained
+  ScrappyCocco/HowLongToBeat-PythonAPI reference and found the actual
+  cause: the key/value pair pulled from the `/init` response must also
+  be injected as an extra property in the search request's JSON body,
+  not just sent as the `x-hp-key`/`x-hp-val` headers — HowLongToBeat's
+  anti-bot check inspects both. Also fixed the bundle-derived search
+  path to match the reference's shape (truncate to the first path
+  segment, no forced trailing slash) instead of a variant that could
+  point at a nonexistent route.
+
 ## [1.0.1] - 2026-08-17
 
 ### Fixed
