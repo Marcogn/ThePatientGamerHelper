@@ -7,7 +7,10 @@
 # always typed by hand (no auto-computed default — GitHub's dispatch form
 # can't pre-fill a value computed from repo state) and is only validated to
 # be greater than the current versionName. The workflow still refuses to
-# overwrite an existing release/tag.
+# overwrite an existing release/tag. The GitHub Release body is never the
+# full cut section — see "Extract changelog highlights" below for what
+# actually gets published, and CLAUDE.md's "Changelog and release process"
+# for the entry convention it depends on.
 name: Release
 
 on:
@@ -167,10 +170,31 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "$ASSET_PATH"
           echo "path=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
-      # Release notes come straight from CHANGELOG.md: the section for this version (from its
-      # "## [x.y.z] ..." heading up to the next one), falling back to the whole file if no
-      # matching heading is found so the workflow never publishes an empty-notes release.
-      - name: Extract changelog section for this version
+      # Release notes are always just the significant-change highlights for
+      # this version, never the full changelog section. This project's
+      # CHANGELOG.md convention (see CLAUDE.md's "Changelog and release
+      # process") is that every significant change is a top-level "- " bullet
+      # leading with a bold one-line summary ("- **Summary.** ...elaboration"),
+      # with nested "  - " bullets and wrapped continuation lines reserved for
+      # elaboration — so extraction pulls just the bold lead-in of each
+      # top-level bullet (or, for a bullet with no bold lead-in, its first
+      # sentence, split on the first ". " followed by an uppercase letter to
+      # avoid false-splitting on abbreviations), reflowing this file's
+      # hard-wrapped prose back into a single line first. There is no
+      # length-based judgment call: this always runs, for every release. A
+      # section with no top-level bullets at all falls back to publishing the
+      # whole section as-is instead — a structural fallback for a section with
+      # nothing to extract, not a size cutoff.
+      #
+      # Either way the notes always end with a link back to CHANGELOG.md's
+      # matching section. The link's #fragment reproduces GitHub's own
+      # heading-anchor slug algorithm (lowercase; drop every character that
+      # isn't a-z, 0-9, space, underscore, or hyphen — this is what removes
+      # the brackets/period around the version number, not replaces them;
+      # then turn spaces into hyphens, e.g. "[1.0.4] - 2026-08-18" becomes
+      # "104---2026-08-18") — verified against this repo's actual rendered
+      # CHANGELOG.md anchors.
+      - name: Extract changelog highlights
         id: changelog
         env:
           VERSION_NAME: ${{ steps.version.outputs.name }}
@@ -180,10 +204,60 @@ jobs:
             $0 ~ pattern { found = 1; print; next }
             found && /^## \[/ { exit }
             found { print }
-          ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then
+          ' CHANGELOG.md > /tmp/changelog_section.md
+
+          if [ ! -s /tmp/changelog_section.md ]; then
             echo "No CHANGELOG.md section found for version $VERSION_NAME; using the whole file as release notes." >&2
             cp CHANGELOG.md release-notes.md
+          else
+            HEADING_LINE=$(head -1 /tmp/changelog_section.md)
+            HEADING_TEXT=$(printf '%s\n' "$HEADING_LINE" | sed -E 's/^##[[:space:]]*//')
+            SLUG=$(printf '%s' "$HEADING_TEXT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g' | tr ' ' '-')
+            CHANGELOG_LINK="https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md#${SLUG}"
+
+            HIGHLIGHTS=$(awk '
+              function flush() {
+                if (buf == "") return
+                if (buf ~ /^\*\*/) {
+                  match(buf, /^\*\*[^*]+\*\*/)
+                  out = substr(buf, RSTART, RLENGTH)
+                } else {
+                  out = buf
+                  n = length(buf)
+                  for (i = 1; i <= n - 2; i++) {
+                    if (substr(buf, i, 1) == "." && substr(buf, i + 1, 1) == " " && substr(buf, i + 2, 1) ~ /[A-Z]/) {
+                      out = substr(buf, 1, i)
+                      break
+                    }
+                  }
+                }
+                print "- " out
+                buf = ""
+              }
+              /^### / { flush(); next }
+              /^- / { flush(); sub(/^- /, "", $0); buf = $0; nested = 0; next }
+              /^[[:space:]]*$/ { flush(); nested = 0; next }
+              /^  - / { nested = 1; next }
+              nested { next }
+              /^  / {
+                line = $0
+                sub(/^  +/, "", line)
+                if (buf != "") buf = buf " " line
+                next
+              }
+              { next }
+              END { flush() }
+            ' /tmp/changelog_section.md)
+
+            {
+              if [ -n "$HIGHLIGHTS" ]; then
+                printf '%s\n' "$HIGHLIGHTS"
+              else
+                cat /tmp/changelog_section.md
+              fi
+              echo
+              echo "See [CHANGELOG.md]($CHANGELOG_LINK) for the full changelog."
+            } > release-notes.md
           fi
 
       - name: Create GitHub release

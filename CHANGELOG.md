@@ -6,6 +6,24 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Release notes always show only the changelog's significant-change
+  highlights, never the full section.** `.github/workflows/release.yml`'s
+  "Extract changelog section for this version" step used to hand the
+  whole cut section to `gh release create` verbatim, no matter its
+  length (`v1.0.4`'s own entry was a long wall of text). It now always
+  extracts just the bold lead-in of each top-level bullet (or, for a
+  bullet with no bold lead-in, its first sentence), with no length-based
+  judgment call — a section with no top-level bullets falls back to the
+  whole section instead, a structural fallback rather than a size cutoff.
+  Either way the notes always end with a link back to this file's
+  matching section. Same change applied to CoverDex's and
+  3DSAppManager's `release.yml`, and each project's `CLAUDE.md` now
+  documents the bullet/heading convention its own release notes depend
+  on, so the highlights are always ready in this file rather than
+  computed by trimming or reflowing prose at release time.
+
 ## [1.0.4] - 2026-08-18
 
 ### Fixed

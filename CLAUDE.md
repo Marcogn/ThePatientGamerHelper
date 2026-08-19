@@ -742,14 +742,27 @@ Robolectric and needs manual on-device verification instead — see
 manual `workflow_dispatch` only, never runs on push/PR) cuts the version
 bump itself (see below), then reads the resulting
 `app/build.gradle.kts`'s `versionName`, looks for the matching
-`## [x.y.z]` section in `CHANGELOG.md`, and publishes it verbatim as the
-GitHub Release notes. It refuses to overwrite an existing release/tag.
+`## [x.y.z]` section in `CHANGELOG.md`, and publishes its
+significant-change highlights as the GitHub Release notes — never the
+full section verbatim (see "Entry convention" below). It refuses to
+overwrite an existing release/tag.
 
 **Policy: every change gets a `CHANGELOG.md` entry when it's made, not
 deferred to release time.** Add it under a `## [Unreleased]` section at
 the top of the file (create one if it isn't there). This keeps the
 changelog always accurate, so cutting a release is never a scramble to
 reconstruct what changed since the last one.
+
+**Entry convention:** every significant, user-facing change is its own
+top-level bullet leading with a bold one-line summary —
+`- **Summary.** further detail...` — with nested `  - ` bullets and any
+elaboration reserved for detail, not the headline itself. This isn't
+just style: `.github/workflows/release.yml`'s "Extract changelog
+highlights" step pulls exactly those bold lead-ins (or, for a bullet
+with no bold lead-in, its first sentence) straight into the GitHub
+Release body, followed by a link back to this file's matching section —
+always, for every release, never the full section text and never gated
+by a length cutoff. Keep the bold span itself short and skimmable.
 
 Cutting an actual release (a deliberate, human-directed action, not
 something to do unprompted) is a single step: manually trigger the
