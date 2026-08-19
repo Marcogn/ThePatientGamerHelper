@@ -6,6 +6,24 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Release notes stay short for a big changelog entry.** `v1.0.4`'s own
+  GitHub Release would have been a long wall of text, since
+  `.github/workflows/release.yml` always dumped the full `[Unreleased]`
+  section verbatim into the Release body. Now: a short section (a quick
+  fix, a handful of entries — 40 lines or fewer) still gets used in
+  full, same as before; a long one is abridged to a highlights list —
+  one line per top-level bullet, reflowed from this changelog's
+  hard-wrapped prose, keeping just the bold lead-in where an entry has
+  one or its first sentence otherwise. Either way, the Release body now
+  always ends with a link back to this file's matching dated section
+  for the full detail, computed to match GitHub's actual heading-anchor
+  slug algorithm (verified against this repo's own real rendered
+  anchors, e.g. `[1.0.4] - 2026-08-18` → `#104---2026-08-18` — GitHub
+  drops the brackets and period from the version number rather than
+  turning them into hyphens).
+
 ## [1.0.4] - 2026-08-18
 
 ### Fixed

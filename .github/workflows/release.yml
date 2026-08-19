@@ -167,9 +167,26 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk "$ASSET_PATH"
           echo "path=$ASSET_PATH" >> "$GITHUB_OUTPUT"
 
-      # Release notes come straight from CHANGELOG.md: the section for this version (from its
+      # Release notes come from CHANGELOG.md: the section for this version (from its
       # "## [x.y.z] ..." heading up to the next one), falling back to the whole file if no
       # matching heading is found so the workflow never publishes an empty-notes release.
+      # A short section (a quick fix, a handful of entries — 40 lines or fewer) is used in
+      # full, same as always. A long one (a big batch of work) is abridged to a highlights
+      # list: one line per top-level "- " bullet (ignoring nested sub-bullets, which are
+      # already elaboration), reflowed from this changelog's hard-wrapped prose back into a
+      # single line. Entries that lead with a bold summary (this file's most common but not
+      # universal convention, "- **One-line summary.** ...elaboration...") keep just the bold
+      # part; entries without one are cut at their first sentence instead (first ". "
+      # followed by an uppercase letter, to avoid false-splitting on abbreviations). Either
+      # way the notes always end with a link back to CHANGELOG.md's matching section for the
+      # full detail.
+      #
+      # The link's #fragment reproduces GitHub's own heading-anchor slug algorithm
+      # (lowercase; drop every character that isn't a-z, 0-9, space, underscore, or
+      # hyphen — this is what removes the brackets/period around the version number, not
+      # replaces them; then turn spaces into hyphens, e.g. "[1.0.4] - 2026-08-18" becomes
+      # "104---2026-08-18") — verified against this repo's actual rendered CHANGELOG.md
+      # anchors.
       - name: Extract changelog section for this version
         id: changelog
         env:
@@ -180,10 +197,67 @@ jobs:
             $0 ~ pattern { found = 1; print; next }
             found && /^## \[/ { exit }
             found { print }
-          ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then
+          ' CHANGELOG.md > /tmp/changelog_section.md
+
+          if [ ! -s /tmp/changelog_section.md ]; then
             echo "No CHANGELOG.md section found for version $VERSION_NAME; using the whole file as release notes." >&2
             cp CHANGELOG.md release-notes.md
+          else
+            HEADING_LINE=$(head -1 /tmp/changelog_section.md)
+            HEADING_TEXT=$(printf '%s\n' "$HEADING_LINE" | sed -E 's/^##[[:space:]]*//')
+            SLUG=$(printf '%s' "$HEADING_TEXT" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9 _-]//g' | tr ' ' '-')
+            CHANGELOG_LINK="https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md#${SLUG}"
+
+            LINE_COUNT=$(wc -l < /tmp/changelog_section.md)
+            HIGHLIGHTS=$(awk '
+              function flush() {
+                if (buf == "") return
+                if (buf ~ /^\*\*/) {
+                  match(buf, /^\*\*[^*]+\*\*/)
+                  out = substr(buf, RSTART, RLENGTH)
+                } else {
+                  out = buf
+                  n = length(buf)
+                  for (i = 1; i <= n - 2; i++) {
+                    if (substr(buf, i, 1) == "." && substr(buf, i + 1, 1) == " " && substr(buf, i + 2, 1) ~ /[A-Z]/) {
+                      out = substr(buf, 1, i)
+                      break
+                    }
+                  }
+                }
+                print "- " out
+                buf = ""
+              }
+              /^### / { flush(); next }
+              /^- / { flush(); sub(/^- /, "", $0); buf = $0; nested = 0; next }
+              /^[[:space:]]*$/ { flush(); nested = 0; next }
+              /^  - / { nested = 1; next }
+              nested { next }
+              /^  / {
+                line = $0
+                sub(/^  +/, "", line)
+                if (buf != "") buf = buf " " line
+                next
+              }
+              { next }
+              END { flush() }
+            ' /tmp/changelog_section.md)
+
+            if [ "$LINE_COUNT" -gt 40 ] && [ -n "$HIGHLIGHTS" ]; then
+              {
+                printf '%s\n' "$HEADING_LINE"
+                echo
+                printf '%s\n' "$HIGHLIGHTS"
+                echo
+                echo "**Full changelog:** see [CHANGELOG.md]($CHANGELOG_LINK) for the complete details."
+              } > release-notes.md
+            else
+              {
+                cat /tmp/changelog_section.md
+                echo
+                echo "**Full changelog:** [CHANGELOG.md]($CHANGELOG_LINK)"
+              } > release-notes.md
+            fi
           fi
 
       - name: Create GitHub release
