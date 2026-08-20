@@ -6,6 +6,19 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **HowLongToBeat estimates ported to GameNative's working approach.**
+  The client used to re-derive HowLongToBeat's current search endpoint at
+  runtime by scanning its homepage JS bundles for a regex match — the
+  recurring source of every previous HowLongToBeat breakage. It now hits
+  the fixed `/api/bleed` endpoint pair used by
+  [GameNative's `HltbService`](https://github.com/utkarshdalal/GameNative),
+  a confirmed-working reference, with the same request shape, an
+  auth-token retry on 401/403, and Levenshtein-distance best-match
+  selection (extracted into a new unit-tested `domain/howlongtobeat/HltbMatcher.kt`)
+  replacing the previous "exact match or first result" logic.
+
 ### Changed
 
 - **Release notes always show only the changelog's significant-change

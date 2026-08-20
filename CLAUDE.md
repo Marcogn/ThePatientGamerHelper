@@ -121,8 +121,9 @@ com.marcogn.thepatientgamerhelper
 │   │                      # (logic shared "search online" between the review form and the
 │   │                      # backlog form, also exposes searchHowLongToBeat(), backlog-only)
 │   ├── howlongtobeat/     # HowLongToBeatApiClient — HttpURLConnection client for an
-│   │                      # unofficial/undocumented endpoint, reverse-engineered technique,
-│   │                      # not the same level of reliability as TheGamesDbApiClient/DriveApiClient
+│   │                      # unofficial/undocumented endpoint (fixed /api/bleed path, ported from
+│   │                      # GameNative's HltbService), not the same level of reliability as
+│   │                      # TheGamesDbApiClient/DriveApiClient
 │   └── debug/            # DebugSeeder, active only behind BuildConfig.SEED_DEBUG_DATA
 ├── domain/
 │   ├── model/            # Pure domain models (no Android dependencies), including ThemeMode,
@@ -143,6 +144,9 @@ com.marcogn.thepatientgamerhelper
 │   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto/
 │   │                      # BackupBacklogListDto+ItemDto (reviews AND the whole backlog),
 │   │                      # DTO<->domain mapping, file naming — same pattern as domain/export
+│   ├── howlongtobeat/     # HltbMatcher: pure title-matching (normalize/Levenshtein/
+│   │                      # acceptable-match) for HowLongToBeatApiClient's search results, ported
+│   │                      # from GameNative's HltbService — no Android/network import
 │   └── repository/        # Repository interfaces (ReviewRepository, LookupRepository,
 │                          # BacklogRepository, importLists()/upsertImported()/replaceAll())
 ├── di/                    # Hilt modules (Database, Repository)
@@ -553,18 +557,26 @@ this phase:
 ### Estimated HowLongToBeat times in the backlog
 
 - **No public API exists** — verified before implementing. Every
-  unofficial integration re-derives the current search endpoint from
-  HowLongToBeat's frontend JS bundle at runtime, because the path changes
-  on every deploy; there is no stable contract to implement against.
-  `data/howlongtobeat/HowLongToBeatApiClient.kt` does the same (homepage →
-  bundle → endpoint → `init` → search with auth headers, manual redirect
-  following for 307/308, a browser User-Agent). **This is inherently more
-  fragile than `TheGamesDbApiClient`/`DriveApiClient`** and can break
-  again without notice if HowLongToBeat changes its frontend — check logs
-  under tag `HowLongToBeatClient` first if estimates go missing again,
-  and see `docs/phase-history.md` for the full multi-round debugging story
-  (redirect handling, auth headers, regex must require `method: "POST"`
-  on the matched `fetch()`, User-Agent).
+  unofficial integration talks to an undocumented endpoint under `/api/`
+  with a two-step auth flow (`GET .../init` for a token + key/value
+  headers, then `POST` the search with those headers attached); there is
+  no stable contract to implement against, and HowLongToBeat is known to
+  change this across deploys with no notice.
+  `data/howlongtobeat/HowLongToBeatApiClient.kt` targets the fixed
+  `/api/bleed` + `/api/bleed/init` endpoint pair, auth headers, request
+  body shape, and Levenshtein-distance best-match logic ported from
+  GameNative's `HltbService` (a confirmed-working reference the user
+  pointed at after this client's original approach — re-deriving the
+  endpoint at runtime by scanning HowLongToBeat's homepage JS bundles for
+  a regex match — kept breaking; see `docs/phase-history.md` for that
+  history and for the port itself). Pure title-matching logic
+  (normalize/Levenshtein/acceptable-match) lives in
+  `domain/howlongtobeat/HltbMatcher.kt`, unit-tested in plain JVM, same
+  split as `domain/filter`/`domain/stats`. **This is still inherently
+  more fragile than `TheGamesDbApiClient`/`DriveApiClient`** — a fixed
+  endpoint is not immune to HowLongToBeat rotating it again — and can
+  break without notice; check logs under tag `HowLongToBeatClient` first
+  if estimates go missing.
 - **Always fails silently**: every error becomes `null` in
   `GameMetadataSearchCoordinator.searchHowLongToBeat()` and a
   human-readable message in `BacklogItemFormUiState.hltbMessage` — never
@@ -728,7 +740,7 @@ artifacts), in which case `./gradlew` cannot run locally; check with
 verification in that case.
 
 Testing approach: pure JVM unit tests cover `domain/filter`, `domain/model`,
-`domain/export`, `domain/stats`; Room DAOs are tested via Robolectric as
+`domain/export`, `domain/stats`, `domain/howlongtobeat`; Room DAOs are tested via Robolectric as
 JVM unit tests (no emulator needed). Anything requiring real network,
 Play Services, or native PDF rendering (Drive, TheGamesDB, HowLongToBeat,
 `PdfDocument` pagination) can't be meaningfully exercised by

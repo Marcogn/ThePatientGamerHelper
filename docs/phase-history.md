@@ -408,3 +408,59 @@ values for an unrecognized key, not the real quota.
   kind of filter. Fix: the same desktop Chrome `USER_AGENT` already used
   for `HowLongToBeatApiClient` — same cause, same fix, same source of
   reasoning, not a new isolated guess.
+
+### HowLongToBeat: port from GameNative's `HltbService` (2026-08-20)
+
+After all of the above, HowLongToBeat estimates kept breaking again in the
+field. The user pointed at
+[GameNative's `HltbService`](https://github.com/utkarshdalal/GameNative/blob/master/app/src/main/java/app/gamenative/utils/HltbService.kt)
+as a confirmed-working reference and asked for it to be ported, "with the
+appropriate differences" (a different app, OkHttp vs. `HttpURLConnection`,
+a narrower domain model).
+
+**What GameNative does differently, and why it's more robust**: every
+prior round of debugging in this file was really debugging the endpoint-
+discovery step — re-deriving the current `/api/...` search path at
+runtime by scanning HowLongToBeat's homepage `<script>` bundles for a
+regex match (the Turbopack rename to opaque chunk hashes, the regex that
+once matched the wrong `fetch()` call, the two 404 rounds). GameNative
+sidesteps that whole failure surface: it hits a **fixed, hardcoded
+endpoint**, `/api/bleed` (+ `/api/bleed/init` for auth), with no
+bundle-scraping at all. Still unofficial and still capable of rotating
+without notice like before, but one less moving, breakable part.
+
+**Ported, with the differences CLAUDE.md's Phase 8 section now documents**:
+- Fixed `/api/bleed`/`/api/bleed/init` endpoint pair, replacing the
+  homepage → bundle → regex → endpoint discovery entirely.
+- The confirmed-working request body shape (`modifier: "hide_dlc"`,
+  `sortCategory: "name"`, the `rangeTime`/`rangeYear`/`gameplay` objects)
+  — kept exactly as GameNative sends it rather than guessed at, same
+  reasoning as the earlier "port from an actively maintained library"
+  fix above.
+- Levenshtein-distance best-match selection with an acceptable-match
+  heuristic (prefix/whole-word/distance-threshold), replacing the
+  previous "exact title match, else just take the first result" logic —
+  extracted into a new pure, unit-tested `domain/howlongtobeat/HltbMatcher.kt`
+  rather than kept as private functions on the HTTP client, matching this
+  codebase's existing `domain/filter`/`domain/stats` split (GameNative
+  itself has no such split, single-app convenience code).
+- Auth-rejected retry: a 401/403 from the search call now drops the
+  cached token and retries once with a fresh `/init`, same as GameNative.
+- Kept from this client's own history rather than copied from GameNative:
+  manual 3xx-redirect following (`HttpURLConnection`'s POST-redirect gap,
+  see above) and `HttpURLConnection` itself (no OkHttp dependency added).
+- Not ported: GameNative's 12h-TTL DataStore-backed result cache
+  (`HltbCache`) and its "all playstyles" hours field — neither was asked
+  for, and the domain model / persistence layer would both need to grow
+  to accommodate them for no currently-requested benefit. See
+  `CLAUDE.md`'s Phase 8 section for the up-to-date behavior.
+
+Verified: `./gradlew compileDebugKotlin` and `./gradlew testDebugUnitTest`
+both succeeded in this environment (an Android SDK was bootstrapped
+locally via `sdkmanager` specifically to check this change, since network
+access to `dl.google.com` happened to be available this session — not
+guaranteed in general, see the "Build/test commands" section). The actual
+HTTP round trip against `howlongtobeat.com` — same limitation as every
+previous round in this file — still needs manual on-device confirmation,
+since no sandboxed environment used so far has had reliable, IP-stable
+network access to the real site.

@@ -1,6 +1,7 @@
 package com.marcogn.thepatientgamerhelper.data.howlongtobeat
 
 import android.util.Log
+import com.marcogn.thepatientgamerhelper.domain.howlongtobeat.HltbMatcher
 import com.marcogn.thepatientgamerhelper.domain.model.HowLongToBeatEstimate
 import java.net.HttpURLConnection
 import java.net.URL
@@ -14,14 +15,20 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 
 private const val LOG_TAG = "HowLongToBeatClient"
 private const val BASE_URL = "https://howlongtobeat.com"
-private const val FALLBACK_SEARCH_PATH = "/api/s/"
+private const val SEARCH_PATH = "/api/bleed"
+private const val INIT_PATH = "$SEARCH_PATH/init"
 // A realistic desktop Chrome UA, not an app-identifying one: HowLongToBeat's frontend is behind
 // bot-detection that's known to reject obviously non-browser User-Agent strings outright.
 private const val USER_AGENT =
@@ -30,13 +37,6 @@ private const val CONNECT_TIMEOUT_MS = 8_000
 private const val READ_TIMEOUT_MS = 12_000
 private const val MAX_REDIRECTS = 5
 private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
-// Ported from ScrappyCocco/HowLongToBeat-PythonAPI's HTMLRequests.py (actively maintained, checked
-// as recently as mid-2026, PyPI release 1.0.22 in June 2026): requiring `method: "POST"` in the same
-// fetch(...) call is the part a looser regex (this client's previous version) is missing — see the
-// call site for why that matters. The captured group deliberately excludes the "/api/" prefix (see
-// fetchAuth(), which truncates to the first path segment the same way the reference implementation does).
-private val SEARCH_ENDPOINT_REGEX =
-    Regex("""fetch\s*\(\s*["']/api/([a-zA-Z0-9_/]+)[^"']*["']\s*,\s*\{[^}]*method:\s*["']POST["'][^}]*\}""")
 
 private val hltbJson = Json { ignoreUnknownKeys = true }
 
@@ -44,44 +44,47 @@ private val hltbJson = Json { ignoreUnknownKeys = true }
  * Hand-rolled, best-effort client for HowLongToBeat's *unofficial* search endpoint (Fase 8) — same
  * `HttpURLConnection` pattern as `TheGamesDbApiClient`/`DriveApiClient`, no HTTP library added.
  *
- * Unlike TheGamesDB, HowLongToBeat has **no public API at all** (verified before implementing,
- * same "check first" rule CLAUDE.md already applied to the TheGamesDB apikey policy change): every
- * known integration (howlongtobeatpy, ckatzorke/howlongtobeat, etc.) works by re-deriving the
- * current search endpoint from HowLongToBeat's own frontend JS bundle at runtime, because both the
- * path and the anti-scraping requirements change across their deploys. As of the most recent
- * technique documented by actively-maintained wrappers (ScrappyCocco/HowLongToBeat-PythonAPI), a
- * bare POST to the search endpoint is no longer enough — the response also needs a handful of
- * headers (`x-auth-token`/`x-hp-key`/`x-hp-val`) obtained from a `GET <searchPath>/init` call made
- * right before the search, *and* the same key/value pair injected as an extra property inside the
- * search body itself (see [buildSearchBody] — this was the bug that made every search silently
- * return nothing even once the headers were correctly set). This client implements that full flow:
- *  1. GET the homepage, scan every same-origin `<script src>` it references (HowLongToBeat's build
- *     moved to Turbopack at some point, so there's no longer a conveniently-named `_app-*.js`
- *     bundle to look for specifically — see [fetchAuth]).
- *  2. GET each candidate script until one regex-matches the `/api/...` path used by the frontend's
- *     own search `fetch()`.
- *  3. GET `<path>/init` (with a `Referer` header — this endpoint 403s without one, unlike the
- *     static chunk requests) and pull the token/key/val fields out of whatever JSON it returns.
- *  4. POST the actual search to `<path>` with those headers attached and the key/value pair also
- *     folded into the JSON body.
+ * **Ported from GameNative's `HltbService`**
+ * (https://github.com/utkarshdalal/GameNative/blob/master/app/src/main/java/app/gamenative/utils/HltbService.kt),
+ * which the user pointed at as a confirmed-working reference after our previous approach kept
+ * failing in the field. The previous version of this client re-derived the current search
+ * endpoint at runtime by scanning HowLongToBeat's homepage `<script>` bundles for a regex match —
+ * that path itself turned out to be the recurring source of breakage (a looser regex once matched
+ * the wrong `fetch()` call entirely, and Turbopack renaming every chunk to an opaque hash made the
+ * scan slower and less reliable each time HowLongToBeat redeployed). GameNative instead hits a
+ * **fixed, hardcoded endpoint** (`/api/bleed` + `/api/bleed/init`) with no bundle-scraping at all —
+ * still unofficial and undocumented (HowLongToBeat is known to rotate this path across deploys,
+ * same as before), but it removes an entire failure-prone extraction step, and it's the
+ * concretely-confirmed-working shape as of this port. Differences from GameNative's version, which
+ * targets a different app's dependency stack:
+ *  - `HttpURLConnection` instead of OkHttp (no new dependency; also means no `Protocol.HTTP_1_1`
+ *    knob — `HttpURLConnection` never speaks HTTP/2 to begin with, so GameNative's explicit
+ *    HTTP/1.1 pin for this endpoint has nothing to opt out of here).
+ *  - Manual 3xx-redirect following (see [request]) is kept from this client's previous version —
+ *    `HttpURLConnection`'s default `followRedirects` doesn't reliably follow POST redirects,
+ *    confirmed as a real failure mode on a real device once already (CLAUDE.md, Fase 8).
+ *  - No `HltbCache`/DataStore persistence layer — GameNative persists a 12h-TTL result cache to
+ *    survive process death; this client keeps only the in-process auth-token cache the previous
+ *    version already had (`cachedAuth`), matching the "in-memory only, process lifetime" pattern
+ *    `GameMetadataSearchCoordinator`'s TheGamesDB lookup caches already use. Add persistence
+ *    separately if repeated cold-start lookups turn out to matter in practice.
+ *  - Best-match selection (Levenshtein distance + an acceptable-match heuristic, not just
+ *    "exact title match or first result") is ported faithfully, but as pure, unit-tested logic in
+ *    [HltbMatcher] rather than inline private functions — same "pure domain logic, Android I/O
+ *    stays in data/" split this codebase already uses for `domain/filter`/`domain/stats`.
+ *  - Auth-rejected retry: on HTTP 401/403 from the search call, the cached auth is dropped and
+ *    a single fresh `/init` + retry is attempted, same as GameNative — a stale in-process token is
+ *    the one case worth retrying automatically instead of just failing this lookup.
+ *  - `HowLongToBeatEstimate` has no "all playstyles" field (GameNative's `allStylesHours`) — the
+ *    domain model only ever tracked main story/main+extra/completionist (Fase 8), so `comp_all` is
+ *    read from the response like the rest but isn't surfaced; adding a fourth field would need a
+ *    Room migration on `backlog_items` for no currently-requested feature.
  *
- * **This is inherently fragile** — a reverse-engineered technique against an undocumented,
- * unversioned target, not a stable contract, confirmed by the fact steps 1-3 above were only
- * discovered by re-diagnosing a real on-device failure after the previous fix. Steps 1-3 were
- * re-verified against the live `howlongtobeat.com` from this environment; step 4 could only be
- * confirmed to reach the right endpoint with a structurally valid request — HowLongToBeat's `/init`
- * token embeds the caller's IP (base64: `<timestamp>::<ip>|<user-agent>|...`) and the search POST
- * is rejected with `{"error":"Session expired or invalid fingerprint"}` if it arrives from a
- * different IP than the `/init` call did, which this environment's outbound proxy doesn't
- * guarantee across requests — a real device on one stable connection shouldn't hit that, but it's
- * unverified end-to-end until checked on one. Every failure mode (HTML/JS shape changed, endpoint
- * blocked, response schema changed, anti-bot challenge) is swallowed by the caller
- * ([com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator.searchHowLongToBeat])
- * and simply yields no estimate — this integration must never block or crash the "cerca online"
- * flow it rides on. Every step logs a warning with `LOG_TAG` on failure, since a fully silent
- * failure gave no way to diagnose why estimates never showed up (same lesson as the TheGamesDB
- * "generic message swallowed the real error" fix in Fase 7) — check `adb logcat -s HowLongToBeatClient`
- * if estimates still don't appear after this fix.
+ * Every failure mode still funnels into either a thrown, descriptive exception (HTTP failures —
+ * see [ensureSuccessful]) or a plain `null` (no results / no acceptable match), never a crash: the
+ * caller ([com.marcogn.thepatientgamerhelper.data.thegamesdb.GameMetadataSearchCoordinator.searchHowLongToBeat])
+ * turns both into a message shown in the backlog form's status line, never blocking "cerca online".
+ * Check `adb logcat -s HowLongToBeatClient` first if estimates go missing again.
  */
 @Singleton
 class HowLongToBeatApiClient @Inject constructor() {
@@ -91,139 +94,125 @@ class HowLongToBeatApiClient @Inject constructor() {
 
     suspend fun search(title: String): HowLongToBeatEstimate? = withContext(Dispatchers.IO) {
         val auth = resolveAuth()
-        val authField = if (auth.hpKey != null && auth.hpVal != null) auth.hpKey to auth.hpVal else null
-        val body = buildSearchBody(title, authField)
-        // Referer/Origin are set unconditionally by request() itself now — see there for why.
-        val headers = buildMap {
-            put("Content-Type", "application/json")
-            auth.token?.let { put("x-auth-token", it) }
-            auth.hpKey?.let { put("x-hp-key", it) }
-            auth.hpVal?.let { put("x-hp-val", it) }
+        when (val first = attemptSearch(title, auth)) {
+            is SearchOutcome.Found -> first.estimate
+            SearchOutcome.NoMatch -> null
+            is SearchOutcome.Failed -> failSearch(first.httpCode, first.excerpt)
+            is SearchOutcome.AuthRejected -> {
+                Log.w(LOG_TAG, "Search rejected (HTTP ${first.httpCode}) for \"$title\", refreshing auth and retrying once")
+                mutex.withLock { cachedAuth = null }
+                val refreshedAuth = resolveAuth()
+                when (val second = attemptSearch(title, refreshedAuth)) {
+                    is SearchOutcome.Found -> second.estimate
+                    SearchOutcome.NoMatch -> null
+                    is SearchOutcome.Failed -> failSearch(second.httpCode, second.excerpt)
+                    is SearchOutcome.AuthRejected -> failSearch(second.httpCode, "auth ancora rifiutata dopo refresh")
+                }
+            }
         }
-
-        val connection = request("$BASE_URL${auth.searchPath}", method = "POST", body = body, headers = headers)
-        val responseText = connection.readTextBody()
-        try {
-            connection.ensureSuccessful(responseText)
-        } catch (e: IllegalStateException) {
-            // Which of the two paths produced the failing URL matters: "fallback" means the
-            // historically-stable default itself is now stale (needs fresh research, not a blind
-            // retry); "bundle" means extraction found *a* path but it's wrong — possibly because the
-            // regex grabbed an unrelated /api/... fetch() call out of the bundle, not the search one.
-            throw IllegalStateException("${e.message} [origine percorso: ${auth.source}]", e)
-        }
-        parseBestMatch(responseText, title)
     }
 
-    /** Resolves (and caches for the process lifetime) the current search endpoint + auth headers, falling back to the historically stable default path with no headers if anything about the extraction fails. */
+    private fun failSearch(httpCode: Int, excerpt: String): Nothing =
+        error("HTTP $httpCode @ $BASE_URL$SEARCH_PATH${if (excerpt.isNotEmpty()) ": $excerpt" else ""}")
+
+    /** Resolves (and caches for the process lifetime) the auth token/headers from `/init`. */
     private suspend fun resolveAuth(): HltbAuth = mutex.withLock {
         cachedAuth?.let { return@withLock it }
-        val resolved = runCatching { fetchAuth() }.getOrElse { throwable ->
-            Log.w(LOG_TAG, "Endpoint/auth extraction failed, falling back to $FALLBACK_SEARCH_PATH with no auth headers", throwable)
-            HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (homepage/bundle fetch fallita)")
-        }
-        cachedAuth = resolved
-        resolved
+        val fetched = fetchAuth()
+        cachedAuth = fetched
+        fetched
     }
 
     private fun fetchAuth(): HltbAuth {
-        val homepage = request(BASE_URL, method = "GET").readTextBody()
-        // HowLongToBeat moved its build to Turbopack at some point after this client was first
-        // written: chunk file names are now opaque hashes (e.g. "1knrxcebl5umx.js") with no "_app-"
-        // bundle at all, confirmed by fetching the real homepage — searching only for that one
-        // magic name (this client's previous version) always missed and fell back to the dead
-        // legacy "/api/s/" endpoint. Scan every same-origin script the homepage references instead,
-        // same fallback strategy as the reference ScrappyCocco/HowLongToBeat-PythonAPI uses
-        // (send_website_request_getcode(parse_all_scripts=True)) — but any script whose name still
-        // happens to contain "_app-" is tried first, since that's cheaper in the case a future
-        // deploy reintroduces a dedicated bundle.
-        val scriptSrcs = Regex("""<script[^>]*\bsrc=["']([^"']+)["']""").findAll(homepage)
-            .map { it.groupValues[1] }
-            .filter { it.startsWith("/") && !it.startsWith("//") }
-            .distinct()
-            .sortedByDescending { it.contains("_app-") }
-            .toList()
-        if (scriptSrcs.isEmpty()) {
-            Log.w(LOG_TAG, "Could not find any same-origin <script src> in the homepage HTML")
-            return HltbAuth(searchPath = FALLBACK_SEARCH_PATH, token = null, hpKey = null, hpVal = null, source = "fallback (nessuno script same-origin trovato in home)")
-        }
-
-        // Requiring `method: "POST"` inside the same fetch(...) call is load-bearing, not cosmetic:
-        // without it this regex can (and, on a real device, did — see CLAUDE.md, Fase 8) latch onto
-        // an unrelated GET fetch() elsewhere in a chunk, silently resolving to a nonexistent path and
-        // 404ing the search on every title (this repo's chunks have several unrelated POST fetch()
-        // calls, e.g. an error-reporting "/api/error" one — the method+braces requirement is what
-        // tells those apart from the real search endpoint, whatever odd name it currently has;
-        // HowLongToBeat is known to rotate it through deliberately unrelated-sounding words). Ported
-        // from the actively-maintained ScrappyCocco/HowLongToBeat-PythonAPI (HTMLRequests.py), whose
-        // broader regex this is a direct translation of — not a fresh guess.
-        //
-        // The reference implementation truncates a captured suffix like "search/v2" down to just its
-        // first segment ("search") and never appends a trailing slash to the resulting "/api/search" —
-        // unlike this client's previous version, which kept any subpath and always forced a trailing
-        // slash, potentially hitting a route that doesn't exist. FALLBACK_SEARCH_PATH intentionally
-        // keeps its own trailing slash ("/api/s/"): that's the legacy endpoint shape, distinct from
-        // the current bundle-derived one.
-        var searchPath: String? = null
-        for (src in scriptSrcs) {
-            val script = runCatching { request("$BASE_URL$src", method = "GET").readTextBody() }
-                .onFailure { Log.w(LOG_TAG, "GET $BASE_URL$src failed", it) }
-                .getOrNull() ?: continue
-            val rawSuffix = SEARCH_ENDPOINT_REGEX.find(script)?.groupValues?.get(1) ?: continue
-            searchPath = "/api/${rawSuffix.substringBefore("/")}"
-            break
-        }
-        val resolvedSearchPath = searchPath ?: FALLBACK_SEARCH_PATH
-        val source = if (searchPath == null) {
-            Log.w(LOG_TAG, "Scanned ${scriptSrcs.size} script(s), none had a POST /api/... fetch(); using fallback $FALLBACK_SEARCH_PATH")
-            "fallback (nessun /api/... trovato in ${scriptSrcs.size} script analizzati)"
-        } else {
-            "bundle ($resolvedSearchPath)"
-        }
-
-        val initUrl = "$BASE_URL$resolvedSearchPath${if (resolvedSearchPath.endsWith("/")) "" else "/"}init?t=${System.currentTimeMillis()}"
-        val initBody = runCatching { request(initUrl, method = "GET").readTextBody() }
-            .onFailure { Log.w(LOG_TAG, "GET $initUrl failed", it) }
-            .getOrNull()
-        val auth = initBody?.let(::extractAuthFields) ?: AuthFields(null, null, null)
-
-        return HltbAuth(searchPath = resolvedSearchPath, token = auth.token, hpKey = auth.hpKey, hpVal = auth.hpVal, source = source)
+        val url = "$BASE_URL$INIT_PATH?t=${System.currentTimeMillis()}"
+        val connection = request(url, method = "GET")
+        val body = connection.readTextBody()
+        connection.ensureSuccessful(body)
+        return parseAuth(body) ?: error("Campi di autenticazione mancanti nella risposta di $INIT_PATH")
     }
 
-    private fun extractAuthFields(json: String): AuthFields = runCatching {
-        val obj = hltbJson.parseToJsonElement(json).jsonObject
-        var token: String? = null
-        var hpKey: String? = null
-        var hpVal: String? = null
-        obj.forEach { (key, value) ->
-            val text = (value as? JsonPrimitive)?.contentOrNull ?: return@forEach
-            when {
-                key.contains("token", ignoreCase = true) -> token = text
-                key.contains("key", ignoreCase = true) -> hpKey = text
-                key.contains("val", ignoreCase = true) -> hpVal = text
-            }
+    /** Mirrors GameNative's `parseAuth`: the token field is fixed, but the key/value field names vary. */
+    private fun parseAuth(body: String): HltbAuth? = runCatching {
+        val obj = hltbJson.parseToJsonElement(body).jsonObject
+        val token = (obj["token"] as? JsonPrimitive)?.contentOrNull
+        var key: String? = null
+        var value: String? = null
+        obj.forEach { (field, element) ->
+            val text = (element as? JsonPrimitive)?.contentOrNull
+            if (text.isNullOrEmpty()) return@forEach
+            val normalizedField = field.lowercase()
+            if (key == null && normalizedField.contains("key")) key = text
+            if (value == null && normalizedField.contains("val")) value = text
         }
-        AuthFields(token, hpKey, hpVal)
+        if (token.isNullOrEmpty() || key == null || value == null) null else HltbAuth(token, key!!, value!!)
     }.getOrElse {
         Log.w(LOG_TAG, "Could not parse auth fields out of the init response", it)
-        AuthFields(null, null, null)
+        null
+    }
+
+    private fun attemptSearch(title: String, auth: HltbAuth): SearchOutcome {
+        val body = buildSearchBody(title, auth)
+        val headers = mapOf(
+            "Content-Type" to "application/json",
+            "x-auth-token" to auth.token,
+            "x-hp-key" to auth.hpKey,
+            "x-hp-val" to auth.hpVal,
+        )
+        val connection = request("$BASE_URL$SEARCH_PATH", method = "POST", body = body, headers = headers)
+        val responseText = connection.readTextBody()
+        val httpCode = connection.responseCode
+        if (httpCode == 401 || httpCode == 403) return SearchOutcome.AuthRejected(httpCode)
+        if (httpCode !in 200..299) return SearchOutcome.Failed(httpCode, responseText.trim().take(300))
+        val estimate = parseBestMatch(responseText, title) ?: return SearchOutcome.NoMatch
+        return SearchOutcome.Found(estimate)
     }
 
     /**
-     * [authField] is the (fieldName, fieldValue) pair pulled out of the `/init` response
-     * (see [extractAuthFields]) — the reference implementation doesn't just send it as the
-     * `x-hp-key`/`x-hp-val` headers, it *also* injects it as an extra top-level property into this
-     * JSON body, keyed by the field name itself (e.g. a response field `"content": "abc123"` becomes
-     * `"abc123"` as *both* a header value and this body's literal property name). Omitting this was
-     * the actual bug in this client's previous version: the search silently returned nothing even
-     * with all three headers correctly set, because the anti-bot check also inspects the body.
+     * Same request shape as GameNative's `buildSearchRequest`: `modifier: "hide_dlc"` and
+     * `sortCategory: "name"` (rather than this client's previous `"popular"`) are part of the
+     * confirmed-working request, not incidental — kept as-is rather than guessed at. [auth]'s
+     * key/value pair is injected as an extra top-level property, keyed by the field name itself,
+     * exactly like the `x-hp-key`/`x-hp-val` headers — omitting this was the actual bug that made
+     * the previous client's searches silently return nothing even with headers correctly set.
      */
-    private fun buildSearchBody(title: String, authField: Pair<String, String>?): String {
-        val extra = authField?.let { (name, value) -> ""","${name.jsonEscaped()}":"${value.jsonEscaped()}"""" }.orEmpty()
-        return """{"searchType":"games","searchTerms":${title.trim().split(Regex("\\s+")).toJsonStringArray()},""" +
-            """"searchPage":1,"size":20,"searchOptions":{"games":{"userId":0,"platform":"","sortCategory":"popular",""" +
-            """"rangeCategory":"main","modifier":""},"users":{"sortCategory":"postcount"},"filter":"","sort":0,""" +
-            """"randomizer":0},"useCache":true$extra}"""
+    private fun buildSearchBody(title: String, auth: HltbAuth): String {
+        val searchTerms = HltbMatcher.normalize(title).split(" ").filter { it.isNotBlank() }
+        val json = buildJsonObject {
+            put("searchType", "games")
+            putJsonArray("searchTerms") { searchTerms.forEach { add(it) } }
+            put("searchPage", 1)
+            put("size", 20)
+            putJsonObject("searchOptions") {
+                putJsonObject("games") {
+                    put("userId", 0)
+                    put("platform", "")
+                    put("sortCategory", "name")
+                    put("rangeCategory", "main")
+                    put("modifier", "hide_dlc")
+                    putJsonObject("rangeTime") {
+                        put("min", 0)
+                        put("max", 0)
+                    }
+                    putJsonObject("rangeYear") {
+                        put("min", "")
+                        put("max", "")
+                    }
+                    putJsonObject("gameplay") {
+                        put("perspective", "")
+                        put("flow", "")
+                        put("genre", "")
+                        put("difficulty", "")
+                    }
+                }
+                putJsonObject("users") {}
+                putJsonObject("lists") {}
+                put("filter", "")
+                put("sort", 0)
+                put("randomizer", 0)
+            }
+            put(auth.hpKey, auth.hpVal)
+        }
+        return json.toString()
     }
 
     private fun parseBestMatch(responseText: String, title: String): HowLongToBeatEstimate? {
@@ -235,7 +224,11 @@ class HowLongToBeatApiClient @Inject constructor() {
         }
 
         val entries = games.map { hltbJson.decodeFromJsonElement<HltbGameDto>(it) }
-        val best = entries.firstOrNull { it.name.equals(title, ignoreCase = true) } ?: entries.first()
+        val best = HltbMatcher.findBestMatch(title, entries) { it.name }
+        if (best == null) {
+            Log.w(LOG_TAG, "No acceptable HLTB match for \"$title\" among ${entries.size} result(s)")
+            return null
+        }
 
         val estimate = HowLongToBeatEstimate(
             mainStoryHours = best.mainStorySeconds.toHoursOrNull(),
@@ -249,17 +242,11 @@ class HowLongToBeatApiClient @Inject constructor() {
      * Opens a connection, manually following 3xx redirects (up to [MAX_REDIRECTS]) instead of
      * relying on `HttpURLConnection`'s built-in `followRedirects` — that default only reliably
      * follows GET redirects; it does **not** consistently follow redirects on POST requests, and
-     * historically has gaps with 308 (Permanent Redirect) specifically. Confirmed as the actual
-     * failure mode on a real device (every search failing with a bare "HTTP 308", no body) after
-     * the previous fix still left HowLongToBeat silent — see CLAUDE.md, Fase 8. [body]/[headers]
-     * (and the request method) are replayed unchanged against the redirect target, which is the
-     * correct behavior for 307/308 and the safest choice for 301/302/303 too, since this client
+     * historically has gaps with 308 (Permanent Redirect) specifically. Confirmed as an actual
+     * failure mode on a real device with this client's previous version (see CLAUDE.md, Fase 8).
+     * [body]/[headers] (and the request method) are replayed unchanged against the redirect
+     * target, correct for 307/308 and the safest choice for 301/302/303 too since this client
      * always expects a JSON response either way.
-     *
-     * `Referer`/`Origin` are set unconditionally (not just on the final search POST): confirmed
-     * against the real site that the `/init` endpoint alone returns a bare 403 `{"error":"Access
-     * Denied"}` without a `Referer` header, even though the static `/_next/static/...` chunk
-     * requests don't care — an inconsistency worth re-checking if HowLongToBeat changes again.
      */
     private fun request(
         url: String,
@@ -295,8 +282,14 @@ class HowLongToBeatApiClient @Inject constructor() {
     }
 }
 
-private data class HltbAuth(val searchPath: String, val token: String?, val hpKey: String?, val hpVal: String?, val source: String)
-private data class AuthFields(val token: String?, val hpKey: String?, val hpVal: String?)
+private data class HltbAuth(val token: String, val hpKey: String, val hpVal: String)
+
+private sealed interface SearchOutcome {
+    data class Found(val estimate: HowLongToBeatEstimate) : SearchOutcome
+    data object NoMatch : SearchOutcome
+    data class AuthRejected(val httpCode: Int) : SearchOutcome
+    data class Failed(val httpCode: Int, val excerpt: String) : SearchOutcome
+}
 
 @Serializable
 private data class HltbGameDto(
@@ -309,11 +302,6 @@ private data class HltbGameDto(
 /** HowLongToBeat represents "not enough submissions" as 0, same as "unknown" — both map to null here. */
 private fun Long?.toHoursOrNull(): Double? =
     this?.takeIf { it > 0 }?.let { seconds -> Math.round(seconds / 3600.0 * 10) / 10.0 }
-
-private fun List<String>.toJsonStringArray(): String =
-    joinToString(prefix = "[", postfix = "]") { term -> "\"${term.jsonEscaped()}\"" }
-
-private fun String.jsonEscaped(): String = replace("\\", "\\\\").replace("\"", "\\\"")
 
 private fun HttpURLConnection.readTextBody(): String =
     (if (responseCode in 200..299) inputStream else errorStream)
