@@ -15,6 +15,8 @@ import kotlinx.coroutines.withContext
 /** Longest edge a stored cover is downsampled to — comfortably more than any on-screen/PDF use needs. */
 private const val COVER_MAX_DIMENSION = 900
 private const val COVER_JPEG_QUALITY = 85
+/** Above this, a file claiming to already be a compressed cover is treated as suspect and re-encoded anyway. */
+private const val COVER_RECOMPRESS_THRESHOLD_BYTES = 400_000L
 
 /**
  * Persists a picked cover image into the app's internal storage so it survives beyond the
@@ -58,6 +60,37 @@ class ImageStorage @Inject constructor(
             }
         }
         return destination.absolutePath
+    }
+
+    /**
+     * Recompresses any cover already on disk that predates the downsample/compress step above —
+     * picked/downloaded before this app version, or written back by [writeBytes] while restoring
+     * an old Drive backup taken before backups' covers were compressed either. Overwrites each
+     * file **in place at its existing path**, so no `Review`/`BacklogItem.coverImagePath` needs
+     * updating; only files that actually need it are rewritten (checked via [needsRecompression],
+     * a cheap bounds-only decode), so this is safe to run unconditionally on every app startup —
+     * see `ThePatientGamerHelperApplication.onCreate()`. Without this, the on-device/backup size
+     * fix only ever applied going forward: a library whose covers were already downloaded before
+     * updating stayed exactly as bloated as before, no matter how many *new* covers got compressed
+     * correctly — a real device report after the original fix confirmed this gap.
+     */
+    suspend fun recompressOversizedCovers() = withContext(Dispatchers.IO) {
+        coversDir.listFiles()?.forEach { file ->
+            val bytes = file.readBytes()
+            if (!needsRecompression(bytes, file.length())) return@forEach
+            val downsampled = decodeDownsampled(bytes) ?: return@forEach
+            file.outputStream().use { output ->
+                downsampled.compress(Bitmap.CompressFormat.JPEG, COVER_JPEG_QUALITY, output)
+            }
+            downsampled.recycle()
+        }
+    }
+
+    private fun needsRecompression(bytes: ByteArray, fileSizeBytes: Long): Boolean {
+        if (fileSizeBytes > COVER_RECOMPRESS_THRESHOLD_BYTES) return true
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        return bounds.outWidth > COVER_MAX_DIMENSION || bounds.outHeight > COVER_MAX_DIMENSION
     }
 
     private fun decodeDownsampled(bytes: ByteArray): Bitmap? {

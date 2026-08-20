@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.marcogn.thepatientgamerhelper.data.debug.DebugSeeder
 import com.marcogn.thepatientgamerhelper.data.image.CoverImageReconciler
+import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ class ThePatientGamerHelperApplication : Application(), Configuration.Provider {
     @Inject lateinit var debugSeeder: DebugSeeder
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var coverImageReconciler: CoverImageReconciler
+    @Inject lateinit var imageStorage: ImageStorage
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -26,7 +28,12 @@ class ThePatientGamerHelperApplication : Application(), Configuration.Provider {
         if (BuildConfig.SEED_DEBUG_DATA) {
             applicationScope.launch { debugSeeder.seedIfEmpty() }
         }
-        applicationScope.launch { coverImageReconciler.pruneOrphanedCovers() }
+        // Sequential, not two parallel launches: pruning first avoids wasting a recompression pass
+        // on a file about to be deleted, and both touch the same covers/ directory.
+        applicationScope.launch {
+            coverImageReconciler.pruneOrphanedCovers()
+            imageStorage.recompressOversizedCovers()
+        }
     }
 
     override val workManagerConfiguration: Configuration
