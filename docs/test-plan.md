@@ -1025,7 +1025,22 @@ not the library's (2.7 covers the library's own zip import instead).
       unexpectedly large, check whether the *individual* cover files are
       unexpectedly large (would point at the downsample/compress step —
       FORM-35, FORM-39c — regressing), not whether the backlog is
-      included at all.
+      included at all. If the covers are large *and* the library predates
+      this app version, see SET-16e first — that's the expected culprit,
+      not a regression.
+- [ ] **SET-16e (regression check)** The actual scenario a real device
+      report hit: a library whose covers were already downloaded/picked
+      **before** updating to a build containing the recompress fix. Open
+      the app (triggers `ImageStorage.recompressOversizedCovers()` at
+      startup, alongside the existing orphan sweep), wait a few seconds
+      for the background sweep to finish, then back up. The backup should
+      now be small (few MB, not tens) even without touching any existing
+      review/backlog item — the old, oversized cover files on disk should
+      have been rewritten in place (same file, smaller content) by the
+      startup sweep, not just newly-added ones. If the backup is still
+      large after this, that's the actual bug to report (not "the fix
+      doesn't work" in general — check specifically whether *old* covers
+      shrank or only ones added after the update did).
 - [ ] **SET-16d (edge)** Leave a cover file orphaned on purpose (pick a
       cover in the review or backlog item form, then cancel without
       saving — FORM-33b's scenario), **without** restarting the app
@@ -1506,3 +1521,12 @@ review alone — all the more reason not to skip them in future test rounds.
   `howlongtobeat.com` still needs real-device confirmation before this
   can be considered closed, same as every prior HowLongToBeat round in
   this file.
+- 2026-08-20 (follow-up) — Real device report: after updating to the
+  cover-bloat fix and adding only a few new games, the Drive backup was
+  still ~40MB. Root cause: the fix only ever shrank *newly* written
+  covers, never the ones already on disk from before updating — see
+  `docs/implementation-decisions.md`, "Cover storage/backup bloat, part
+  2". SET-16e added (the actual regression scenario); SET-16c cross-
+  references it. Not yet manually verified on device — SET-16e is
+  specifically what needs re-confirming before this can be considered
+  closed.

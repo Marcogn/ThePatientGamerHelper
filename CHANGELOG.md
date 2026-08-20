@@ -8,6 +8,19 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ### Fixed
 
+- **Existing covers weren't retroactively shrunk by the previous backup-size fix, so on-device/backup size stayed just as large.**
+  The previous session's downsample/compress fix (900px longest edge,
+  JPEG quality 85) only ever applied to *newly* picked/downloaded covers
+  going forward — every cover already on disk before updating, or
+  restored from an old Drive backup taken before backups' covers were
+  compressed either, stayed exactly as large as before. Confirmed by a
+  real device report: after updating and adding only a few new games,
+  the backup was still ~40MB. `ImageStorage.recompressOversizedCovers()`
+  now runs once at every app startup (alongside the existing orphan
+  sweep) and recompresses any cover file still above the target
+  dimension or an oversized-for-a-compressed-JPEG file size, overwriting
+  it in place at its existing path — no `Review`/`BacklogItem` row needs
+  updating, and files already compliant are left untouched.
 - **HowLongToBeat estimates ported to GameNative's working approach.**
   The client used to re-derive HowLongToBeat's current search endpoint at
   runtime by scanning its homepage JS bundles for a regex match — the

@@ -1114,6 +1114,56 @@ of the pressure that was filling it, and CLAUDE.md's dependency-
 minimalism weighs against adding a custom `ImageLoader`/cache
 configuration without a follow-up report showing it's still needed.
 
+## Cover storage/backup bloat, part 2: existing covers weren't retroactively shrunk
+
+Real device follow-up report on the fix above: after updating and
+adding only a few more games, the Drive backup was still ~40MB. Root
+cause was obvious in hindsight — every part of the previous fix
+(`ImageStorage.persist()`/`persistDownloadedCover()` downsampling,
+`BackupArchiveBuilder` excluding unreferenced covers) only changes
+behavior for covers written *after* updating to that code. Every cover
+already sitting in `covers/` from before the update — which is most of
+a library that predates the fix, exactly the reported scenario — was
+never touched, so the backup stayed dominated by the same large files
+it always had. The orphan-pruning `CoverImageReconciler` added in the
+same pass doesn't help either: it only deletes *unreferenced* files, it
+never rewrites ones still in active use.
+
+Fix: `ImageStorage.recompressOversizedCovers()`, run once at every app
+startup right after `CoverImageReconciler.pruneOrphanedCovers()` (same
+`ThePatientGamerHelperApplication.onCreate()` background coroutine,
+sequential rather than a second parallel `launch` — both touch the same
+`covers/` directory, and there's no point recompressing a file the
+reconciler is about to delete). For each file already in `covers/`, it
+checks (via a bounds-only decode, no full bitmap load) whether the
+image still exceeds the 900px target dimension, or whether its file
+size exceeds a 400KB threshold despite being small enough dimension-
+wise (catches an inefficiently-encoded PNG or a cover written by
+`writeBytes()` while restoring an old, pre-compression backup — that
+path deliberately writes bytes as-is, see the previous section, so a
+restore from an old backup reintroduces exactly this problem too).
+Anything that needs it is decoded, downsampled the same way as a fresh
+`persist()`/`persistDownloadedCover()` call, and **written back to the
+same file name/path** — deliberately in place, not to a new UUID-named
+file, because rewriting the path would mean updating every `Review`/
+`BacklogItem.coverImagePath` row pointing at it, which is unnecessary
+churn for what's otherwise a pure file-content fix. Cheap enough to run
+unconditionally on every single startup rather than gating it behind a
+one-time migration flag: the bounds check alone is cheap for a personal
+library's worth of files, and a file that's already compliant is left
+completely untouched (not even re-opened for writing), so a second and
+third startup after the first successful pass cost next to nothing.
+
+400KB was picked the same way 900px/quality 85 was originally — a
+generous "clearly larger than anything this app's own compression step
+would ever produce, clearly small enough to not be worth a second
+lossy JPEG generation" threshold, not derived from a spec. `needsRecompression()`
+is private and only exercised indirectly through `ImageStorageTest`
+(Robolectric, using real `Bitmap`/JPEG encode+decode — this project's
+Robolectric config doesn't force legacy/shadow graphics, so real image
+codec behavior is available in a JVM test here, unlike `PdfDocument`
+which Robolectric cannot exercise at all).
+
 ## HowLongToBeat: ported from GameNative's `HltbService` (2026-08-20)
 
 Supersedes the "no public API, reverse-engineered technique" decision
