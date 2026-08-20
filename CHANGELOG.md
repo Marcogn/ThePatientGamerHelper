@@ -6,6 +6,16 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Fixed a `release.yml` bug that could burn a version number on a failed signed build.** The
+  workflow used to commit and push the `versionName`/`versionCode` bump and the cut
+  `CHANGELOG.md` section to `main` *before* attempting the signed build. Found on the sibling
+  HackDex-Tracker project, which hit this for real on its first release run: a signing failure
+  left `main` permanently bumped with no release ever published, and every retry then failed
+  immediately because `[Unreleased]` was already empty. This project's releases have all
+  succeeded so far, but the same latent bug applied here. Reordered so the commit/push only
+  happens after `gh release create` actually succeeds; a build/signing failure now leaves `main`
+  untouched and the same version can simply be re-run. See `docs/implementation-decisions.md`.
+
 ## [1.0.5] - 2026-08-20
 
 ### Fixed

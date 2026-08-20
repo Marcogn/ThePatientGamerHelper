@@ -788,8 +788,13 @@ something to do unprompted) is a single step: manually trigger the
    and leaves a fresh empty `## [Unreleased]` above it.
 3. Bumps `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
    to match.
-4. Commits and pushes that bump straight to `main`, then proceeds to
-   build/sign/publish the release from those same files.
+4. Builds/signs/publishes the release from those same files, still only
+   as local, uncommitted edits at this point, and **only after the
+   GitHub Release is actually published** commits and pushes that bump
+   straight to `main`. This order is deliberate — see
+   `docs/implementation-decisions.md`: a build/signing failure (e.g. a
+   bad keystore password) now leaves `main` untouched instead of burning
+   the version number with no release to show for it.
 
 There is no auto-computed default for the `version` input — GitHub's
 manual dispatch form can't pre-fill a value computed from repo state, so
