@@ -11,6 +11,7 @@
 *.ap_
 *.dex
 /app/build/
+/app/schemas/
 
 # Signing (never commit a release keystore or its credentials)
 *.jks

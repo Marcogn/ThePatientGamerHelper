@@ -1113,3 +1113,51 @@ uses its library default). The `thumb`-URL fix above should remove most
 of the pressure that was filling it, and CLAUDE.md's dependency-
 minimalism weighs against adding a custom `ImageLoader`/cache
 configuration without a follow-up report showing it's still needed.
+
+## HowLongToBeat: ported from GameNative's `HltbService` (2026-08-20)
+
+Supersedes the "no public API, reverse-engineered technique" decision
+above and every fix layered on top of it in this file and
+`docs/phase-history.md`: after HowLongToBeat estimates kept breaking in
+the field despite that whole chain of fixes, the user pointed at
+[GameNative's `HltbService`](https://github.com/utkarshdalal/GameNative/blob/master/app/src/main/java/app/gamenative/utils/HltbService.kt)
+as a confirmed-working reference and asked for a port.
+
+The decision worth recording here (full before/after detail is in
+`docs/phase-history.md`'s matching dated section): every previous round
+of HowLongToBeat debugging in this project was really debugging the
+*endpoint-discovery* step — re-deriving the current search path at
+runtime from HowLongToBeat's homepage JS bundle via regex, which broke
+again each time HowLongToBeat's frontend build changed shape. GameNative
+avoids that step entirely by hardcoding a fixed path (`/api/bleed`)
+instead of discovering it. This is not a *more* official integration —
+it's still unofficial, undocumented, and can still break if HowLongToBeat
+rotates this path too — but it removes an entire class of failure this
+project had already hit three separate times (Turbopack chunk renaming,
+a regex matching the wrong `fetch()` call, two rounds of 404s). Chose to
+port GameNative's confirmed-working request shape and auth flow
+faithfully rather than re-deriving it independently, same reasoning as
+the earlier "port from an actively maintained library" fix for the
+bundle regex — a verified external source beats a fresh guess.
+
+One structural choice made during the port, not present in GameNative
+itself: the title-matching logic (normalize/Levenshtein distance/
+acceptable-match heuristic) was extracted into a new pure
+`domain/howlongtobeat/HltbMatcher.kt`, unit-tested in plain JVM, instead
+of staying as private functions on the HTTP client (GameNative keeps them
+inline — a reasonable choice for that app, but this codebase already has
+an established `domain/filter`/`domain/stats` "pure logic, unit-tested,
+no Android import" convention that pure matching logic fits directly).
+This let the improved matching algorithm (GameNative's Levenshtein
+distance + acceptable-match heuristic, replacing this client's previous
+"exact title match or just take the first result") ship with real test
+coverage despite the HTTP client itself remaining untestable via
+Robolectric (see CLAUDE.md's Phase 8 section for why).
+
+Deliberately not ported: GameNative's `HltbCache` (a 12-hour-TTL,
+DataStore-persisted result cache surviving process death) and its "all
+playstyles" hours field. Neither was requested, and both would need
+scope this task didn't ask for — a new persistence surface for the
+former, a `backlog_items` Room migration for the latter — for a benefit
+(repeated cold-start lookups, one more stat) nobody had flagged as
+needed. Add either separately if a concrete need shows up.

@@ -1405,8 +1405,14 @@ review alone — all the more reason not to skip them in future test rounds.
       (the site can change its bundle/protections at any time without
       notice). Do not treat a HowLongToBeat failure as automatically
       "the same bug as before": read the in-app diagnostic message
-      (`hltb_status_error`, which includes the URL and the `source`) and
-      report it in full.
+      (`hltb_status_error`) and report it in full. Note (2026-08-20): the
+      client no longer re-derives the search path from the homepage
+      bundle at all (REG-05's regex-extraction step is gone, replaced
+      with a fixed `/api/bleed` endpoint ported from GameNative's
+      `HltbService` — see `docs/phase-history.md`), so a future failure's
+      diagnostic message will no longer mention a bundle-extraction
+      `source`; it can still fail if HowLongToBeat rotates the fixed path
+      itself.
 - [ ] **REG-13** Cancelling the "write a review" form opened from a
       backlog item (Backlog → list → item → "write a review" → cancel/
       system back) no longer poisons the drawer's "Backlog" entry: verify
@@ -1487,3 +1493,16 @@ review alone — all the more reason not to skip them in future test rounds.
   restore actually did to local data). Not yet manually verified on
   device — SET-24b in particular (the actual backlog restore round trip)
   needs real-device confirmation before this can be considered closed.
+- 2026-08-20 — `HowLongToBeatApiClient` ported to a fixed-endpoint
+  approach (GameNative's `HltbService`), replacing the homepage/bundle
+  regex-extraction step entirely — see `docs/phase-history.md`, "HowLongToBeat:
+  port from GameNative's `HltbService`". REG-12's note updated to reflect
+  that a future failure's diagnostic message can no longer mention a
+  bundle-extraction `source`. No new BKL-39/FORM-57-style test steps
+  needed (the user-visible "search online → HowLongToBeat estimate" flow
+  is unchanged, only the client's internal endpoint-discovery mechanism
+  changed) and no new "Known regressions" entry added — this wasn't found
+  through on-device testing, and the actual HTTP round trip against
+  `howlongtobeat.com` still needs real-device confirmation before this
+  can be considered closed, same as every prior HowLongToBeat round in
+  this file.
