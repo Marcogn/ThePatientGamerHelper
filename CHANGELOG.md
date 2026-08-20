@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-08-20
+
 ### Fixed
 
 - **Existing covers weren't retroactively shrunk by the previous backup-size fix, so on-device/backup size stayed just as large.**
