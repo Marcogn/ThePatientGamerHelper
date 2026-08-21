@@ -2,15 +2,25 @@
 #
 # Manual-only release: cuts app/build.gradle.kts's versionName/versionCode and
 # CHANGELOG.md's [Unreleased] section for the version given in the dispatch
-# form, commits and pushes that bump straight to main, then builds a signed
-# release APK and publishes it as a GitHub Release. The version input is
-# always typed by hand (no auto-computed default — GitHub's dispatch form
-# can't pre-fill a value computed from repo state) and is only validated to
-# be greater than the current versionName. The workflow still refuses to
-# overwrite an existing release/tag. The GitHub Release body is never the
-# full cut section — see "Extract changelog highlights" below for what
-# actually gets published, and CLAUDE.md's "Changelog and release process"
-# for the entry convention it depends on.
+# form (as local, uncommitted edits), builds and signs the release APK
+# against those edits, and only once the GitHub Release is actually
+# published does it commit and push the version bump straight to main. This
+# order is deliberate: if the build/signing step fails (e.g. a bad keystore
+# password), main is never touched and the same version input can simply be
+# re-run once the underlying problem is fixed — nothing is "spent" on a
+# failed attempt. An earlier version of this workflow committed the bump
+# before building, which meant a signing failure would leave main
+# permanently bumped/changelog-cut with no release ever published for that
+# version, and no clean way to retry short of faking a new changelog entry
+# — see docs/implementation-decisions.md (found and fixed via the sibling
+# HackDex-Tracker project, which hit this for real on its first release).
+# The version input is always typed by hand (no auto-computed default —
+# GitHub's dispatch form can't pre-fill a value computed from repo state)
+# and is only validated to be greater than the current versionName. The
+# workflow still refuses to overwrite an existing release/tag. The GitHub
+# Release body is never the full cut section — see "Extract changelog
+# highlights" below for what actually gets published, and CLAUDE.md's
+# "Changelog and release process" for the entry convention it depends on.
 name: Release
 
 on:
@@ -103,18 +113,9 @@ jobs:
           sed -i -E "s/versionCode = [0-9]+/versionCode = $NEW_CODE/" app/build.gradle.kts
           sed -i -E "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION\"/" app/build.gradle.kts
 
-      - name: Commit and push version bump
-        env:
-          NEW_VERSION: ${{ inputs.version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md app/build.gradle.kts
-          git commit -m "Cut release $NEW_VERSION"
-          git push origin HEAD:main
-
       # Single source of truth for the release version: app/build.gradle.kts's versionName,
-      # now freshly bumped by the step above.
+      # now freshly bumped by the step above (still only a local, uncommitted edit at this
+      # point — see the top-of-file comment for why the commit/push is deferred to the end).
       - name: Read app version
         id: version
         run: |
@@ -270,3 +271,19 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "ThePatientGamerHelper $RELEASE_TAG" \
             --notes-file release-notes.md
+
+      # Only reached once the release above actually exists. Pushes with the credentials the
+      # initial Checkout step already configured for this job (its RELEASE_PUSH_TOKEN input) —
+      # a PAT, not the default GITHUB_TOKEN, so this commit authenticates as an actual repo admin
+      # and can bypass main's branch protection (a GITHUB_TOKEN push is attributed to the
+      # github-actions[bot] identity, which isn't covered by an "admins bypass required pull
+      # requests" exception).
+      - name: Commit and push version bump
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md app/build.gradle.kts
+          git commit -m "Cut release $NEW_VERSION"
+          git push origin HEAD:main

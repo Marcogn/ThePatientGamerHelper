@@ -1211,3 +1211,29 @@ scope this task didn't ask for — a new persistence surface for the
 former, a `backlog_items` Room migration for the latter — for a benefit
 (repeated cold-start lookups, one more stat) nobody had flagged as
 needed. Add either separately if a concrete need shows up.
+
+## `release.yml` now commits the version bump *after* the signed build, not before
+
+Found on the sibling `HackDex-Tracker` project, which hit this for real
+on its first `Release` run: the workflow used to commit and push the
+`versionName`/`versionCode` bump and the cut `CHANGELOG.md` section to
+`main` *before* attempting the signed build. If that build then fails
+(a keystore-password mismatch, an expired secret, anything in the
+signing/build step), `main` is left permanently bumped with
+`[Unreleased]` emptied out, but no GitHub Release ever published for
+that version — every retry with a higher version number then fails
+immediately with "`CHANGELOG.md`'s `[Unreleased]` section is empty -
+nothing to release", since there's no new changelog content to cut. The
+version number is effectively burned with nothing to show for it, and
+the only way out would be fabricating a new changelog entry just to
+unblock the workflow.
+
+This project's own releases have all succeeded so far (this was a
+latent bug here, not one that had actually bitten a real run), but the
+same reordering applies: the version-bump/changelog-cut edits are still
+made first, but only as local, uncommitted working-tree changes. The
+signed build runs against those local edits, and the `git commit`/
+`git push` to `main` is now the very last step, reached only once
+`gh release create` has actually succeeded. A build/signing failure now
+leaves `main` completely untouched, so the exact same version input can
+simply be re-run once the underlying problem is fixed.
