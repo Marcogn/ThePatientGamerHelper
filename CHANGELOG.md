@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-08-21
+
 - **Fixed rapid navigation taps landing on the wrong screen, and gave screen transitions a modern, faster feel.**
   Navigating quickly (e.g. Home → Reviews → back → Backlog done in rapid succession) could
   register the tap on the screen still fading out underneath instead of the intended
