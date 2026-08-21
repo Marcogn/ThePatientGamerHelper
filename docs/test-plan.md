@@ -1459,6 +1459,23 @@ review alone — all the more reason not to skip them in future test rounds.
       the final search POST — now sent on every request. Verify online
       search from the backlog item form actually returns
       `hltbMainStoryHours`/etc. instead of the 404/error message.
+- [ ] **REG-15** Navigating quickly (e.g. Home → Reviews → back → Backlog
+      done in fast succession) could register the second tap on the
+      screen still fading out underneath instead of the intended
+      destination — reported from real device use. Root cause:
+      `navigation-compose`'s default 700ms crossfade keeps both the
+      outgoing and incoming screens composed and clickable for the whole
+      duration. Fixed in `ThePatientGamerHelperNavGraph.kt`: explicit
+      300ms directional slide+fade transitions replace the default
+      crossfade, and every `navigate()`/`popBackStack()` call is gated on
+      the triggering `NavBackStackEntry` having reached `RESUMED` (i.e.
+      its own transition has fully settled) before it's allowed to fire.
+      Verify by repeatedly and quickly chaining navigation actions across
+      Home/Library/Backlog/Stats/Settings (via drawer and in-screen
+      buttons) and confirming the tap always lands on the intended
+      destination, never a screen left over from the previous transition;
+      also confirm transitions now feel like a normal, snappy Android
+      push/pop instead of the previous slow generic fade.
 
 ## Update history for this plan
 
@@ -1530,3 +1547,11 @@ review alone — all the more reason not to skip them in future test rounds.
   references it. Not yet manually verified on device — SET-16e is
   specifically what needs re-confirming before this can be considered
   closed.
+- 2026-08-21 — REG-15 added: a real navigation bug reported from device
+  use (a fast tap sequence across Home/Library/Backlog could land on a
+  screen still fading out from the previous transition instead of the
+  intended destination), root-caused to `navigation-compose`'s default
+  700ms crossfade keeping both screens composed and clickable, and fixed
+  in `ThePatientGamerHelperNavGraph.kt` with explicit 300ms directional
+  transitions plus a `lifecycleIsResumed()` guard on every navigation
+  call. Not yet manually verified on device.

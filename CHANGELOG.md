@@ -6,6 +6,21 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Fixed rapid navigation taps landing on the wrong screen, and gave screen transitions a modern, faster feel.**
+  Navigating quickly (e.g. Home → Reviews → back → Backlog done in rapid succession) could
+  register the tap on the screen still fading out underneath instead of the intended
+  destination — reported live on-device, reproducible whenever two navigation actions happened
+  within the transition window. Root cause: `navigation-compose` 2.8.5's default transition is a
+  700ms crossfade during which both the outgoing and incoming screens stay composed and
+  clickable at the same time, so a fast second tap could hit whichever one happened to occupy
+  that screen coordinate. `ThePatientGamerHelperNavGraph` now (1) declares explicit, faster
+  slide+fade transitions (300ms, Material-style directional push/pop) instead of the default
+  crossfade, and (2) gates every `navigate()`/`popBackStack()` call behind a check that the
+  *specific* `NavBackStackEntry` triggering it has actually reached `RESUMED` — the officially
+  documented signal that its own transition has fully settled — so a stray tap on a screen still
+  mid-transition is ignored rather than misrouted. Also addresses the general "navigation feels
+  slow" complaint, since 300ms directional transitions read as snappier than the previous
+  generic 700ms fade.
 - **Fixed a `release.yml` bug that could burn a version number on a failed signed build.** The
   workflow used to commit and push the `versionName`/`versionCode` bump and the cut
   `CHANGELOG.md` section to `main` *before* attempting the signed build. Found on the sibling
