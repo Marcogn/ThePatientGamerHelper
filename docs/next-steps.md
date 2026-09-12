@@ -74,3 +74,15 @@ confirmation before being considered closed:
 All of the corresponding checklist items (FORM-33b, FORM-34b, FORM-39b,
 FORM-39c, SET-16c, SET-16d, SET-24b, SET-16e, REG-15) are still unchecked
 (`- [ ]`) in `docs/test-plan.md` as of this writing.
+
+## 4. Proposed improvement (approved by the user, 2026-09-12)
+
+Not yet planned in any phase document — a new proposal raised during a
+cross-repo audit and approved for the backlog. Still needs its own design
+pass before implementation.
+
+- **Yearly recap ("wrapped").** Extends the existing `StatsScreen`/
+  `LibraryStatisticsCalculator` (Phase 3) with a per-year breakdown —
+  games completed, hours tracked, average rating — reusing the same data
+  and rendering approach (no new charting dependency, same hand-rolled
+  Compose bars) rather than introducing a separate feature.
