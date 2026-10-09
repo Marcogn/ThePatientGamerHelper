@@ -178,6 +178,10 @@ app/src/main/java/com/marcogn/thepatientgamerhelper/
   phase build log and troubleshooting history
 - [`CLAUDE.md`](CLAUDE.md) — contributor/architecture guide: conventions,
   package layout, build notes
+- [`docs/ci.md`](docs/ci.md) — the CI, Build APK and Release workflows
+  and their secrets
+- [`docs/claude.md`](docs/claude.md) — how the repository is set up for
+  Claude Code (the shared Android kit)
 
 The app's own UI keeps its Italian/English dual-language support (see
 `app/src/main/res/values` and `values-en`); everything else in this

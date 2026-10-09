@@ -1237,3 +1237,35 @@ signed build runs against those local edits, and the `git commit`/
 `gh release create` has actually succeeded. A build/signing failure now
 leaves `main` completely untouched, so the exact same version input can
 simply be re-run once the underlying problem is fixed.
+
+## Android kit adopted (2026-10-09, kit 425e232)
+
+The shared setup of the author's Android projects,
+[claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit),
+installed with `/android-kit`: `.claude/` (skills, `architecture-reviewer`
+agent, Android SDK SessionStart hook, settings), Dependabot, PR and issue
+templates, `docs/claude.md`, `docs/ci.md`, `REVIEW.md`, and the six
+workflows replaced by short callers of the kit's reusable workflows (pinned
+at `@v1`).
+
+- **Android CI now builds the release variant** (`assembleRelease`, unsigned)
+  instead of `assembleDebug`, with JaCoCo coverage of the unit tests
+  (`enableUnitTestCoverage` behind `-Pcoverage` in `app/build.gradle.kts`).
+  No forbidden-permissions check: no rule here forbids a permission, and
+  `INTERNET` is required.
+- **Build APK and Release verify the signature with `apksigner`** and print
+  the certificate's SHA-256; they no longer print the decoded keystore's
+  size/hash or run `signingReport` (SHA-1). Dropped on purpose; the SHA-1 is
+  read locally with `./gradlew signingReport` or `keytool` when needed.
+- **Release also attaches R8's `mapping.txt`** when one exists (R8 is off
+  here today, so in practice nothing changes) and names the APK and title
+  after the GitHub repository's name.
+- **`DRIVE_OAUTH_WEB_CLIENT_ID` travels in `BUILD_ENV`.** Every caller that
+  builds (Android CI, Build APK, Release) passes it as
+  `BUILD_ENV: "DRIVE_OAUTH_WEB_CLIENT_ID=${{ secrets.DRIVE_OAUTH_WEB_CLIENT_ID }}"`;
+  the kit exports it before Gradle, as the old workflows did with `env:`.
+- **The SHA-1 for the Android OAuth client is no longer printed by Build
+  APK.** Read it with `./gradlew signingReport`/`keytool` against the release
+  keystore; a kit issue asks for the SHA-1 to be printed again.
+- **Dependabot replaced by the kit's**: grouped Gradle updates weekly,
+  Actions monthly, instead of ungrouped weekly PRs with a limit of 5.
