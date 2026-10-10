@@ -18,3 +18,6 @@
 *.keystore
 key.properties
 keystore.properties
+
+# Claude Code personal settings
+.claude/settings.local.json

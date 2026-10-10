@@ -728,16 +728,25 @@ the hard way (full context in `docs/phase-history.md`):
 ./gradlew testDebugUnitTest   # JVM unit tests (domain + repository logic)
 ./gradlew connectedDebugAndroidTest  # instrumented tests (requires device/emulator)
 ./gradlew lint                # Android Lint
+./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage  # JaCoCo report in app/build/reports/coverage/test/debug/
 ```
 
 Real builds are verified by the GitHub Actions workflows in
 `.github/workflows/` (`android-ci.yml` on every push/PR;
-`build-apk.yml`/the release workflow for signed release APKs) — an
-isolated sandbox may have no network access to `dl.google.com`
-(required for the Android Gradle Plugin and AndroidX/Compose/Room/Hilt
-artifacts), in which case `./gradlew` cannot run locally; check with
-`curl` before assuming otherwise, and rely on CI for real build
-verification in that case.
+`build-apk.yml`/the release workflow for signed release APKs). In a cloud
+session the SessionStart hook (`.claude/hooks/android-sdk.sh`) installs the
+Android SDK and writes `local.properties`; if `./gradlew` still can't run
+(e.g. no network access to `dl.google.com`), rely on CI for real build
+verification.
+
+Claude Code tooling: `.claude/` holds the kit's skills (`verify`, `new-plan`,
+`next-phase`, `close-phase`, `steward`), the `architecture-reviewer` agent and
+the Android SDK hook, from
+[claude-skill-android-kit](https://github.com/Marcogn/claude-skill-android-kit)
+(`docs/claude.md`); `.github/workflows/` holds short callers of the kit's
+reusable workflows (`docs/ci.md`). `REVIEW.md` is what every review checks.
+Bugs and ideas found outside the current task become GitHub issues (bug/task
+templates, `docs/claude.md`, "Issues"), not notes in this file.
 
 Testing approach: pure JVM unit tests cover `domain/filter`, `domain/model`,
 `domain/export`, `domain/stats`, `domain/howlongtobeat`; Room DAOs are tested via Robolectric as

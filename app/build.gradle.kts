@@ -56,6 +56,9 @@ android {
         debug {
             // Enables the debug-only seed data flow (see debug/DebugSeeder.kt).
             buildConfigField("boolean", "SEED_DEBUG_DATA", "true")
+            // JaCoCo coverage of the JVM unit tests, only when asked (`-Pcoverage`), since it slows
+            // the tests: `./gradlew testDebugUnitTest createDebugUnitTestCoverageReport -Pcoverage`.
+            enableUnitTestCoverage = providers.gradleProperty("coverage").isPresent
         }
         release {
             isMinifyEnabled = false
