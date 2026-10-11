@@ -1269,3 +1269,21 @@ at `@v1`).
   keystore; a kit issue asks for the SHA-1 to be printed again.
 - **Dependabot replaced by the kit's**: grouped Gradle updates weekly,
   Actions monthly, instead of ungrouped weekly PRs with a limit of 5.
+
+## In-app updates and Info screen, planned (2026-10-11)
+
+Planned in `docs/plan-phase-9-updates.md`; the author's answers to the planning questions:
+
+- **This app is the pilot for all six of the author's apps.** The `update` package is designed here
+  (Stage 9.1, Opus) and copied by the siblings in one Sonnet phase each, instead of a shared library in
+  the kit (that would add a JitPack dependency and one more repository to version).
+- **Updates come from this repository's GitHub Releases**, `releases/latest`, without a token (public
+  repository). The APK is the release's only `.apk` asset, checked against the asset's SHA-256
+  `digest`, its package name, a higher `versionCode` and the installed app's signing certificate.
+- **Check at startup only, never in the background.** Frequency Never / Every start / Daily / Weekly,
+  default Weekly; "Check now" in the Info screen. Debug builds never check automatically.
+- **"Not now" only closes the dialog**: the next due check asks again; no "skip this version".
+- **The dialog shows the Release body** (the CHANGELOG bold headlines `release.yml` publishes) and a
+  "Full changelog" link, not a second download of `CHANGELOG.md`.
+- **Install through `PackageInstaller` with the system confirmation**; silent install is out of scope.
+

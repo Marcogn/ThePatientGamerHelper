@@ -54,6 +54,9 @@ Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
   has no public API); list/grid view for library and backlog. **Later
   revisited** against `docs/reviews-backlog-import-export-spec-v2.md` —
   see that section below for the current, authoritative behavior.
+- **Phase 9 — In-app updates and Info screen**: 📋 planned, not started —
+  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**, handoff
+  here), Stage 9.2 UI + Info screen (Sonnet). Pilot for the sibling apps.
 - **DOCX export**: **decided not to implement it**, not merely postponed
   — see "DOCX export" below.
 
