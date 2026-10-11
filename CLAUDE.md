@@ -56,7 +56,7 @@ Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
   see that section below for the current, authoritative behavior.
 - **Phase 9 — In-app updates and Info screen**: 🚧 in progress —
   `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**): ✅ code
-  done, device checks pending (`docs/test-plan.md` §7.5); handoff below.
+  done 2026-10-11 (PR #71, 116 JVM tests), device checks pending (`docs/test-plan.md` §7.5); handoff below.
   Stage 9.2 UI + Info screen (Sonnet): next. Pilot for the sibling apps.
 - **DOCX export**: **decided not to implement it**, not merely postponed
   — see "DOCX export" below.
