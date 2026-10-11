@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
@@ -40,6 +41,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.marcogn.thepatientgamerhelper.R
+import com.marcogn.thepatientgamerhelper.ui.about.AboutScreen
 import com.marcogn.thepatientgamerhelper.ui.backlog.BacklogItemDetailScreen
 import com.marcogn.thepatientgamerhelper.ui.backlog.BacklogItemFormScreen
 import com.marcogn.thepatientgamerhelper.ui.backlog.BacklogListDetailScreen
@@ -147,6 +149,13 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                     onClick = { navigateFromDrawer(Destination.Settings) },
                     modifier = Modifier.padding(horizontal = 12.dp),
                 )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_drawer_about)) },
+                    icon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                    selected = false,
+                    onClick = { navigateFromDrawer(Destination.About) },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
             }
         },
     ) {
@@ -187,6 +196,21 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
                         // back arrow is the only way to leave it. Mirrors navigateFromDrawer's
                         // popUpTo/saveState/restoreState so the entry (and its login state) is
                         // preserved across drawer round-trips, same as Library/Backlog/Stats.
+                        if (entry.lifecycleIsResumed()) {
+                            navController.navigate(Destination.Home) {
+                                popUpTo(Destination.Home) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    },
+                )
+            }
+            composable<Destination.About> { entry ->
+                AboutScreen(
+                    // Same popUpTo/saveState/restoreState pattern as Settings, so leaving behaves like
+                    // every other drawer-only screen.
+                    onBack = {
                         if (entry.lifecycleIsResumed()) {
                             navController.navigate(Destination.Home) {
                                 popUpTo(Destination.Home) { saveState = true }

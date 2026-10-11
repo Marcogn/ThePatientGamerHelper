@@ -1349,3 +1349,25 @@ Decided while building `domain/update/` and `data/update/`, on top of the planne
   `install()` while the first is still copying the APK is ignored (no second session); `dismiss()` also
   leaves `Installing`, in case the system never reports a final status. A session that fails before
   commit, or whose confirmation can't be shown, is abandoned.
+
+### Stage 9.2 — update UI and Info screen (2026-10-11)
+
+- **The dialogs live in one app-wide host above the nav graph** (`UpdateDialogHost` in `MainActivity`),
+  driven only by `UpdateManager.state`, not per screen: the startup check can finish on any screen, and
+  a "Check for updates" on the Info screen that finds an update opens the same dialog. `Checking` shows
+  nothing (a startup check is silent; Info shows its own spinner).
+- **Install is an explicit button on a "Ready to install" dialog**, not automatic when the download
+  completes: `ReadyToInstall` is also where the flow lands after the user declines the system dialog, so
+  an automatic install would loop. One extra tap; the system still asks for its own confirmation.
+- **Failures are reported by `UpdateFailure` subtype**, with a plain sentence each (network, rate limit,
+  HTTP code, unreadable response, unusable release, storage, corrupted download, four APK rejections,
+  install failure with the system's message). Size and checksum mismatch share one message.
+- **Frequency is a radio list in Settings**, same widget as theme/language; `UpdateViewModel` mirrors
+  `UpdatePreferences.frequency` in a `StateFlow`. The Info screen is reachable from the drawer only and
+  keeps Settings' back pattern.
+- **Disclaimer wording is a proposal** (unofficial app, no affiliation with TheGamesDB / HowLongToBeat /
+  Reddit / r/patientgamers, HowLongToBeat endpoint undocumented, Google Drive trademark, names and covers
+  belong to their owners), to be reviewed by the author in the PR as the plan says.
+- **Not verified locally**: Gradle could not resolve its plugins in the cloud container (no network to
+  the plugin repositories), so lint/tests/build are verified by CI only (PR #72).
+

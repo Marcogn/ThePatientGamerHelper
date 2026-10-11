@@ -1228,45 +1228,66 @@ not the library's (2.7 covers the library's own zip import instead).
 
 ### 7.5 In-app updates (Phase 9)
 
-Stage 9.1 ships the update core with a **temporary "Updates (test)" section at
-the bottom of Settings** (check / download / install, raw state as text);
-Stage 9.2 replaces it with the real dialog, the frequency setting and the Info
-screen, and extends these cases. **Run after Phase 9 is released** (author's
-decision, see `docs/plan-phase-9-updates.md`, "Device verification after the
-release"): only a release that already contains the updater can find an
-update, so these need two releases with it (e.g. install 1.1.0, then publish
-1.1.1). Run them on a **release build** signed with the persistent release key: a debug build never checks at startup and can't
-install a release APK (different key — the test section then shows
-`VerificationFailed(DIFFERENT_SIGNATURE)`, which is the expected result).
+The update dialogs are app-wide (`UpdateDialogHost`); Settings > "Updates" sets
+the frequency; the Info screen (drawer > "Info") has the version and "Check
+for updates". **Run after Phase 9 is released** (author's decision, see
+`docs/plan-phase-9-updates.md`, "Device verification after the release"): only
+a release that already contains the updater can find an update, so these need
+two releases with it (e.g. install 1.1.0, then publish 1.1.1). Run them on a
+**release build** signed with the persistent release key: a debug build never
+checks at startup and can't install a release APK (different key — the dialog
+then says the file is signed with a different key, which is the expected
+result).
 
 - [ ] **UPD-01** Install a signed release APK that already contains the
       updater (e.g. 1.1.0) while a newer release exists on GitHub (e.g. 1.1.1); start the app: the startup check runs (default
-      frequency Weekly, never checked before) and the test section shows
-      "Version x.y.z is available" with the release's headlines.
-- [ ] **UPD-02** "Download": the percentage advances to 100% and the state
-      becomes "downloaded and verified".
+      frequency Weekly, never checked before) and the "Update available" dialog
+      shows the new and the installed version, the release's headlines and
+      "Full changelog" (opens the GitHub page).
+- [ ] **UPD-02** "Download": the progress dialog advances to 100% and is
+      replaced by "Ready to install".
 - [ ] **UPD-03** "Install" the first time: the system "Install unknown apps"
       screen for this app opens; enable it and go back → the system installer
-      confirmation appears. Going back *without* enabling it leaves the state at
-      "downloaded and verified" and does not reopen the settings screen.
+      confirmation appears. Going back *without* enabling it leaves the "Ready to install" dialog
+      and does not reopen the settings screen.
 - [ ] **UPD-04** Confirm in the system installer: the app is replaced and
-      reopens on the new version (Settings shows the new version name/code).
-- [ ] **UPD-05** Cancel in the system installer: back to "downloaded and
-      verified", "Install" works again.
+      reopens on the new version (Info shows the new version name/code).
+- [ ] **UPD-05** Cancel in the system installer: back to "Ready to install",
+      "Install" works again.
 - [ ] **UPD-06** After an update (or a cancelled/interrupted download), at the
       next start `cache/updates/` is empty (`adb shell run-as` on a debug build,
       or by app storage size in system settings on release).
 - [ ] **UPD-07 (edge)** Airplane mode at startup: nothing shown, no crash; the
       check is still due at the next start with network (an offline start does
       not use up the period).
-- [ ] **UPD-08 (edge)** "Cancel" during the download: back to "available", no
-      partial file left behind.
-- [ ] **UPD-09 (edge)** Airplane mode during the download: an error with a
-      network reason, "Not now" goes back to idle.
+- [ ] **UPD-08 (edge)** "Cancel" during the download: back to the "Update
+      available" dialog, no partial file left behind.
+- [ ] **UPD-09 (edge)** Airplane mode during the download: an "Update
+      failed" dialog with a network reason; "Close" goes back to idle.
 - [ ] **UPD-10 (edge)** Up-to-date app (installed version = latest release):
-      "Check now" reports "the app is up to date".
+      Info > "Check for updates" reports "The app is up to date." and no dialog opens.
 - [ ] **UPD-11 (edge)** Rotate the device during the startup check: no second
       check, no crash.
+- [ ] **UPD-12** "Not now" on the update dialog, then restart with Settings >
+      Updates = "Every start": the dialog appears again.
+- [ ] **UPD-13** Updates = "Never": no dialog at startup; Info > "Check for
+      updates" still finds the update and opens the dialog.
+- [ ] **UPD-14** Updates = "Daily" / "Weekly": after one check, restarting
+      within the period shows nothing new (no second request); the selection
+      survives leaving and reopening Settings and a restart.
+- [ ] **UPD-15** Info screen: app name, installed version and version code
+      match the installed build; "Made with ❤ by marcogn" / "Fatto con ❤ da
+      marcogn"; the GitHub button opens the repository; the four legal notes are
+      shown (wording to be confirmed by the author).
+- [ ] **UPD-16** Info > "Check for updates" while offline: a "Check failed."
+      line with a network reason, no dialog, no crash; the button is disabled
+      with a spinner while checking.
+- [ ] **UPD-17** System back from Info and from Settings returns to Home (same
+      as every drawer-only screen); the drawer entry "Info"/"About" is below
+      Settings.
+- [ ] **UPD-18** Italian and English (Settings > Language), light and dark
+      theme: all dialogs and the Info screen readable, no clipped text, the
+      changelog list scrolls when long.
 
 ---
 
@@ -1602,3 +1623,6 @@ review alone — all the more reason not to skip them in future test rounds.
   verified on device.
 - 2026-10-11 — §7.5 moved after Phase 9's release (UPD-01 needs two
   releases that both contain the updater; 1.0.6 and older can't find one).
+- 2026-10-11 — §7.5 reworded for Phase 9, Stage 9.2 (real update dialogs,
+  frequency setting, Info screen; the temporary test section is gone) and
+  extended with UPD-12–18. Not yet manually verified on device.

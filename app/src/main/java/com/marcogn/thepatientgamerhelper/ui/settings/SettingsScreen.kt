@@ -56,7 +56,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.model.BackupFile
 import com.marcogn.thepatientgamerhelper.domain.model.ThemeMode
+import com.marcogn.thepatientgamerhelper.domain.update.UpdateFrequency
 import com.marcogn.thepatientgamerhelper.ui.theme.ThemeViewModel
+import com.marcogn.thepatientgamerhelper.ui.update.UpdateViewModel
+import com.marcogn.thepatientgamerhelper.ui.update.labelRes
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -155,9 +158,9 @@ fun SettingsScreen(
                 onSaveClick = viewModel::onSaveTheGamesDbApiKey,
             )
 
-            // TEMPORARY (Stage 9.1): replaced by the real update UI and the Info screen in 9.2.
             HorizontalDivider()
-            UpdateDebugSection()
+
+            UpdatesSection()
         }
     }
 
@@ -203,6 +206,28 @@ private fun PreferencesSection(
                         selectedLanguage = language
                         applyAppLanguage(language)
                     },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdatesSection(viewModel: UpdateViewModel = hiltViewModel()) {
+    val frequency by viewModel.frequency.collectAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = stringResource(R.string.settings_updates_section_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = stringResource(R.string.settings_updates_frequency_label),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(modifier = Modifier.selectableGroup()) {
+            UpdateFrequency.entries.forEach { option ->
+                RadioOptionRow(
+                    label = stringResource(option.labelRes()),
+                    selected = frequency == option,
+                    onClick = { viewModel.onFrequencySelected(option) },
                 )
             }
         }

@@ -1,6 +1,6 @@
 # Phase 9 — In-app updates from GitHub and an "Info" screen: plan
 
-Status on 2026-10-11: **in progress** — Stage 9.1 code done, Stage 9.2 next. Device checks of both stages
+Status on 2026-10-11: **code done** — Stages 9.1 and 9.2 implemented; waiting for merge, release and the device checks. Device checks of both stages
 are deferred to after the phase is released (see "Device verification after the release"). Requested by the author on 2026-10-11 for all six of
 their Android apps. ThePatientGamerHelper is the **pilot**: this file holds the shared design, and the
 sibling apps (Hall-Of-Memories, CoverDex, PdfToolkit, KartLog) copy the `update` package from here in

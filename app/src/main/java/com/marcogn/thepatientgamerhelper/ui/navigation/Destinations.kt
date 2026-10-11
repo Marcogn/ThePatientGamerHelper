@@ -17,6 +17,10 @@ sealed interface Destination {
     @Serializable
     data object Settings : Destination
 
+    /** Info: version, "Check for updates", credits and disclaimers (Phase 9). Reachable from the drawer only. */
+    @Serializable
+    data object About : Destination
+
     @Serializable
     data class Detail(val reviewId: String) : Destination
 
