@@ -213,6 +213,14 @@ as a permanent regression. This is not a "one-shot" document.
 
 ### 2.6 Library export (JSON/CSV/PDF)
 
+- [ ] **LIB-30a** (issue #69) Export CSV, a PDF, the zip and the backlog
+      archive once with the app in Italian and once in English: CSV column
+      names and status values, PDF captions ("Voto"/"Score"…) and the
+      suggested file names ("recensioni-videogiochi-…"/"game-reviews-…",
+      "backlog-…") follow the app language; JSON field names and the Markdown
+      front matter stay the same in both. Import the file exported in the
+      other language (single Markdown, zip, backlog archive): it works.
+
 - [ ] **LIB-31** JSON export: always the **entire library**, even with
       filters/search active in the UI (never filtered) — verify by opening
       the exported file while filters that hide most reviews are active.
@@ -1641,3 +1649,7 @@ review alone — all the more reason not to skip them in future test rounds.
 - 2026-10-11 — REG-16 added (issue #63): backlog comments/history wiped on
   item edit, review→backlog link cleared on review edit. UPD-15 wording of
   the Info credit line updated. Not yet manually verified on device.
+- 2026-10-11 — Export labels follow the app language (issue #69): the
+  export cases in §2 should be run once per language (CSV header/status, PDF
+  captions, suggested file names); a file exported in one language must still
+  import in the other. Not yet manually verified on device.

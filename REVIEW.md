@@ -13,8 +13,11 @@ break of a rule below. Everything else is a Nit.
 
 ## Always check
 
-- `domain/` stays pure Kotlin: no `android.*` import; export labels in
-  `domain/export` stay fixed Italian.
+- `domain/` stays pure Kotlin: no `android.*` import. Human-readable export
+  labels (CSV header, PDF captions, file names) reach `domain/export` as an
+  `ExportLabels` value built from string resources in `data/export`; the file
+  formats (front-matter keys, JSON field names, backup structure) never change
+  with the language.
 - Room migrations are additive and numbered (`data/local/Migrations.kt`);
   never `fallbackToDestructiveMigration()`.
 - No `@Insert(onConflict = REPLACE)` as the edit path of a row that other
@@ -22,7 +25,8 @@ break of a rule below. Everything else is a Nit.
   cross-refs, `backlog_items.reviewId`; backlog items → comments, history,
   cross-refs): SQLite deletes the row first and fires those actions. Use
   `@Update`, or rewrite every dependent row in the same transaction.
-  `ReviewDao.upsertReview`/`BacklogDao.upsertItem` still do this (#63).
+  `ReviewDao.upsertReview`/`BacklogDao.upsertItem` insert with IGNORE and
+  `@Update` on conflict (#63).
 - Backup/restore covers reviews and the whole backlog; restore is a full
   replace (reviews before backlog), ids and timestamps preserved. Backlog and
   ZIP imports are additive; JSON/CSV export is always the whole library.

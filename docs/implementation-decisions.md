@@ -1371,3 +1371,26 @@ Decided while building `domain/update/` and `data/update/`, on top of the planne
 - **Not verified locally**: Gradle could not resolve its plugins in the cloud container (no network to
   the plugin repositories), so lint/tests/build are verified by CI only (PR #72).
 
+### Export labels follow the app language (issue #69, 2026-10-11)
+
+Decision (author): localise the human-readable labels of exported files, IT/EN, instead of keeping them
+Italian. This supersedes the Phase 5 rule that `domain/export` labels stay fixed Italian (the older notes
+above are history).
+
+- **`ExportLabels` is a plain data class in `domain/export`** (Italian defaults), passed into the pure
+  formatters; `data/export/ExportLabelsProvider` / `Context.toExportLabels()` fill it from string resources
+  (`export_*` keys, both languages). `domain/export` therefore still has no Android import and the
+  formatters are JVM-tested in both languages.
+- **What is localised:** CSV column names and the status values in the CSV, the PDF captions and status,
+  suggested file names (library/zip/backlog prefix, fallback slug for a title without letters).
+- **What is not, on purpose:** the Markdown front-matter keys and `## Pros`/`## Cons`/`## Review` headings,
+  the JSON field names (`titolo`, `piattaforme`, …), the backlog archive schema and the backup format.
+  They are file formats, not labels; changing them with the language would break round trip and any
+  consumer of the JSON. Consequence for import: nothing to do, a file exported in either language imports
+  in the other (Markdown and backlog import only read the language-independent structure).
+  The CSV has no import. Parser error messages in `domain/export` stay Italian (they are not exported).
+- **The language is resolved per call, from the app's chosen locale**, applied explicitly to a configuration
+  context: below API 33 an application context does not follow `setApplicationLocales`, so a plain
+  `getString` could answer in the system language. Composables use their activity context for file names.
+- `ReviewStatus.label()` (fixed Italian) is no longer used by exports; kept for any non-UI caller.
+

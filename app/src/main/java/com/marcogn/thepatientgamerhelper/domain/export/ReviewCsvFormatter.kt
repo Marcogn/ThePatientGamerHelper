@@ -2,22 +2,21 @@ package com.marcogn.thepatientgamerhelper.domain.export
 
 import com.marcogn.thepatientgamerhelper.domain.model.Review
 
-private val CSV_HEADER = listOf(
-    "id", "titolo", "piattaforme", "generi", "tag", "voto", "dataInizio", "dataFine",
-    "oreGioco", "stato", "pro", "contro", "testoRecensione", "copertina", "creatoIl", "modificatoIl",
-)
-
-/** RFC 4180-ish CSV export of the whole library. Multi-value fields are joined with "; ". */
-fun List<Review>.toCsvExport(): String {
+/**
+ * RFC 4180-ish CSV export of the whole library. Multi-value fields are joined with "; ". The column
+ * names and the status values come from [labels] (app language); everything else is data.
+ */
+fun List<Review>.toCsvExport(labels: ExportLabels = ExportLabels.ITALIAN): String {
+    require(labels.csvColumns.size == ExportLabels.CSV_COLUMN_COUNT) { "CSV needs ${ExportLabels.CSV_COLUMN_COUNT} column names" }
     val builder = StringBuilder()
-    builder.append(CSV_HEADER.joinToString(",") { it.csvEscaped() }).append("\r\n")
+    builder.append(labels.csvColumns.joinToString(",") { it.csvEscaped() }).append("\r\n")
     for (review in this) {
-        builder.append(review.toCsvRow().joinToString(",") { it.csvEscaped() }).append("\r\n")
+        builder.append(review.toCsvRow(labels).joinToString(",") { it.csvEscaped() }).append("\r\n")
     }
     return builder.toString()
 }
 
-private fun Review.toCsvRow(): List<String> = listOf(
+private fun Review.toCsvRow(labels: ExportLabels): List<String> = listOf(
     id,
     title,
     platforms.joinToString("; ") { it.name },
@@ -27,7 +26,7 @@ private fun Review.toCsvRow(): List<String> = listOf(
     startDate.toString(),
     endDate?.toString().orEmpty(),
     hoursPlayed?.toString().orEmpty(),
-    status.name,
+    labels.statusLabel(status),
     pros.joinToString("; "),
     cons.joinToString("; "),
     reviewText,

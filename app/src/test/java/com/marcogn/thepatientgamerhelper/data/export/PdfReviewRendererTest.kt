@@ -1,5 +1,7 @@
 package com.marcogn.thepatientgamerhelper.data.export
 
+import androidx.test.core.app.ApplicationProvider
+import com.marcogn.thepatientgamerhelper.domain.export.ExportLabels
 import com.marcogn.thepatientgamerhelper.testutil.sampleReview
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,7 +19,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26])
 class PdfReviewRendererTest {
 
-    private val renderer = PdfReviewRenderer(NoOpPdfTemplateProvider())
+    private val renderer = PdfReviewRenderer(NoOpPdfTemplateProvider(), ExportLabelsProvider(ApplicationProvider.getApplicationContext()))
 
     @Test
     fun `content includes title and metadata`() {
@@ -49,5 +51,16 @@ class PdfReviewRendererTest {
         val text = renderer.buildReviewText(sampleReview(tags = emptyList())).toString()
 
         assertTrue(!text.contains("Tag:"))
+    }
+
+    @Test
+    fun `captions follow the labels they are given`() {
+        val english = ExportLabels(pdfScore = "Score", pdfStatus = "Status", statusCompleted = "Completed", pdfPros = "Pros")
+
+        val text = renderer.buildReviewText(sampleReview(rating = 9.2, pros = listOf("Great")), english).toString()
+
+        assertTrue(text.contains("Score: 9.2/10"))
+        assertTrue(text.contains("Status: Completed"))
+        assertTrue(text.contains("Pros"))
     }
 }

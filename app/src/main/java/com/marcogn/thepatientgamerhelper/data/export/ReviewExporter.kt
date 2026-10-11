@@ -16,13 +16,14 @@ import javax.inject.Singleton
 class ReviewExporter @Inject constructor(
     private val fileWriter: ExportFileWriter,
     private val pdfRenderer: PdfReviewRenderer,
+    private val labelsProvider: ExportLabelsProvider,
 ) {
     suspend fun exportJson(reviews: List<Review>, destination: Uri) {
         fileWriter.writeText(destination, reviews.toJsonExport())
     }
 
     suspend fun exportCsv(reviews: List<Review>, destination: Uri) {
-        fileWriter.writeText(destination, reviews.toCsvExport())
+        fileWriter.writeText(destination, reviews.toCsvExport(labelsProvider.current()))
     }
 
     suspend fun exportMarkdown(review: Review, destination: Uri) {

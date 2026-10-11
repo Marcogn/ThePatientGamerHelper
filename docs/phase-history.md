@@ -464,3 +464,599 @@ HTTP round trip against `howlongtobeat.com` — same limitation as every
 previous round in this file — still needs manual on-device confirmation,
 since no sandboxed environment used so far has had reliable, IP-stable
 network access to the real site.
+
+
+---
+
+# Reference sections moved out of CLAUDE.md (2026-10-11, issue #65)
+
+Verbatim copies of the passages `CLAUDE.md` used to carry; `CLAUDE.md` now keeps only the rules that still bind and points here. The Drive backup/OAuth material is in `docs/drive-setup.md`.
+
+## Package/architecture tree
+```
+com.marcogn.thepatientgamerhelper
+├── data/
+│   ├── local/
+│   │   ├── entity/      # Room entities (Review, Platform, Genre, Tag, cross-ref, ProCon,
+│   │   │                # Backlog* from Phase 6)
+│   │   ├── dao/          # Room DAOs, exposed as Flow (ReviewDao, LookupDaos, BacklogDao)
+│   │   ├── Converters.kt # TypeConverter for LocalDate/Instant/enum
+│   │   └── Migrations.kt # MIGRATION_1_2 (Phase 6: backlog tables), MIGRATION_2_3 (Phase 8:
+│   │                      # HowLongToBeat estimate columns on backlog_items), MIGRATION_3_4
+│   │                      # (backlog_lists.systemKind), MIGRATION_4_5 (import-export spec v2:
+│   │                      # developer/publisher/releaseYear/metadataSource/externalId/
+│   │                      # linkedBacklogItemId on reviews) — all additive
+│   ├── repository/       # Repository implementations (transactional upsert)
+│   ├── export/            # Android I/O for export/import: ExportFileWriter (SAF, write),
+│   │                      # ImportFileReader (SAF, read — review Markdown import, backlog
+│   │                      # import, review zip import), PdfReviewRenderer (PdfDocument, checks
+│   │                      # PdfTemplateProvider before rendering), PdfTemplateProvider/
+│   │                      # NoOpPdfTemplateProvider (PDF template seam), ReviewExporter,
+│   │                      # ReviewZipExporter/ReviewZipImporter + ReviewZipArchiveBuilder/Reader
+│   │                      # (multi-review zip, one front-matter .md per review + covers),
+│   │                      # BacklogExporter/BacklogImporter + BacklogExportArchiveBuilder/Reader
+│   │                      # (zip data+covers) — all concrete classes injected via Hilt, like
+│   │                      # ImageStorage, not an interface/impl abstraction like the
+│   │                      # repositories (PdfTemplateProvider is the one deliberate exception)
+│   ├── drive/             # Drive REST v3 client (DriveApiClient, HttpURLConnection)
+│   │                      # + auth (DriveAuthManager: Credential Manager + AuthorizationClient)
+│   ├── backup/            # Backup/restore orchestration: BackupManager, zip archive
+│   │                      # (BackupArchiveBuilder/Reader), BackupWorker (WorkManager +
+│   │                      # Hilt), BackupScheduler, BackupPreferences (SharedPreferences)
+│   ├── settings/          # ThemePreferences (Preferences DataStore), ViewModePreferences
+│   │                      # (SharedPreferences, list/grid view for library and backlog)
+│   ├── thegamesdb/        # TheGamesDbApiClient (HttpURLConnection, same pattern as
+│   │                      # DriveApiClient), TheGamesDbPreferences (SharedPreferences, API key
+│   │                      # entered at runtime by the user), GameMetadataSearchCoordinator
+│   │                      # (logic shared "search online" between the review form and the
+│   │                      # backlog form, also exposes searchHowLongToBeat(), backlog-only)
+│   ├── update/            # Phase 9 in-app updates: GitHubReleaseClient, ApkDownloader,
+│   │                      # ApkVerifier, ApkInstaller + UpdateInstallReceiver, UpdatePreferences,
+│   │                      # UpdateManager (state machine, see "Phase 9" below)
+│   ├── howlongtobeat/     # HowLongToBeatApiClient — HttpURLConnection client for an
+│   │                      # unofficial/undocumented endpoint (fixed /api/bleed path, ported from
+│   │                      # GameNative's HltbService), not the same level of reliability as
+│   │                      # TheGamesDbApiClient/DriveApiClient
+│   └── debug/            # DebugSeeder, active only behind BuildConfig.SEED_DEBUG_DATA
+├── domain/
+│   ├── model/            # Pure domain models (no Android dependencies), including ThemeMode,
+│   │                      # Backlog* and GameMetadataSearchResult, HowLongToBeatEstimate/
+│   │                      # ViewMode/ImportedBacklog*, ReviewZipImportResult
+│   ├── filter/            # Library and backlog filter/sort logic, pure functions, unit-tested
+│   ├── stats/             # Pure aggregations: LibraryStatisticsCalculator,
+│   │                      # BacklogStatisticsCalculator (counts by status/list, also
+│   │                      # computeBacklogTimeEstimateStatistics)
+│   ├── export/            # Pure export/import formatting: JSON (kotlinx.serialization),
+│   │                      # CSV (manual writer), ReviewBackupMarkdown.kt (front-matter Markdown
+│   │                      # format + parser) — no Android import, unit-testable in plain JVM.
+│   │                      # The labels remain fixed in Italian (they do not follow the app
+│   │                      # language) — the front matter's structural keys are the one
+│   │                      # deliberate exception, matching the fixture's English shape. Also
+│   │                      # BacklogExportDto.kt (backlog export/import zip payload, format
+│   │                      # separate from domain/backup, +recensioneCollegataId round-trip)
+│   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto/
+│   │                      # BackupBacklogListDto+ItemDto (reviews AND the whole backlog),
+│   │                      # DTO<->domain mapping, file naming — same pattern as domain/export
+│   ├── update/            # AppVersion, release parsing/APK pick/notes, UpdateCheckPolicy,
+│   │                      # evaluateRelease, signersCompatible, UpdateState — pure, JVM-tested
+│   ├── howlongtobeat/     # HltbMatcher: pure title-matching (normalize/Levenshtein/
+│   │                      # acceptable-match) for HowLongToBeatApiClient's search results, ported
+│   │                      # from GameNative's HltbService — no Android/network import
+│   └── repository/        # Repository interfaces (ReviewRepository, LookupRepository,
+│                          # BacklogRepository, importLists()/upsertImported()/replaceAll())
+├── di/                    # Hilt modules (Database, Repository)
+└── ui/
+    ├── theme/             # Material 3 (Compose) theme + ThemeViewModel (reads ThemePreferences)
+    ├── navigation/        # Navigation Compose, type-safe routes (kotlinx.serialization).
+    │                      # ModalNavigationDrawer around the NavHost (hamburger drawer with the
+    │                      # 3 sections + settings), Destination.Home as startDestination
+    ├── home/              # HomeScreen, "what do you want to do?" screen with the 3 main choices
+    │                      # (reviews/backlog/statistics)
+    ├── library/           # Library screen (list, search, filters, sorting, export). Top bar
+    │                      # without the app name/backlog/statistics/settings icons (now in the
+    │                      # drawer). List/grid view toggle. Upload icon triggers the multi-review
+    │                      # zip import, export menu has a ZIP option
+    ├── detail/            # Review detail screen (+ single review export)
+    ├── form/              # Create/edit review form (+ "Search online" and prefilling from a
+    │                      # backlog item). Upload icon in the top bar imports a front-matter
+    │                      # Markdown file as a "replace form content" action
+    ├── backlog/            # BacklogScreen (lists + unified search/filter + lightweight
+    │                       # aggregate stats), BacklogListDetailScreen (drag-to-reorder),
+    │                       # BacklogItemFormScreen, BacklogItemDetailScreen (status/comments/
+    │                       # history/abandonment note, also HowLongToBeat estimate). Backlog
+    │                       # export/import in BacklogScreen, list/grid view toggle in
+    │                       # BacklogListDetailScreen (grid without drag-to-reorder)
+    ├── settings/           # Settings screen: theme/language preferences, update frequency,
+    │                       # manual/automatic backup, restore, TheGamesDB API key
+    ├── update/            # Phase 9 UI: UpdateDialogHost (app-wide dialogs driven by
+    │                       # UpdateManager.state, placed above the NavGraph in MainActivity),
+    │                       # UpdateViewModel (frequency, unknown-sources round trip),
+    │                       # UpdateMessages (UpdateFailure -> localized message)
+    ├── about/             # Info screen (Destination.About, drawer only): version, "Check for
+    │                       # updates", credits, legal notes
+    └── common/            # Shared composables (chip input, rating, date picker, cover
+                            # thumbnail, ReviewStatus/BacklogItemStatus display, GameSearchDialog,
+                            # GameGridTile/ViewModeToggle, etc.)
+```
+
+Resources (`app/src/main/res/`): `values/strings.xml` is Italian (the project's
+default language), `values-en/strings.xml` the English translation,
+`xml/locales_config.xml` lists the supported languages for integration with the
+system settings (API 33+).
+
+Guiding rule: **Room is the single source of truth**, exposed via `Flow`. The
+ViewModels combine the data flow with local UI state (search query,
+selected filters) using `combine()`, producing a single `StateFlow` of UI
+state consumed by the Compose UI (UDF pattern: events flow up via lambda,
+state flows down via `StateFlow`).
+
+The filter/sort logic lives in `domain/filter` as pure Kotlin
+functions (no Android import), to be unit-testable in plain JVM without
+needing the Android SDK or Robolectric.
+
+## Phase 2 — Export
+- **JSON/CSV**: always over the entire library, **unfiltered** (a backup must
+  be complete regardless of the filters active in the UI). Entry
+  point: menu in the library's top bar.
+- **Markdown**: single review, Reddit-compatible syntax — title as
+  `#`, metadata as a bullet list (not a trailing-space hard break, which disappears
+  easily in clipboard/editor before reaching Reddit), Pros/Cons/body
+  sections only if non-empty. Entry point: menu in the detail view's top bar.
+- **PDF**: both single review and entire library into a single
+  multi-page file (one file for SAF `ACTION_CREATE_DOCUMENT`, not a zip).
+  Native `android.graphics.pdf.PdfDocument` — **not PDFBox nor iText** (iText7
+  is AGPL, explicitly excluded from the spec). Pagination via
+  `StaticLayout` + `Canvas.translate`/`clipRect` to slice a single
+  layout across multiple pages; each review in the batch always starts on a
+  new page.
+- File saving: **always** the Storage Access Framework
+  (`ActivityResultContracts.CreateDocument`), never direct writes to
+  external storage — consistent with scoped storage.
+- `domain/export` is pure Kotlin (formatting), `data/export` is where the
+  Android I/O lives (SAF, `PdfDocument`). `ReviewExporter` is a concrete class
+  with `@Inject constructor`, not an interface with a Hilt binding like the
+  repositories — it is not a swappable domain abstraction, it is an I/O
+  utility (same pattern as `ImageStorage`).
+- **`PdfDocument` cannot be meaningfully tested via Robolectric**: PDF
+  serialization depends on native code that Robolectric does not provide
+  (unlike SQLite/Room, which is well shadowed). `PdfReviewRendererTest`
+  only tests `buildReviewText()` (construction of the `SpannableStringBuilder`,
+  no real rendering) — if you touch the pagination/page logic,
+  verify it by hand on a device/emulator.
+
+## Phase 3 — Library statistics
+- Metrics computed: total number of reviews, average rating, total hours
+  tracked (sum of `oreGioco`, `null` treated as 0), distribution by
+  platform, distribution by genre, percentage breakdown by
+  `stato` (`IN_CORSO`/`COMPLETATO`/`ABBANDONATO`).
+- `domain/stats/LibraryStatisticsCalculator.kt`: pure function
+  `computeLibraryStatistics(List<Review>): LibraryStatistics`, no Android
+  import, unit-tested in plain JVM (`domain/model/LibraryStatistics.kt` for
+  the models) — same pattern as `domain/filter`.
+- The platform/genre distributions **do not** carry a percentage: they are
+  many-to-many fields (a review can have multiple platforms/genres), so
+  the shares would not add up to 100% and a percentage would be misleading. Only
+  the breakdown by `stato` (a single-valued field) exposes a percentage.
+  See `docs/implementation-decisions.md`.
+- UI: `ui/stats/StatsScreen.kt` (+ `StatsViewModel`, `StatsUiState`),
+  reachable from an icon in the library's top bar. Distributions are
+  horizontal bars built with native Compose (`Box` +
+  `fillMaxWidth(fraction = ...)`), breakdown by status is a segmented
+  stacked bar + legend — **no charting dependency introduced** (no Vico):
+  with at most a handful of platforms/genres for a single-user library,
+  the complexity wasn't justified. Re-evaluate Vico before writing more
+  hand-rolled rendering code if the distributions become richer.
+- Navigation route: `Destination.Stats` in `ui/navigation/Destinations.kt`.
+
+## Phase 5 — Internationalization, theme, and documentation
+##### IT/EN internationalization
+
+- All screen strings are extracted into string resources:
+  `res/values/strings.xml` is Italian (default), `res/values-en/strings.xml`
+  the English translation. Keep the two key lists aligned 1:1.
+- **`domain/export` stays untouched by localization**: exported file
+  labels (Markdown/CSV/JSON/PDF) remain fixed in Italian, hand-written in
+  the pure formatters — localizing them would require passing
+  `Context`/Android resources into `domain/export`, breaking its nature
+  as pure Kotlin testable in the JVM. `ReviewStatus.label()` is the same
+  story — the UI instead uses `ReviewStatus.displayName()`
+  (`ui/common/ReviewStatusDisplay.kt`, a `@Composable` resolving the
+  correct string resource).
+- ViewModel-built messages (export/backup outcomes, validation errors)
+  can't use `stringResource()` (not `@Composable`): ViewModels inject
+  `@ApplicationContext Context` via Hilt and call `context.getString(...)`.
+- **In-app language selector**: `AppCompatDelegate.setApplicationLocales()`,
+  System/Italian/English in Settings (`ui/settings/AppLanguage.kt`).
+  Persistence via `autoStoreLocales`
+  (`androidx.appcompat.app.AppLocalesMetadataHolderService` in the
+  manifest with `autoStoreLocales = true`) — no custom storage needed.
+  `android:localeConfig="@xml/locales_config"` on `<application>`
+  integrates with system Settings > App languages (API 33+).
+- **`MainActivity` extends `AppCompatActivity`, not `ComponentActivity`** —
+  required by the official docs for `setApplicationLocales()` to work with
+  Compose at all; with `ComponentActivity` the language change is silently
+  ignored (a real bug found during manual verification, see
+  `docs/phase-history.md`). As a consequence the theme
+  (`res/values/themes.xml`) must descend from `Theme.AppCompat`.
+- No manual `recreate()` needed — `setApplicationLocales()` already
+  triggers it end-to-end with `AppCompatActivity`.
+
+##### Light/dark/system theme
+
+- Three-state preference (`domain/model/ThemeMode.kt`: `SISTEMA`/`CHIARO`/`SCURO`)
+  persisted with **Preferences DataStore** (`data/settings/ThemePreferences.kt`)
+  — unlike `BackupPreferences`/`TheGamesDbPreferences`/`ViewModePreferences`
+  (plain `SharedPreferences`), DataStore was the explicit request here.
+- `ui/theme/ThemeViewModel.kt` exposes `themeMode` as a `StateFlow` from
+  `ThemePreferences.themeMode` via `stateIn`. Two independent
+  `hiltViewModel()` consumers (`MainActivity` and `SettingsScreen`) read
+  the same `DataStore` and stay synchronized without a shared scope.
+
+##### Documentation reorganization
+
+The functional spec moved to `docs/spec.md`. This file (`CLAUDE.md`),
+along with the rest of the documentation, code comments, and commit
+history, is English-only — the app's own UI keeps its dual Italian
+(default)/English string resources independently of this.
+
+## Phase 6 — Trackable backlog and metadata fetch
+Two stages: Stage 1 (backlog) verified before starting Stage 2 (online
+search), as requested.
+
+##### Stage 1 — Trackable backlog
+
+- **Data model**: `BacklogListEntity`, `BacklogItemEntity` (title, status,
+  position, dates, optional `reviewId`, `abandonNote`, `releaseYear`/
+  `developer`), `BacklogCommentEntity`, `BacklogHistoryEntryEntity`. The
+  item's platform/genre/tag are many-to-many on the **same lookup
+  tables** already used by reviews — shared autocomplete pool.
+- **Additive migration, not destructive**: `MIGRATION_1_2` only creates
+  new tables/indices via raw SQL, never touches
+  `reviews`/`platforms`/`genres`/`tags`.
+  `fallbackToDestructiveMigration()` is never used — the app is in real
+  use, and it would wipe existing reviews.
+- **Automatic history**: entirely generated by `BacklogRepositoryImpl` —
+  `CREATO` on creation, `CAMBIO_STATO` only on an actual status change,
+  `CAMBIO_LISTA` on move, `COMMENTO` per comment,
+  `RECENSIONE_COLLEGATA` on linking a review.
+- **`dataInizio`/`dataCompletamento` are auto-populated, no manual
+  editor**: `updateStatus()` sets them on the relevant transition, never
+  overwriting an existing value.
+- **`updateStatus()` is distinct from `saveItem()`**: only
+  `BacklogItemDetailScreen` calls it, via a dedicated selector — the
+  single point that generates history and automatic dates.
+- **Reordering**: lists use up/down arrows (few items, no drag needed).
+  Items inside a list have real drag-to-reorder
+  (`BacklogListDetailScreen.kt`, `Modifier.pointerInput` +
+  `detectDragGestures` on a dedicated handle icon, no reorder library).
+  Order is written once at `onDragEnd`, not per frame.
+- **Unified search/filter**: `BacklogScreen` shows the list of lists by
+  default; any active search/filter switches it to a flat cross-list
+  results view (`domain/filter/BacklogFilters.kt`/`BacklogFiltering.kt`,
+  same pattern as the review library's).
+- **"Want to write a review?" trigger**: when `updateStatus()` sets
+  `COMPLETATO` on an item with no `reviewId`, the UI offers to navigate
+  to `Destination.Form(backlogItemId = itemId)`, which prefills the draft
+  from the backlog item and calls `BacklogRepository.linkReview()` on
+  save. The cover is duplicated (`ImageStorage.duplicate()`), not shared
+  by reference, so deleting one side doesn't affect the other.
+
+##### Stage 2 — Automatic cover and metadata fetch (TheGamesDB)
+
+- **The API key is always required** — TheGamesDB requires an `apikey` on
+  every request as of their 2026-02-17 policy change; there is no
+  anonymous access. The key is entered **at runtime in Settings**
+  (`TheGamesDbPreferences`, `SharedPreferences`), never baked into a
+  build. With no key set, "Search online" returns an informational
+  message instead of calling the API.
+- **Hand-written REST client, not Retrofit/Ktor**: same
+  `HttpURLConnection` pattern as `DriveApiClient` — four GET endpoints
+  don't justify a full HTTP client.
+- **In-memory cache of lookups, not persisted**: id→name maps for
+  Platforms/Genres/Developers are cached for the process's lifetime to
+  avoid extra calls against a public rate limit on the order of a few
+  thousand requests/month.
+- **Multiple results, no auto-selection**: `GameSearchDialog`
+  (`ui/common/`, shared between the review and backlog forms) lists all
+  matches with cover/platform/year; the user picks one. The cover is
+  downloaded and saved **locally** via `ImageStorage.writeBytes()`.
+- **`releaseYear`/`developer` live only on `BacklogItem`, not `Review`**:
+  adding them to the mature `Review` schema would have touched every
+  export/backup format for two fields that were never part of a review's
+  core (rating/pros/cons/text).
+- **Silent fallback, never a crash**: `GameMetadataSearchCoordinator`
+  turns missing key/no results/network errors into an `Outcome.Message`
+  shown in the dialog. Manual entry always remains available.
+- **Cannot be meaningfully tested via Robolectric** (real network to
+  `api.thegamesdb.net` required). Unit-tested instead:
+  `domain/filter/BacklogFilteringTest.kt`,
+  `domain/stats/BacklogStatisticsCalculatorTest.kt`.
+
+## Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix
+##### ThePatientGamerHelper rebranding
+
+- Renamed **everywhere**, including `applicationId`/Kotlin package:
+  `com.marcogn.gamereviewer` → `com.marcogn.thepatientgamerhelper`. No
+  data migration for existing installations (a different `applicationId`
+  is a different app to Android); a Drive OAuth client re-registration is
+  needed for the new `applicationId`+SHA-1. See
+  `docs/implementation-decisions.md` for what was intentionally left
+  unchanged (repo name, export file prefix).
+- Renamed files/classes accordingly (`ThePatientGamerHelperNavGraph.kt`,
+  `ThePatientGamerHelperApplication.kt`,
+  `data/local/ThePatientGamerHelperDatabase.kt` with
+  `DATABASE_NAME = "the_patient_gamer_helper.db"`).
+
+##### Navigation: Home chooser + hamburger drawer
+
+- `Destination.Home` (`ui/navigation/Destinations.kt`) is now the graph's
+  `startDestination`. `ThePatientGamerHelperNavGraph.kt` wraps the entire
+  `NavHost` in a `ModalNavigationDrawer`, `drawerState` hoisted at the
+  graph level. Drawer entries navigate with
+  `popUpTo(Destination.Home) { saveState = true }` +
+  `launchSingleTop = true` + `restoreState = true` to avoid backstack
+  accumulation. Every screen receives only an `onMenuClick: () -> Unit`
+  lambda, never the drawer state itself (UDF).
+- `SettingsScreen` is reachable only from the drawer (not one of the 3
+  main sections) — its `onBack` must use the same
+  `popUpTo`/`restoreState` pattern (not a bare `popBackStack()`) to
+  preserve `SettingsViewModel`'s in-memory login state across visits, and
+  needs an explicit `BackHandler` since the system back gesture bypasses
+  a screen's custom `onBack` by default. See `docs/phase-history.md` for
+  the device report that uncovered this — the same "system back skips a
+  screen's custom logic" trap recurs in Phase 8's review form fix.
+
+##### TheGamesDB search always-failed fix
+
+`GameMetadataSearchCoordinator.search()` used to replace every exception
+(network, HTTP, parsing) with the same fixed generic message, discarding
+the real detail. It now logs (`Log.w`) and appends the exception's
+message to what's shown in the dialog, so a future failure is
+diagnosable (e.g. "HTTP 401: ..." for an invalid key). Several additional
+defensive fixes (headers, timeouts, filter syntax) were also applied —
+see `docs/phase-history.md` for the detail and which parts were verified
+vs. best-effort.
+
+## Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid views
+The single-review Markdown import format from this phase was later
+**superseded** by the front-matter format in "Reviews/backlog
+import-export spec v2" below — that section is the current, authoritative
+behavior for review Markdown import/export. What's still current from
+this phase:
+
+##### Backlog export/import with its lists
+
+- Format **deliberately separate** from `domain/backup` (Phase 4): this
+  is a file the user explicitly shares/merges via SAF, not a safety
+  restore, so import is **always additive** — new lists, new items, new
+  ids, even importing the same file twice (not idempotent, an accepted
+  trade-off over ambiguous title-based merging). `reviewId` is discarded
+  on import (see the v2 section below for the current best-effort
+  round-trip). Covers get a new UUID file name on import, never reusing
+  the original.
+- Entry point: upload/download icons in `BacklogScreen`'s top bar.
+  Export always covers the entire backlog.
+
+##### Estimated HowLongToBeat times in the backlog
+
+- **No public API exists** — verified before implementing. Every
+  unofficial integration talks to an undocumented endpoint under `/api/`
+  with a two-step auth flow (`GET .../init` for a token + key/value
+  headers, then `POST` the search with those headers attached); there is
+  no stable contract to implement against, and HowLongToBeat is known to
+  change this across deploys with no notice.
+  `data/howlongtobeat/HowLongToBeatApiClient.kt` targets the fixed
+  `/api/bleed` + `/api/bleed/init` endpoint pair, auth headers, request
+  body shape, and Levenshtein-distance best-match logic ported from
+  GameNative's `HltbService` (a confirmed-working reference the user
+  pointed at after this client's original approach — re-deriving the
+  endpoint at runtime by scanning HowLongToBeat's homepage JS bundles for
+  a regex match — kept breaking; see `docs/phase-history.md` for that
+  history and for the port itself). Pure title-matching logic
+  (normalize/Levenshtein/acceptable-match) lives in
+  `domain/howlongtobeat/HltbMatcher.kt`, unit-tested in plain JVM, same
+  split as `domain/filter`/`domain/stats`. **This is still inherently
+  more fragile than `TheGamesDbApiClient`/`DriveApiClient`** — a fixed
+  endpoint is not immune to HowLongToBeat rotating it again — and can
+  break without notice; check logs under tag `HowLongToBeatClient` first
+  if estimates go missing.
+- **Always fails silently**: every error becomes `null` in
+  `GameMetadataSearchCoordinator.searchHowLongToBeat()` and a
+  human-readable message in `BacklogItemFormUiState.hltbMessage` — never
+  a propagated exception, never blocking the existing "search online"
+  flow.
+- `hltbMainStoryHours`/`hltbMainExtraHours`/`hltbCompletionistHours` live
+  **only on `BacklogItem`**, same precedent as `releaseYear`/`developer`.
+  Only `BacklogItemFormViewModel` calls `searchHowLongToBeat()`, using the
+  exact title of the chosen TheGamesDB result.
+
+##### Statistics: estimated backlog time
+
+`domain/stats/BacklogStatisticsCalculator.computeBacklogTimeEstimateStatistics()`
+sums estimated hours across all backlog items with **at least one**
+HowLongToBeat field set, regardless of status, plus `itemsWithEstimate`.
+Shown in `StatsScreen` only if at least one item has an estimate.
+
+##### List/grid views for reviews and backlog
+
+- `domain/model/ViewMode.kt` (`LIST`/`GRID`) + `data/settings/ViewModePreferences.kt`
+  (`SharedPreferences`, two flags: library view, backlog view).
+- `ui/common/GameGridTile.kt` — covers keep their real aspect ratio
+  (`ContentScale.FillWidth`, no forced ratio) inside a
+  `LazyVerticalStaggeredGrid` (`StaggeredGridCells.Adaptive`,
+  `@OptIn(ExperimentalFoundationApi::class)`) so tiles of different
+  heights sit without wasted space; the "no cover" placeholder stays a
+  fixed 2:3 ratio. `ui/common/ViewModeToggle.kt` is shared between
+  `LibraryScreen` and `BacklogListDetailScreen`.
+- **The backlog grid does not support drag-to-reorder** — only the list
+  view does; extending the drag gesture to 2D wasn't worth it for a
+  cosmetic benefit.
+- `BacklogScreen` (the list-of-lists/cross-list search view) does **not**
+  get the toggle — the grid applies where games are browsed, not where
+  lists themselves are browsed.
+
+## Reviews/backlog import-export spec v2
+`docs/reviews-backlog-import-export-spec-v2.md` (with fixtures under
+`docs/examples/`) is the **authoritative** behavior document for
+single-review Markdown export/import, multi-review ZIP export/import, and
+the backlog's `reviewId` round-trip — superseding the original Phase 8
+implementation where they diverge. Current behavior:
+
+- **Single-review Markdown** is a YAML front-matter block (id, title,
+  platforms/genres as arrays, tags, score, status, dates, hoursPlayed,
+  coverImage, developer/publisher/releaseYear/metadataSource/externalId/
+  linkedBacklogItemId, createdAt/updatedAt) followed by the same
+  Pros/Cons/free-text body as before
+  (`domain/export/ReviewBackupMarkdown.kt`, replacing the deleted
+  `ReviewMarkdownFormatter`/`ReviewMarkdownParser` pair). The six new
+  fields on `Review`/`ReviewEntity` (`MIGRATION_4_5`) exist purely for
+  round-trip fidelity — the create/edit form never edits them, `save()`
+  always preserves whatever a review already had.
+- **Import is a form-level "replace content" action**
+  (`ReviewFormViewModel.importMarkdown()`, upload icon in the form's top
+  bar), not a library-level "always create new" action. The file's `id`
+  is parsed but never applied — the review being edited keeps its own
+  identity.
+- **Multi-review ZIP export/import** (`data/export/ReviewZipArchive.kt`/
+  `ReviewZipExporter.kt`/`ReviewZipImporter.kt`, upload/download icons in
+  the library's top bar) is content-atomic: any malformed `.md` blocks
+  the whole batch with every failing file name + reason reported; images
+  are always best-effort. `ReviewRepository.upsertImported()` does the
+  upsert-by-id-from-front-matter on success — additive, preserves
+  id/createdAt/updatedAt, distinct from both `save()` and the
+  Drive-restore-only `replaceAll()`.
+- **Backlog export/import kept its existing Italian-labeled, array-based
+  schema** — not rewritten to match the fixture's shape, since the
+  fixture's JSON *structure* (lists→items→comments/history) already
+  matches. The one addition: a best-effort `reviewId` round-trip
+  (`recensioneCollegataId`, default `null` so older files still decode),
+  relinked on import only if a review with that id already exists on the
+  importing device.
+- **`PdfTemplateProvider` seam** added to `PdfReviewRenderer` (`PdfModule`
+  Hilt `@Binds`, interface + `NoOpPdfTemplateProvider`) — no real
+  template exists yet, `currentTemplate()` always returns `null`, every
+  render still falls back to the existing plain layout.
+- `domain/backup/BackupPayload.kt` (`BackupReviewDto`) also carries the
+  same six new Review fields (default `null`, old backups still decode).
+- **Not touched**: JSON/CSV whole-library export.
+
+Full reasoning for the choices above (including three conflicts resolved
+by asking rather than guessing) is in `docs/implementation-decisions.md`,
+"Reviews/backlog import-export spec v2".
+
+## Phase 9 — In-app updates and Info screen
+- `UpdateManager.state: StateFlow<UpdateState>` (`Idle` · `Checking` · `Available` · `Downloading` ·
+  `ReadyToInstall` · `Installing` · `Failed`) is the single source of truth. `ui/update/UpdateDialogHost`
+  (in `MainActivity`, above the nav graph) maps it to dialogs: Available = headlines + "Full changelog" +
+  Download/Not now (`startDownload()`/`dismiss()`), Downloading = progress + Cancel (`cancelDownload()`),
+  ReadyToInstall = Install (`install()`)/Not now, Installing = system confirmation pending (Close =
+  `dismiss()` as the escape), Failed = message from `UpdateFailure.toMessage()` then `dismiss()`.
+- Unknown-sources round trip (`UpdateViewModel`): `install()` returns `InstallStart.PermissionRequired`
+  the first time → launch its intent (`StartActivityForResult`); on return call `install()` again **only
+  if** `ApkInstaller.canInstall()`, or a refusal would reopen the screen forever.
+- `checkNow()` (Info screen, `AboutViewModel`) returns `UpdateCheckResult` and never sets `Failed`;
+  `checkIfDue()` is called by `MainActivity` in release builds only. Frequency:
+  `UpdatePreferences.frequency` (`UpdateFrequency`, default WEEKLY), set from Settings > Updates.
+- Info screen: `Destination.About`, drawer entry under Settings, same `popUpTo`/`BackHandler` back
+  pattern as Settings. `BuildConfig` `UPDATE_GITHUB_OWNER`/`_REPO` name the repository (also used for the
+  GitHub link). Decisions: `docs/implementation-decisions.md`, "Stage 9.1" and "Stage 9.2".
+- Tests: `ui/update/UpdateUiTest`, `ui/about/AboutMessagesTest` (Robolectric: failure messages,
+  check-result messages, frequency round trip). A state like `Available` can't be forced without the
+  network, so the dialog host, "Not now" and the whole flow are device checks (`docs/test-plan.md` §7.5).
+
+## Changelog and release process
+`CHANGELOG.md` (repo root) is the release notes source of truth — the
+`Release` GitHub Actions workflow (`.github/workflows/release.yml`,
+manual `workflow_dispatch` only, never runs on push/PR) cuts the version
+bump itself (see below), then reads the resulting
+`app/build.gradle.kts`'s `versionName`, looks for the matching
+`## [x.y.z]` section in `CHANGELOG.md`, and publishes its
+significant-change highlights as the GitHub Release notes — never the
+full section verbatim (see "Entry convention" below). It refuses to
+overwrite an existing release/tag.
+
+**Policy: every change gets a `CHANGELOG.md` entry when it's made, not
+deferred to release time.** Add it under a `## [Unreleased]` section at
+the top of the file (create one if it isn't there). This keeps the
+changelog always accurate, so cutting a release is never a scramble to
+reconstruct what changed since the last one.
+
+**Entry convention:** every significant, user-facing change is its own
+top-level bullet leading with a bold one-line summary —
+`- **Summary.** further detail...` — with nested `  - ` bullets and any
+elaboration reserved for detail, not the headline itself. This isn't
+just style: `.github/workflows/release.yml`'s "Extract changelog
+highlights" step pulls exactly those bold lead-ins (or, for a bullet
+with no bold lead-in, its first sentence) straight into the GitHub
+Release body, followed by a link back to this file's matching section —
+always, for every release, never the full section text and never gated
+by a length cutoff. Keep the bold span itself short and skimmable.
+
+Cutting an actual release (a deliberate, human-directed action, not
+something to do unprompted) is a single step: manually trigger the
+`Release` workflow from GitHub Actions, typing the new version (e.g.
+`1.0.2`) into the `version` input. The workflow itself:
+1. Validates the typed version is a plain `x.y.z`, greater than the
+   current `versionName`, and that `CHANGELOG.md`'s `[Unreleased]`
+   section actually has something in it (fails the run otherwise,
+   before touching any file).
+2. Renames `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` (today, UTC)
+   and leaves a fresh empty `## [Unreleased]` above it.
+3. Bumps `versionCode` (+1) and `versionName` in `app/build.gradle.kts`
+   to match.
+4. Builds/signs/publishes the release from those same files, still only
+   as local, uncommitted edits at this point, and **only after the
+   GitHub Release is actually published** commits and pushes that bump
+   straight to `main`. This order is deliberate — see
+   `docs/implementation-decisions.md`: a build/signing failure (e.g. a
+   bad keystore password) now leaves `main` untouched instead of burning
+   the version number with no release to show for it.
+
+There is no auto-computed default for the `version` input — GitHub's
+manual dispatch form can't pre-fill a value computed from repo state, so
+it's always typed by hand and only validated, never suggested.
+
+## Progress status by phase (as of 2026-10-11)
+- **Phase 1 — Local MVP**: ✅ CRUD, library with search/filters/sorting,
+  detail view, create/edit form, image cover.
+- **Phase 2 — Export**: ✅ JSON/CSV for the entire library, Markdown
+  compatible with Reddit for a single review, native PDF for a single
+  review and for the library in batch.
+- **Phase 3 — Library statistics**: ✅ Statistics screen reachable from
+  the library: totals/averages, platform/genre distribution, breakdown
+  by status.
+- **Phase 4 — Google Drive cloud backup**: ✅ manual + automatic backup
+  via WorkManager, restore from a list of backups.
+- **Phase 5 — Internationalization, theme, and documentation**: ✅ app
+  translated IT/EN with an in-app language selector, light/dark/system
+  theme persisted with DataStore, documentation reorganized under `docs/`.
+- **Phase 6 — Trackable backlog and metadata fetch (TheGamesDB)**: ✅
+  two stages — Stage 1: Backlog section (game lists, items with
+  status/comments/automatic history/manual reorder, "write a review"
+  trigger on completion). Stage 2: "Search online" (TheGamesDB) in the
+  backlog and review forms to prefill cover/platform/genre (+
+  year/developer for the backlog).
+- **Phase 7 — Rebranding, drawer navigation, TheGamesDB search fix**: ✅
+  app renamed to ThePatientGamerHelper everywhere, including the
+  `applicationId`/Kotlin package; Home screen + hamburger side drawer
+  with the 3 main sections + settings; fixed the "TheGamesDB search
+  always failed" bug.
+- **Phase 8 — Markdown import, backlog export/import, HowLongToBeat, grid
+  views**: ✅ review import from Markdown; export/import of the entire
+  backlog with its lists, always additive; estimated HowLongToBeat times
+  in the backlog and in statistics (inherently fragile — HowLongToBeat
+  has no public API); list/grid view for library and backlog. **Later
+  revisited** against `docs/reviews-backlog-import-export-spec-v2.md` —
+  see that section below for the current, authoritative behavior.
+- **Phase 9 — In-app updates and Info screen**: 🚧 code done, awaiting merge/release —
+  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**): ✅ (PR #71, 116 JVM tests).
+  Stage 9.2 UI + Info screen (Sonnet): ✅ code done 2026-10-11 (this PR). Device checks of both stages
+  run together after the phase's release (plan, "Device verification after the release"). Pilot for
+  the sibling apps; disclaimer wording still to be confirmed by the author in the PR.
+- **DOCX export**: **decided not to implement it**, not merely postponed
+  — see "DOCX export" below.
+
+Do not implement features not yet present in this file, `docs/spec.md`,
+or `docs/reviews-backlog-import-export-spec-v2.md` unless explicitly
+requested in a new session.
+

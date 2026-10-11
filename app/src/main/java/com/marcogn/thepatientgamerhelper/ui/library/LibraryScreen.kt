@@ -56,6 +56,8 @@ import com.marcogn.thepatientgamerhelper.domain.model.Review
 import com.marcogn.thepatientgamerhelper.domain.model.ViewMode
 import com.marcogn.thepatientgamerhelper.ui.common.GameGridTile
 import com.marcogn.thepatientgamerhelper.ui.common.ViewModeToggle
+import com.marcogn.thepatientgamerhelper.data.export.toExportLabels
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +67,7 @@ fun LibraryScreen(
     onAddClick: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val exportMessage by viewModel.exportMessage.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -107,10 +110,10 @@ fun LibraryScreen(
                         Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_reviews_zip))
                     }
                     LibraryExportMenu(
-                        onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON)) },
-                        onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV)) },
-                        onExportPdf = { pdfExportLauncher.launch(suggestedLibraryFileName(ExportFormat.PDF)) },
-                        onExportZip = { zipExportLauncher.launch(suggestedReviewZipFileName()) },
+                        onExportJson = { jsonExportLauncher.launch(suggestedLibraryFileName(ExportFormat.JSON, labels = context.toExportLabels())) },
+                        onExportCsv = { csvExportLauncher.launch(suggestedLibraryFileName(ExportFormat.CSV, labels = context.toExportLabels())) },
+                        onExportPdf = { pdfExportLauncher.launch(suggestedLibraryFileName(ExportFormat.PDF, labels = context.toExportLabels())) },
+                        onExportZip = { zipExportLauncher.launch(suggestedReviewZipFileName(labels = context.toExportLabels())) },
                     )
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {
                         IconButton(onClick = { showFilterSheet = true }) {

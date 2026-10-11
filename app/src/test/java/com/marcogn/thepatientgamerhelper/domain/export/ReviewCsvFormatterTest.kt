@@ -19,6 +19,24 @@ class ReviewCsvFormatterTest {
     }
 
     @Test
+    fun `header and status values follow the labels they are given`() {
+        val english = ExportLabels(
+            csvColumns = (1..ExportLabels.CSV_COLUMN_COUNT).map { "c$it" },
+            statusCompleted = "Completed",
+        )
+
+        val csv = listOf(sampleReview(status = com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus.COMPLETATO)).toCsvExport(english)
+
+        assertTrue(csv.startsWith("c1,c2,"))
+        assertTrue(csv.contains(",Completed,"))
+    }
+
+    @Test
+    fun `a wrong number of column names is refused`() {
+        assertTrue(runCatching { emptyList<Review>().toCsvExport(ExportLabels(csvColumns = listOf("a"))) }.isFailure)
+    }
+
+    @Test
     fun `multi-value fields are joined with semicolon`() {
         val review = sampleReview(platforms = listOf("PC", "Switch"), tags = listOf("a", "b"))
 

@@ -10,7 +10,7 @@ import android.text.TextPaint
 import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import com.marcogn.thepatientgamerhelper.domain.model.Review
-import com.marcogn.thepatientgamerhelper.domain.model.label
+import com.marcogn.thepatientgamerhelper.domain.export.ExportLabels
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
@@ -38,17 +38,25 @@ private val pdfDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 @Singleton
 class PdfReviewRenderer @Inject constructor(
     private val templateProvider: PdfTemplateProvider,
+    private val labelsProvider: ExportLabelsProvider,
 ) {
 
     fun render(reviews: List<Review>): PdfDocument {
         val template = templateProvider.currentTemplate()
+        val labels = labelsProvider.current()
         val document = PdfDocument()
         var nextPageNumber = 1
-        reviews.forEach { review -> nextPageNumber = renderReview(document, review, nextPageNumber, template) }
+        reviews.forEach { review -> nextPageNumber = renderReview(document, review, nextPageNumber, template, labels) }
         return document
     }
 
-    private fun renderReview(document: PdfDocument, review: Review, startPageNumber: Int, template: PdfTemplate?): Int {
+    private fun renderReview(
+        document: PdfDocument,
+        review: Review,
+        startPageNumber: Int,
+        template: PdfTemplate?,
+        labels: ExportLabels,
+    ): Int {
         if (template != null) {
             // No template implementation exists yet — currentTemplate() always returns null today,
             // so this branch is unreachable in practice until a real PdfTemplate is built. Left here
@@ -60,7 +68,7 @@ class PdfReviewRenderer @Inject constructor(
             textSize = 12f
             color = Color.BLACK
         }
-        val content = buildReviewText(review)
+        val content = buildReviewText(review, labels)
         val layout = StaticLayout.Builder
             .obtain(content, 0, content.length, textPaint, CONTENT_WIDTH)
             .setLineSpacing(4f, 1f)
@@ -86,44 +94,44 @@ class PdfReviewRenderer @Inject constructor(
 
     /** Visible to tests: the PDF-writing half (PdfDocument's native page lifecycle) isn't
      * meaningfully testable under Robolectric, but this content-building step is. */
-    internal fun buildReviewText(review: Review): CharSequence {
+    internal fun buildReviewText(review: Review, labels: ExportLabels = ExportLabels.ITALIAN): CharSequence {
         val builder = SpannableStringBuilder()
 
         appendStyled(builder, review.title, sizeMultiplier = 1.5f)
         builder.append("\n\n")
 
-        appendMetadataLine(builder, "Voto", "${"%.1f".format(Locale.ROOT, review.rating)}/10")
-        appendMetadataLine(builder, "Stato", review.status.label())
+        appendMetadataLine(builder, labels.pdfScore, "${"%.1f".format(Locale.ROOT, review.rating)}/10")
+        appendMetadataLine(builder, labels.pdfStatus, labels.statusLabel(review.status))
         if (review.platforms.isNotEmpty()) {
-            appendMetadataLine(builder, "Piattaforme", review.platforms.joinToString(", ") { it.name })
+            appendMetadataLine(builder, labels.pdfPlatforms, review.platforms.joinToString(", ") { it.name })
         }
         if (review.genres.isNotEmpty()) {
-            appendMetadataLine(builder, "Generi", review.genres.joinToString(", ") { it.name })
+            appendMetadataLine(builder, labels.pdfGenres, review.genres.joinToString(", ") { it.name })
         }
         if (review.tags.isNotEmpty()) {
-            appendMetadataLine(builder, "Tag", review.tags.joinToString(", ") { it.name })
+            appendMetadataLine(builder, labels.pdfTags, review.tags.joinToString(", ") { it.name })
         }
-        appendMetadataLine(builder, "Iniziato il", review.startDate.format(pdfDateFormatter))
-        appendMetadataLine(builder, "Terminato il", review.endDate?.format(pdfDateFormatter) ?: "—")
+        appendMetadataLine(builder, labels.pdfStarted, review.startDate.format(pdfDateFormatter))
+        appendMetadataLine(builder, labels.pdfFinished, review.endDate?.format(pdfDateFormatter) ?: "—")
         review.hoursPlayed?.let {
-            appendMetadataLine(builder, "Ore di gioco", "%.1f".format(Locale.ROOT, it))
+            appendMetadataLine(builder, labels.pdfHoursPlayed, "%.1f".format(Locale.ROOT, it))
         }
 
         if (review.pros.isNotEmpty()) {
             builder.append("\n")
-            appendStyled(builder, "Pro", sizeMultiplier = 1.2f)
+            appendStyled(builder, labels.pdfPros, sizeMultiplier = 1.2f)
             builder.append("\n")
             review.pros.forEach { builder.append("• $it\n") }
         }
         if (review.cons.isNotEmpty()) {
             builder.append("\n")
-            appendStyled(builder, "Contro", sizeMultiplier = 1.2f)
+            appendStyled(builder, labels.pdfCons, sizeMultiplier = 1.2f)
             builder.append("\n")
             review.cons.forEach { builder.append("• $it\n") }
         }
         if (review.reviewText.isNotBlank()) {
             builder.append("\n")
-            appendStyled(builder, "Recensione", sizeMultiplier = 1.2f)
+            appendStyled(builder, labels.pdfReview, sizeMultiplier = 1.2f)
             builder.append("\n")
             builder.append(review.reviewText.trim())
             builder.append("\n")
