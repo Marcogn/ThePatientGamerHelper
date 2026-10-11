@@ -33,7 +33,7 @@ class UpdateViewModel @Inject constructor(
     private val _frequency = MutableStateFlow(preferences.frequency)
     val frequency: StateFlow<UpdateFrequency> = _frequency.asStateFlow()
 
-    /** One-shot: the "install unknown apps" screen to open, consumed by [onPermissionScreenClosed]. */
+    /** One-shot: the "install unknown apps" screen to open, consumed by [onPermissionScreenLaunched]. */
     private val _permissionIntent = MutableStateFlow<Intent?>(null)
     val permissionIntent: StateFlow<Intent?> = _permissionIntent.asStateFlow()
 
@@ -53,9 +53,13 @@ class UpdateViewModel @Inject constructor(
         }
     }
 
+    /** The host launched the screen: forget the intent so a recreated activity doesn't launch it again. */
+    fun onPermissionScreenLaunched() {
+        _permissionIntent.value = null
+    }
+
     /** Back from the settings screen: retry only if the toggle is now on, or it would reopen forever. */
     fun onPermissionScreenClosed() {
-        _permissionIntent.value = null
         if (apkInstaller.canInstall()) onInstall()
     }
 }

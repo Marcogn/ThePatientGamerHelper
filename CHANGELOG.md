@@ -15,7 +15,7 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
     at startup when due; debug builds never check automatically.
   - New permission: "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), asked for by the system
     only when installing an update.
-- **New Info screen** in the drawer: installed version, "Check for updates" (works with frequency
+- **New Info screen.** In the drawer (English: "About"): installed version, "Check for updates" (works with frequency
   Never too), "Made with ❤ by marcogn", GitHub link, MIT licence and the legal notes (unofficial app,
   HowLongToBeat endpoint, Google Drive trademark, game names and covers).
 

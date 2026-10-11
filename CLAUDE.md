@@ -695,9 +695,9 @@ by asking rather than guessing) is in `docs/implementation-decisions.md`,
 - Info screen: `Destination.About`, drawer entry under Settings, same `popUpTo`/`BackHandler` back
   pattern as Settings. `BuildConfig` `UPDATE_GITHUB_OWNER`/`_REPO` name the repository (also used for the
   GitHub link). Decisions: `docs/implementation-decisions.md`, "Stage 9.1" and "Stage 9.2".
-- Tests: `ui/update/UpdateUiTest`, `ui/about/AboutMessagesTest` (Robolectric: state→dialog mapping,
-  failure messages, frequency round trip). A state like `Available` can't be forced without the network,
-  so the dialog host itself and the whole flow are device checks (`docs/test-plan.md` §7.5).
+- Tests: `ui/update/UpdateUiTest`, `ui/about/AboutMessagesTest` (Robolectric: failure messages,
+  check-result messages, frequency round trip). A state like `Available` can't be forced without the
+  network, so the dialog host, "Not now" and the whole flow are device checks (`docs/test-plan.md` §7.5).
 
 ## DOCX export — why it was not implemented
 

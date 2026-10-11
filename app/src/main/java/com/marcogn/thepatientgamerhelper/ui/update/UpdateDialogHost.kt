@@ -43,7 +43,10 @@ fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { viewModel.onPermissionScreenClosed() }
     LaunchedEffect(permissionIntent) {
-        permissionIntent?.let { permissionLauncher.launch(it) }
+        permissionIntent?.let {
+            permissionLauncher.launch(it)
+            viewModel.onPermissionScreenLaunched()
+        }
     }
 
     when (val current = state) {
@@ -60,7 +63,7 @@ fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
                     if (current.totalBytes > 0) {
                         val fraction = (current.bytesRead.toFloat() / current.totalBytes).coerceIn(0f, 1f)
                         LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
-                        Text("${(fraction * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.update_download_percent, (fraction * 100).toInt()), style = MaterialTheme.typography.bodySmall)
                     } else {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
@@ -71,7 +74,8 @@ fun UpdateDialogHost(viewModel: UpdateViewModel = hiltViewModel()) {
             },
         )
         is UpdateState.ReadyToInstall -> AlertDialog(
-            onDismissRequest = viewModel::onDismiss,
+            // Not dismissible by tap outside/back: dismiss() deletes the verified APK, so only "Not now" does it.
+            onDismissRequest = {},
             title = { Text(stringResource(R.string.update_ready_title)) },
             text = { Text(stringResource(R.string.update_ready_message, current.update.version.toString())) },
             confirmButton = {

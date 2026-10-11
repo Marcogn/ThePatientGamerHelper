@@ -282,6 +282,7 @@
     <string name="update_close">Close</string>
     <string name="update_install">Install</string>
     <string name="update_downloading_title">Downloading version %1$s</string>
+    <string name="update_download_percent">%1$d%%</string>
     <string name="update_ready_title">Ready to install</string>
     <string name="update_ready_message">Version %1$s has been downloaded and verified. Android will ask you to confirm the installation.</string>
     <string name="update_installing_title">Installing</string>

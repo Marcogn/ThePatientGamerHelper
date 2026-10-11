@@ -5,13 +5,6 @@ import com.marcogn.thepatientgamerhelper.R
 import com.marcogn.thepatientgamerhelper.domain.update.ApkRejection
 import com.marcogn.thepatientgamerhelper.domain.update.UpdateFailure
 import com.marcogn.thepatientgamerhelper.domain.update.UpdateFrequency
-import com.marcogn.thepatientgamerhelper.domain.update.UpdateState
-
-/**
- * Whether the app-wide update dialog has something to show: everything except [UpdateState.Idle]
- * and [UpdateState.Checking] (a check is silent; the Info screen shows its own progress).
- */
-fun UpdateState.showsDialog(): Boolean = this !is UpdateState.Idle && this !is UpdateState.Checking
 
 /** A short, user-facing reason for [this]; the detail strings of the system/exception are appended only where useful. */
 fun UpdateFailure.toMessage(context: Context): String = when (this) {

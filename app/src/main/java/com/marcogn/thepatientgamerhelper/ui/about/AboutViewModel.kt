@@ -1,6 +1,7 @@
 package com.marcogn.thepatientgamerhelper.ui.about
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcogn.thepatientgamerhelper.R
@@ -39,7 +40,9 @@ class AboutViewModel @Inject constructor(
         if (_uiState.value.isChecking) return
         _uiState.update { it.copy(isChecking = true, checkMessage = null) }
         viewModelScope.launch {
-            val message = updateManager.checkNow().toMessage(context)
+            val result = updateManager.checkNow()
+            if (result is UpdateCheckResult.Failed) Log.w("AboutViewModel", "Update check failed: ${result.failure}")
+            val message = result.toMessage(context)
             _uiState.update { it.copy(isChecking = false, checkMessage = message) }
         }
     }

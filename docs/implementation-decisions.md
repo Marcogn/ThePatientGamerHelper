@@ -1369,5 +1369,5 @@ Decided while building `domain/update/` and `data/update/`, on top of the planne
   Reddit / r/patientgamers, HowLongToBeat endpoint undocumented, Google Drive trademark, names and covers
   belong to their owners), to be reviewed by the author in the PR as the plan says.
 - **Not verified locally**: Gradle could not resolve its plugins in the cloud container (no network to
-  the plugin repositories), so lint/tests/build were checked by CI only.
+  the plugin repositories), so lint/tests/build are verified by CI only (PR #72).
 
