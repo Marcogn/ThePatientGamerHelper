@@ -13,7 +13,7 @@ wins on any future discrepancy. Fixture examples referenced there live under
 
 ## 1. Goal and guiding principles
 
-A **single-user, offline-first** app: no account is required for basic use, no backend server is needed for the MVP. All data lives locally on the device; the cloud only comes into play as an optional backup (Phase 4).
+A **single-user, offline-first** app: no account is required for basic use, no backend server is needed for the MVP. All data lives locally on the device; the cloud only comes into play as an optional backup (Phase 4). The one network call made without being asked is the update check (Phase 9): release builds read this repository's latest GitHub release at startup, weekly by default, and only download or install with the user's consent.
 
 The technical front-end choice is left up to you; this document proposes a reasoned default stack, but no choice here is binding — they are presented as recommendations with their alternatives.
 

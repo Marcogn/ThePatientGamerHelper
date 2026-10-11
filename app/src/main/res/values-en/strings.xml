@@ -264,4 +264,24 @@
     <string name="game_search_missing_api_key">Set your TheGamesDB API key in Settings to use online search</string>
     <string name="game_search_no_results">No results found</string>
     <string name="game_search_failed">Search failed. You can still fill in the fields by hand</string>
+
+    <!-- Phase 9, Stage 9.1: TEMPORARY update test section in Settings, replaced in 9.2 -->
+    <string name="update_debug_title">Updates (test)</string>
+    <string name="update_debug_installed">Installed version: %1$s (%2$d)</string>
+    <string name="update_debug_check_now">Check now</string>
+    <string name="update_debug_download">Download</string>
+    <string name="update_debug_cancel">Cancel</string>
+    <string name="update_debug_install">Install</string>
+    <string name="update_debug_not_now">Not now</string>
+    <string name="update_debug_state_idle">No update in progress</string>
+    <string name="update_debug_state_checking">Checking…</string>
+    <string name="update_debug_state_available">Version %1$s is available\n%2$s</string>
+    <string name="update_debug_state_downloading">Downloading: %1$d%%</string>
+    <string name="update_debug_state_ready">Version %1$s downloaded and verified</string>
+    <string name="update_debug_state_installing">Installing…</string>
+    <string name="update_debug_state_failed">Error: %1$s</string>
+    <string name="update_debug_result_available">Last check: %1$s is available</string>
+    <string name="update_debug_result_up_to_date">Last check: the app is up to date</string>
+    <string name="update_debug_result_no_release">Last check: no published release</string>
+    <string name="update_debug_result_failed">Last check failed: %1$s</string>
 </resources>

@@ -154,6 +154,10 @@ fun SettingsScreen(
                 onApiKeyChange = viewModel::onTheGamesDbApiKeyChange,
                 onSaveClick = viewModel::onSaveTheGamesDbApiKey,
             )
+
+            // TEMPORARY (Stage 9.1): replaced by the real update UI and the Info screen in 9.2.
+            HorizontalDivider()
+            UpdateDebugSection()
         }
     }
 

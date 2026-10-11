@@ -1287,3 +1287,65 @@ Planned in `docs/plan-phase-9-updates.md`; the author's answers to the planning 
   "Full changelog" link, not a second download of `CHANGELOG.md`.
 - **Install through `PackageInstaller` with the system confirmation**; silent install is out of scope.
 
+
+### Stage 9.1 — update core (2026-10-11)
+
+Decided while building `domain/update/` and `data/update/`, on top of the planned decisions above:
+
+- **`lastCheckAt` is written only when GitHub answered** (a release, "no release" or "up to date"),
+  never on a network/HTTP error: a phone offline at startup must not use up the week of a Weekly
+  check. A `now` earlier than `lastCheckAt` (clock moved back) counts as due, or a clock once set a
+  year ahead would block checks for a year (`UpdateCheckPolicy.isDue`).
+- **A check never puts the state in `Failed`.** `checkIfDue()` logs, `checkNow()` returns an
+  `UpdateCheckResult`; `UpdateState.Failed` is only for download/verification/install errors, after the
+  user chose to update — so a failed "Check now" in the Info screen can be shown inline instead of as a
+  global error. The planned state list gained `Checking` and `Installing` (session committed, system
+  confirmation pending) so the UI never has to guess what is going on in between.
+- **The startup check runs in `UpdateManager`'s own scope, once per process**, not in the activity's
+  `lifecycleScope`: a rotation or language change recreates `MainActivity` and would otherwise cancel
+  the one check the process gets.
+- **Version first, assets second** (`evaluateRelease`): a release that is not newer is "up to date"
+  whatever its assets; only a newer one is rejected for none/several `.apk`. Drafts and pre-releases
+  are refused too, although `releases/latest` never returns them. Version components are `Int`;
+  uppercase `V`, suffixes and four components are "not comparable" (fail closed).
+- **Signature rule before the installer** (`signersCompatible`): with one signer, the candidate's
+  rotation history must contain the installed app's *current* signer (exact match today; still true
+  after a legitimate APK Signature Scheme v3 rotation; false for a forked lineage or a rollback to an
+  older key); with several signers, equal sets; unreadable certificates never match. Below API 28
+  (`GET_SIGNATURES`) all signatures are compared as a set. Android repeats the authoritative check;
+  this one exists to give a clear reason and to never show the system dialog for an APK that cannot
+  install.
+- **The archive is read with `GET_SIGNATURES | GET_SIGNING_CERTIFICATES` on API 28+.** In AOSP,
+  `PackageManager.getPackageArchiveInfo` collects an archive's certificates only for
+  `GET_SIGNATURES` on Android 9, 10 and 13 (tags `android-9.0.0_r1`, `android-10.0.0_r1`,
+  `android-13.0.0_r1`; 11 and 14 accept either flag). `GET_SIGNING_CERTIFICATES` alone would leave
+  `signingInfo` null there and refuse every update as "different signature". Found in review, checked
+  against the AOSP source, not yet on a device.
+- **`setRequireUserAction(USER_ACTION_REQUIRED)` is set explicitly** on API 31+. The
+  [official reference](https://developer.android.com/reference/android/content/pm/PackageInstaller.SessionParams#setRequireUserAction(int))
+  says the default (`USER_ACTION_UNSPECIFIED`) already "behave[s] as if set to `USER_ACTION_REQUIRED`"
+  for installers using `REQUEST_INSTALL_PACKAGES`; stating it makes "always with the user's
+  confirmation" a visible decision rather than a default that could change.
+- **The system confirmation is started by `UpdateInstallReceiver`** with `FLAG_ACTIVITY_NEW_TASK`,
+  right after the user tapped Install with the app in the foreground (allowed under the background
+  activity-start limits). If the user leaves the app before the status arrives, the start may be
+  blocked; the receiver then reports a failure and the user can retry. Device check, not JVM-testable.
+- **HTTP mapping**: 404 = no published release (`UpdateCheckResult.NoRelease`); 429, or 403 with
+  `x-ratelimit-remaining: 0` or `retry-after` = rate limited ("try later", GitHub REST docs,
+  "Exceeding the rate limit"); any other non-2xx, a plain 403 included = `Http(code)`; malformed JSON =
+  `InvalidResponse`; a file that can't be stored = `Storage`. The download
+  checks the asset `size` always and the SHA-256 `digest` when it is `sha256:<64 hex>`; it writes a
+  `.part` file renamed only after both match.
+- **The temporary test section in Settings is visible in release builds too**: the device checks run
+  on a release build (a debug build, signed with the debug key, can never install a release APK), and
+  download/install need a button. It is replaced in 9.2.
+- **GitHub gets an app-name User-Agent, not a desktop-browser one** (`UPDATE_USER_AGENT`, also on the
+  APK download): GitHub's REST API requires a User-Agent and asks for the app's name in it. The
+  desktop-browser rule (REVIEW.md, CLAUDE.md "Known gotchas") is about third-party sites with
+  anti-bot filtering (TheGamesDB, HowLongToBeat); REVIEW.md now says so.
+- **Concurrency guards in `UpdateManager`**: a download writes state only while it is still the current
+  one and the state is still `Downloading` (a late progress event can't undo a Cancel); each download
+  gets its own file name, so a cancelled download's cleanup can't delete the next one's files; a second
+  `install()` while the first is still copying the APK is ignored (no second session); `dismiss()` also
+  leaves `Installing`, in case the system never reports a final status. A session that fails before
+  commit, or whose confirmation can't be shown, is abandoned.
