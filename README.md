@@ -85,6 +85,15 @@ the library and the backlog, whichever fits how you browse.
 None of the above requires an account except Drive backup and online
 search — and both stay fully optional.
 
+### Updates and Info
+
+On release builds the app checks this repository's latest GitHub release
+(Never / Every start / Daily / Weekly, default Weekly, in Settings), shows
+what's new and, if you agree, downloads the APK, verifies it and hands it to
+the Android installer — you always confirm the installation. The **Info**
+screen in the drawer shows the installed version, a "Check for updates"
+button, the credits, the MIT licence and the legal notes.
+
 ## Download
 
 Grab the latest signed APK from the

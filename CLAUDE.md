@@ -54,11 +54,11 @@ Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
   has no public API); list/grid view for library and backlog. **Later
   revisited** against `docs/reviews-backlog-import-export-spec-v2.md` —
   see that section below for the current, authoritative behavior.
-- **Phase 9 — In-app updates and Info screen**: 🚧 in progress —
-  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**): ✅ code
-  done 2026-10-11 (PR #71, 116 JVM tests); device checks deferred to after the phase's release (plan,
-  "Device verification after the release"); handoff below.
-  Stage 9.2 UI + Info screen (Sonnet): next. Pilot for the sibling apps.
+- **Phase 9 — In-app updates and Info screen**: 🚧 code done, awaiting merge/release —
+  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**): ✅ (PR #71, 116 JVM tests).
+  Stage 9.2 UI + Info screen (Sonnet): ✅ code done 2026-10-11 (this PR). Device checks of both stages
+  run together after the phase's release (plan, "Device verification after the release"). Pilot for
+  the sibling apps; disclaimer wording still to be confirmed by the author in the PR.
 - **DOCX export**: **decided not to implement it**, not merely postponed
   — see "DOCX export" below.
 
@@ -181,8 +181,14 @@ com.marcogn.thepatientgamerhelper
     │                       # history/abandonment note, also HowLongToBeat estimate). Backlog
     │                       # export/import in BacklogScreen, list/grid view toggle in
     │                       # BacklogListDetailScreen (grid without drag-to-reorder)
-    ├── settings/           # Settings screen: theme/language preferences, manual/automatic
-    │                       # backup, restore, TheGamesDB API key
+    ├── settings/           # Settings screen: theme/language preferences, update frequency,
+    │                       # manual/automatic backup, restore, TheGamesDB API key
+    ├── update/            # Phase 9 UI: UpdateDialogHost (app-wide dialogs driven by
+    │                       # UpdateManager.state, placed above the NavGraph in MainActivity),
+    │                       # UpdateViewModel (frequency, unknown-sources round trip),
+    │                       # UpdateMessages (UpdateFailure -> localized message)
+    ├── about/             # Info screen (Destination.About, drawer only): version, "Check for
+    │                       # updates", credits, legal notes
     └── common/            # Shared composables (chip input, rating, date picker, cover
                             # thumbnail, ReviewStatus/BacklogItemStatus display, GameSearchDialog,
                             # GameGridTile/ViewModeToggle, etc.)
@@ -672,21 +678,26 @@ Full reasoning for the choices above (including three conflicts resolved
 by asking rather than guessing) is in `docs/implementation-decisions.md`,
 "Reviews/backlog import-export spec v2".
 
-## Phase 9 — In-app updates (Stage 9.1 handoff for 9.2)
+## Phase 9 — In-app updates and Info screen
 
-- `UpdateManager.state: StateFlow<UpdateState>`: `Idle` · `Checking` · `Available(update)` →
-  dialog (`update.version`, `update.notes.headlines`, `update.notes.fullChangelogUrl`), Download =
-  `startDownload()`, Not now = `dismiss()` · `Downloading(bytesRead, totalBytes)` → progress, Cancel =
-  `cancelDownload()` · `ReadyToInstall` → call `install()` · `Installing` → wait for the system dialog (`dismiss()` as an escape) ·
-  `Failed(failure)` → message from the `UpdateFailure` subtype, then `dismiss()`.
-- `install()` returns `InstallStart.PermissionRequired(settingsIntent)` the first time: launch it
-  (`StartActivityForResult`); on return call `install()` again **only if** `ApkInstaller.canInstall()`.
-- `checkNow()` (Info screen) returns `UpdateCheckResult` (Available / UpToDate / NoRelease / Failed) and
-  never sets `Failed` state; `checkIfDue()` is already called by `MainActivity` (release builds only).
-- Frequency: `UpdatePreferences.frequency` (`UpdateFrequency`, default WEEKLY). `BuildConfig`
-  `UPDATE_GITHUB_OWNER`/`_REPO` name the repository.
-- Delete `ui/settings/UpdateDebugSection.kt`, its call in `SettingsScreen` and the `update_debug_*`
-  strings. Decisions: `docs/implementation-decisions.md`, "Stage 9.1 — update core".
+- `UpdateManager.state: StateFlow<UpdateState>` (`Idle` · `Checking` · `Available` · `Downloading` ·
+  `ReadyToInstall` · `Installing` · `Failed`) is the single source of truth. `ui/update/UpdateDialogHost`
+  (in `MainActivity`, above the nav graph) maps it to dialogs: Available = headlines + "Full changelog" +
+  Download/Not now (`startDownload()`/`dismiss()`), Downloading = progress + Cancel (`cancelDownload()`),
+  ReadyToInstall = Install (`install()`)/Not now, Installing = system confirmation pending (Close =
+  `dismiss()` as the escape), Failed = message from `UpdateFailure.toMessage()` then `dismiss()`.
+- Unknown-sources round trip (`UpdateViewModel`): `install()` returns `InstallStart.PermissionRequired`
+  the first time → launch its intent (`StartActivityForResult`); on return call `install()` again **only
+  if** `ApkInstaller.canInstall()`, or a refusal would reopen the screen forever.
+- `checkNow()` (Info screen, `AboutViewModel`) returns `UpdateCheckResult` and never sets `Failed`;
+  `checkIfDue()` is called by `MainActivity` in release builds only. Frequency:
+  `UpdatePreferences.frequency` (`UpdateFrequency`, default WEEKLY), set from Settings > Updates.
+- Info screen: `Destination.About`, drawer entry under Settings, same `popUpTo`/`BackHandler` back
+  pattern as Settings. `BuildConfig` `UPDATE_GITHUB_OWNER`/`_REPO` name the repository (also used for the
+  GitHub link). Decisions: `docs/implementation-decisions.md`, "Stage 9.1" and "Stage 9.2".
+- Tests: `ui/update/UpdateUiTest`, `ui/about/AboutMessagesTest` (Robolectric: state→dialog mapping,
+  failure messages, frequency round trip). A state like `Available` can't be forced without the network,
+  so the dialog host itself and the whole flow are device checks (`docs/test-plan.md` §7.5).
 
 ## DOCX export — why it was not implemented
 

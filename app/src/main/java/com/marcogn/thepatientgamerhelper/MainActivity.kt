@@ -17,6 +17,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.ThemeMode
 import com.marcogn.thepatientgamerhelper.ui.navigation.ThePatientGamerHelperNavGraph
 import com.marcogn.thepatientgamerhelper.ui.theme.ThePatientGamerHelperTheme
 import com.marcogn.thepatientgamerhelper.ui.theme.ThemeViewModel
+import com.marcogn.thepatientgamerhelper.ui.update.UpdateDialogHost
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -59,6 +60,7 @@ private fun ThePatientGamerHelperApp(themeViewModel: ThemeViewModel = hiltViewMo
     ThePatientGamerHelperTheme(darkTheme = darkTheme) {
         Surface(modifier = Modifier.fillMaxSize()) {
             ThePatientGamerHelperNavGraph()
+            UpdateDialogHost()
         }
     }
 }

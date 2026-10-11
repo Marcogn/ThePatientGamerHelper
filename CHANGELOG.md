@@ -6,14 +6,18 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
-- **In-app updates from GitHub Releases (core).** The app can check this repository's latest
-  release, download its APK, verify it (SHA-256 digest, package name, higher version code, same
-  signing certificate) and hand it to the system installer, always with the user's confirmation.
-  - Release builds check at startup at most once a week (debug builds never check automatically).
-  - For now the flow is driven by a temporary "Updates (test)" section at the bottom of Settings;
-    the real update dialog, the frequency setting and an Info screen follow in the next stage.
+- **In-app updates from GitHub Releases.** The app checks this repository's latest release, shows what
+  is new, downloads the APK, verifies it (SHA-256 digest, package name, higher version code, same
+  signing certificate) and hands it to the system installer, always with the user's confirmation.
+  - Update dialog with the release headlines, a "Full changelog" link, Download / Not now, a progress
+    dialog with Cancel, and a plain-language reason when something fails.
+  - New "Updates" setting: Never / Every start / Daily / Weekly (default Weekly). Release builds check
+    at startup when due; debug builds never check automatically.
   - New permission: "install unknown apps" (`REQUEST_INSTALL_PACKAGES`), asked for by the system
     only when installing an update.
+- **New Info screen** in the drawer: installed version, "Check for updates" (works with frequency
+  Never too), "Made with ❤ by marcogn", GitHub link, MIT licence and the legal notes (unofficial app,
+  HowLongToBeat endpoint, Google Drive trademark, game names and covers).
 
 ## [1.0.6] - 2026-08-21
 
