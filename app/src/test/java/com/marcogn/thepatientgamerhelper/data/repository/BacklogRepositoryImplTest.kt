@@ -8,6 +8,8 @@ import com.marcogn.thepatientgamerhelper.data.local.ThePatientGamerHelperDatabas
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogComment
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogHistoryEntry
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogHistoryEventType
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemDraft
+import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewDraft
 import com.marcogn.thepatientgamerhelper.testutil.sampleBacklogItem
@@ -117,5 +119,36 @@ class BacklogRepositoryImplTest {
 
         assertTrue(repository.observeLists().first().isEmpty())
         assertTrue(repository.observeAllItems().first().isEmpty())
+    }
+
+    @Test
+    fun `editing an item keeps its comments and history`() = runTest {
+        val listId = repository.createList("Da giocare")
+        val itemId = repository.saveItem(null, listId, BacklogItemDraft.empty().copy(title = "Hades II"))
+        repository.addComment(itemId, "Ottimo inizio")
+        repository.updateStatus(itemId, BacklogItemStatus.IN_CORSO)
+        val before = repository.observeItem(itemId).first()!!
+
+        repository.saveItem(itemId, listId, BacklogItemDraft.empty().copy(title = "Hades II (rivisto)", platformNames = listOf("PC")))
+
+        val after = repository.observeItem(itemId).first()!!
+        assertEquals("Hades II (rivisto)", after.title)
+        assertEquals(listOf("PC"), after.platforms.map { it.name })
+        assertEquals(BacklogItemStatus.IN_CORSO, after.status)
+        assertEquals(before.comments, after.comments)
+        assertEquals(before.history, after.history)
+        assertTrue(after.comments.isNotEmpty() && after.history.size >= 2)
+    }
+
+    @Test
+    fun `editing a review keeps the link from its backlog item`() = runTest {
+        val listId = repository.createList("Da giocare")
+        val itemId = repository.saveItem(null, listId, BacklogItemDraft.empty().copy(title = "Hades II"))
+        val reviewId = reviewRepository.save(id = null, draft = ReviewDraft.empty().copy(title = "Hades II"))
+        repository.linkReview(itemId, reviewId)
+
+        reviewRepository.save(id = reviewId, draft = ReviewDraft.empty().copy(title = "Hades II (rivista)"))
+
+        assertEquals(reviewId, repository.observeItem(itemId).first()!!.reviewId)
     }
 }

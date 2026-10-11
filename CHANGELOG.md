@@ -6,6 +6,13 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Fixed editing a backlog item wiping its comments and history.** Saving an item used an
+  `INSERT OR REPLACE`, which deletes the row first and cascaded to its comments and history entries.
+  - Editing a review no longer clears the link from the backlog item that points to it, for the same
+    reason.
+- **Fixed the credit line on the Info screen.** It now reads "Fatto con il ❤️ da Marcogn" / "Made with
+    ❤️ from Marcogn".
+
 ## [1.1.0] - 2026-10-11
 
 - **In-app updates from GitHub Releases.** The app checks this repository's latest release, shows what

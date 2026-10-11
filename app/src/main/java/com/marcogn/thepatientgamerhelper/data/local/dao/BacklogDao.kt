@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.marcogn.thepatientgamerhelper.data.local.entity.BacklogCommentEntity
 import com.marcogn.thepatientgamerhelper.data.local.entity.BacklogHistoryEntryEntity
 import com.marcogn.thepatientgamerhelper.data.local.entity.BacklogItemEntity
@@ -79,8 +80,21 @@ interface BacklogDao {
     @Query("SELECT COALESCE(MAX(position), -1) FROM backlog_items WHERE listId = :listId")
     suspend fun maxItemPosition(listId: Long): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertItem(item: BacklogItemEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertItemIgnoring(item: BacklogItemEntity): Long
+
+    @Update
+    suspend fun updateItem(item: BacklogItemEntity)
+
+    /**
+     * Insert-or-update **without** `INSERT OR REPLACE`: REPLACE deletes the existing row first, which
+     * fires `ON DELETE CASCADE` on `backlog_comments`/`backlog_history` (and the cross-refs) and wiped
+     * every comment and history entry of an item each time it was edited (issue #63).
+     */
+    @Transaction
+    suspend fun upsertItem(item: BacklogItemEntity) {
+        if (insertItemIgnoring(item) == -1L) updateItem(item)
+    }
 
     @Query("DELETE FROM backlog_items WHERE id = :id")
     suspend fun deleteItem(id: String)
