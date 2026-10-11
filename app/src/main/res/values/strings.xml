@@ -264,4 +264,24 @@
     <string name="game_search_missing_api_key">Configura la API key di TheGamesDB nelle Impostazioni per usare la ricerca online</string>
     <string name="game_search_no_results">Nessun risultato trovato</string>
     <string name="game_search_failed">Ricerca non riuscita. Puoi comunque compilare i campi a mano</string>
+
+    <!-- Phase 9, Stage 9.1: TEMPORARY update test section in Settings, replaced in 9.2 -->
+    <string name="update_debug_title">Aggiornamenti (prova)</string>
+    <string name="update_debug_installed">Versione installata: %1$s (%2$d)</string>
+    <string name="update_debug_check_now">Controlla ora</string>
+    <string name="update_debug_download">Scarica</string>
+    <string name="update_debug_cancel">Annulla</string>
+    <string name="update_debug_install">Installa</string>
+    <string name="update_debug_not_now">Non ora</string>
+    <string name="update_debug_state_idle">Nessun aggiornamento in corso</string>
+    <string name="update_debug_state_checking">Controllo in corso…</string>
+    <string name="update_debug_state_available">Disponibile la versione %1$s\n%2$s</string>
+    <string name="update_debug_state_downloading">Download in corso: %1$d%%</string>
+    <string name="update_debug_state_ready">Versione %1$s scaricata e verificata</string>
+    <string name="update_debug_state_installing">Installazione in corso…</string>
+    <string name="update_debug_state_failed">Errore: %1$s</string>
+    <string name="update_debug_result_available">Ultimo controllo: disponibile la %1$s</string>
+    <string name="update_debug_result_up_to_date">Ultimo controllo: l\'app è aggiornata</string>
+    <string name="update_debug_result_no_release">Ultimo controllo: nessuna release pubblicata</string>
+    <string name="update_debug_result_failed">Ultimo controllo non riuscito: %1$s</string>
 </resources>

@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.marcogn.thepatientgamerhelper.data.debug.DebugSeeder
 import com.marcogn.thepatientgamerhelper.data.image.CoverImageReconciler
 import com.marcogn.thepatientgamerhelper.data.image.ImageStorage
+import com.marcogn.thepatientgamerhelper.data.update.ApkDownloader
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +21,7 @@ class ThePatientGamerHelperApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var coverImageReconciler: CoverImageReconciler
     @Inject lateinit var imageStorage: ImageStorage
+    @Inject lateinit var apkDownloader: ApkDownloader
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -34,6 +36,8 @@ class ThePatientGamerHelperApplication : Application(), Configuration.Provider {
             coverImageReconciler.pruneOrphanedCovers()
             imageStorage.recompressOversizedCovers()
         }
+        // Phase 9: update APKs from a previous process (installed, refused or interrupted).
+        applicationScope.launch { apkDownloader.deleteLeftovers() }
     }
 
     override val workManagerConfiguration: Configuration

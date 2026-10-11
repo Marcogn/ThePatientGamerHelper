@@ -29,7 +29,9 @@ break of a rule below. Everything else is a Nit.
 - File I/O through SAF only; PDF only via `android.graphics.pdf.PdfDocument`
   (no PDFBox/iText).
 - HTTP clients are hand-rolled `HttpURLConnection` with a desktop browser
-  User-Agent; network failures become messages, never crashes.
+  User-Agent for third-party sites (TheGamesDB, HowLongToBeat); the GitHub
+  update client sends the app's name instead, as GitHub's API requires;
+  network failures become messages, never crashes.
 - No hardcoded user-visible strings; every new key in both
   `values/strings.xml` (Italian) and `values-en/strings.xml`.
 - `MainActivity` stays an `AppCompatActivity`; screens with custom back logic

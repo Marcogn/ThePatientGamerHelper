@@ -12,11 +12,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.marcogn.thepatientgamerhelper.data.update.UpdateManager
 import com.marcogn.thepatientgamerhelper.domain.model.ThemeMode
 import com.marcogn.thepatientgamerhelper.ui.navigation.ThePatientGamerHelperNavGraph
 import com.marcogn.thepatientgamerhelper.ui.theme.ThePatientGamerHelperTheme
 import com.marcogn.thepatientgamerhelper.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * `AppCompatActivity`, not `ComponentActivity`: for pure Compose the latter would be the default
@@ -27,9 +29,19 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    @Inject lateinit var updateManager: UpdateManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Phase 9: startup update check, at most once per process (UpdateManager guards it, so an
+        // activity recreation — rotation, language change — doesn't check again). Never in debug
+        // builds: they are signed with the debug key, so a release APK could not install over them;
+        // "Check now" stays available there to try the flow.
+        if (!BuildConfig.DEBUG) {
+            updateManager.checkIfDue()
+        }
         setContent {
             ThePatientGamerHelperApp()
         }

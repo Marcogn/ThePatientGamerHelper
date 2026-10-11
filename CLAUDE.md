@@ -54,9 +54,10 @@ Material 3, Room, Hilt, ViewModel/StateFlow with unidirectional data flow.
   has no public API); list/grid view for library and backlog. **Later
   revisited** against `docs/reviews-backlog-import-export-spec-v2.md` —
   see that section below for the current, authoritative behavior.
-- **Phase 9 — In-app updates and Info screen**: 📋 planned, not started —
-  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**, handoff
-  here), Stage 9.2 UI + Info screen (Sonnet). Pilot for the sibling apps.
+- **Phase 9 — In-app updates and Info screen**: 🚧 in progress —
+  `docs/plan-phase-9-updates.md`. Stage 9.1 update core (**Opus**): ✅ code
+  done, device checks pending (`docs/test-plan.md` §7.5); handoff below.
+  Stage 9.2 UI + Info screen (Sonnet): next. Pilot for the sibling apps.
 - **DOCX export**: **decided not to implement it**, not merely postponed
   — see "DOCX export" below.
 
@@ -123,6 +124,9 @@ com.marcogn.thepatientgamerhelper
 │   │                      # entered at runtime by the user), GameMetadataSearchCoordinator
 │   │                      # (logic shared "search online" between the review form and the
 │   │                      # backlog form, also exposes searchHowLongToBeat(), backlog-only)
+│   ├── update/            # Phase 9 in-app updates: GitHubReleaseClient, ApkDownloader,
+│   │                      # ApkVerifier, ApkInstaller + UpdateInstallReceiver, UpdatePreferences,
+│   │                      # UpdateManager (state machine, see "Phase 9" below)
 │   ├── howlongtobeat/     # HowLongToBeatApiClient — HttpURLConnection client for an
 │   │                      # unofficial/undocumented endpoint (fixed /api/bleed path, ported from
 │   │                      # GameNative's HltbService), not the same level of reliability as
@@ -147,6 +151,8 @@ com.marcogn.thepatientgamerhelper
 │   ├── backup/            # Pure backup format: BackupPayload/BackupReviewDto/
 │   │                      # BackupBacklogListDto+ItemDto (reviews AND the whole backlog),
 │   │                      # DTO<->domain mapping, file naming — same pattern as domain/export
+│   ├── update/            # AppVersion, release parsing/APK pick/notes, UpdateCheckPolicy,
+│   │                      # evaluateRelease, signersCompatible, UpdateState — pure, JVM-tested
 │   ├── howlongtobeat/     # HltbMatcher: pure title-matching (normalize/Levenshtein/
 │   │                      # acceptable-match) for HowLongToBeatApiClient's search results, ported
 │   │                      # from GameNative's HltbService — no Android/network import
@@ -665,6 +671,22 @@ Full reasoning for the choices above (including three conflicts resolved
 by asking rather than guessing) is in `docs/implementation-decisions.md`,
 "Reviews/backlog import-export spec v2".
 
+## Phase 9 — In-app updates (Stage 9.1 handoff for 9.2)
+
+- `UpdateManager.state: StateFlow<UpdateState>`: `Idle` · `Checking` · `Available(update)` →
+  dialog (`update.version`, `update.notes.headlines`, `update.notes.fullChangelogUrl`), Download =
+  `startDownload()`, Not now = `dismiss()` · `Downloading(bytesRead, totalBytes)` → progress, Cancel =
+  `cancelDownload()` · `ReadyToInstall` → call `install()` · `Installing` → wait for the system dialog (`dismiss()` as an escape) ·
+  `Failed(failure)` → message from the `UpdateFailure` subtype, then `dismiss()`.
+- `install()` returns `InstallStart.PermissionRequired(settingsIntent)` the first time: launch it
+  (`StartActivityForResult`); on return call `install()` again **only if** `ApkInstaller.canInstall()`.
+- `checkNow()` (Info screen) returns `UpdateCheckResult` (Available / UpToDate / NoRelease / Failed) and
+  never sets `Failed` state; `checkIfDue()` is already called by `MainActivity` (release builds only).
+- Frequency: `UpdatePreferences.frequency` (`UpdateFrequency`, default WEEKLY). `BuildConfig`
+  `UPDATE_GITHUB_OWNER`/`_REPO` name the repository.
+- Delete `ui/settings/UpdateDebugSection.kt`, its call in `SettingsScreen` and the `update_debug_*`
+  strings. Decisions: `docs/implementation-decisions.md`, "Stage 9.1 — update core".
+
 ## DOCX export — why it was not implemented
 
 Explicitly removed from the roadmap (not "postponed" or "optional"): no
@@ -752,7 +774,7 @@ Bugs and ideas found outside the current task become GitHub issues (bug/task
 templates, `docs/claude.md`, "Issues"), not notes in this file.
 
 Testing approach: pure JVM unit tests cover `domain/filter`, `domain/model`,
-`domain/export`, `domain/stats`, `domain/howlongtobeat`; Room DAOs are tested via Robolectric as
+`domain/export`, `domain/stats`, `domain/howlongtobeat`, `domain/update`; Room DAOs are tested via Robolectric as
 JVM unit tests (no emulator needed). Anything requiring real network,
 Play Services, or native PDF rendering (Drive, TheGamesDB, HowLongToBeat,
 `PdfDocument` pagination) can't be meaningfully exercised by

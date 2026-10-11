@@ -21,7 +21,8 @@ contact without including any vulnerability details.
 Things worth reporting: anything that could leak locally-stored review/
 backlog data, bypass the Google Drive OAuth scope restrictions, or allow
 arbitrary code execution via a crafted import file (Markdown/JSON/backup
-ZIP/backlog export).
+ZIP/backlog export), or get an APK other than this repository's own signed
+release installed through the in-app update.
 
 Things generally out of scope: issues that require a rooted/compromised
 device, or reports about third-party services the app talks to (Google

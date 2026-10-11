@@ -1,6 +1,6 @@
 # Phase 9 — In-app updates from GitHub and an "Info" screen: plan
 
-Status on 2026-10-11: **planned**, not started. Requested by the author on 2026-10-11 for all six of
+Status on 2026-10-11: **in progress** — Stage 9.1 code done (device checks pending), Stage 9.2 next. Requested by the author on 2026-10-11 for all six of
 their Android apps. ThePatientGamerHelper is the **pilot**: this file holds the shared design, and the
 sibling apps (Hall-Of-Memories, CoverDex, PdfToolkit, KartLog) copy the `update` package from here in
 one Sonnet phase each, after this phase is merged and checked on the device. HackDex-Tracker gets only

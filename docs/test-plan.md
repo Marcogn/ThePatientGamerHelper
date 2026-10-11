@@ -1226,6 +1226,45 @@ not the library's (2.7 covers the library's own zip import instead).
       reflects the real problem (quota, not "invalid key") if TheGamesDB
       communicates it distinguishably in the HTTP response.
 
+### 7.5 In-app updates (Phase 9)
+
+Stage 9.1 ships the update core with a **temporary "Updates (test)" section at
+the bottom of Settings** (check / download / install, raw state as text);
+Stage 9.2 replaces it with the real dialog, the frequency setting and the Info
+screen, and extends these cases. Run them on a **release build** signed with
+the persistent release key: a debug build never checks at startup and can't
+install a release APK (different key — the test section then shows
+`VerificationFailed(DIFFERENT_SIGNATURE)`, which is the expected result).
+
+- [ ] **UPD-01** Install an older signed release APK (e.g. 1.0.6) while a newer
+      release exists on GitHub; start the app: the startup check runs (default
+      frequency Weekly, never checked before) and the test section shows
+      "Version x.y.z is available" with the release's headlines.
+- [ ] **UPD-02** "Download": the percentage advances to 100% and the state
+      becomes "downloaded and verified".
+- [ ] **UPD-03** "Install" the first time: the system "Install unknown apps"
+      screen for this app opens; enable it and go back → the system installer
+      confirmation appears. Going back *without* enabling it leaves the state at
+      "downloaded and verified" and does not reopen the settings screen.
+- [ ] **UPD-04** Confirm in the system installer: the app is replaced and
+      reopens on the new version (Settings shows the new version name/code).
+- [ ] **UPD-05** Cancel in the system installer: back to "downloaded and
+      verified", "Install" works again.
+- [ ] **UPD-06** After an update (or a cancelled/interrupted download), at the
+      next start `cache/updates/` is empty (`adb shell run-as` on a debug build,
+      or by app storage size in system settings on release).
+- [ ] **UPD-07 (edge)** Airplane mode at startup: nothing shown, no crash; the
+      check is still due at the next start with network (an offline start does
+      not use up the period).
+- [ ] **UPD-08 (edge)** "Cancel" during the download: back to "available", no
+      partial file left behind.
+- [ ] **UPD-09 (edge)** Airplane mode during the download: an error with a
+      network reason, "Not now" goes back to idle.
+- [ ] **UPD-10 (edge)** Up-to-date app (installed version = latest release):
+      "Check now" reports "the app is up to date".
+- [ ] **UPD-11 (edge)** Rotate the device during the startup check: no second
+      check, no crash.
+
 ---
 
 ## 8. Cross-cutting scenarios
@@ -1555,3 +1594,6 @@ review alone — all the more reason not to skip them in future test rounds.
   in `ThePatientGamerHelperNavGraph.kt` with explicit 300ms directional
   transitions plus a `lifecycleIsResumed()` guard on every navigation
   call. Not yet manually verified on device.
+- 2026-10-11 — §7.5 added for Phase 9, Stage 9.1 (in-app update core,
+  temporary test section in Settings): UPD-01–11. Not yet manually
+  verified on device.

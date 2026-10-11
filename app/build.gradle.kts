@@ -33,6 +33,12 @@ android {
         // resource. Falls back to the placeholder DriveAuthManager.isConfigured() already knows
         // how to detect when the property is absent (e.g. on CI, which has no local.properties).
         resValue("string", "google_oauth_web_client_id", driveOAuthWebClientId())
+
+        // Phase 9 — in-app updates: the GitHub repository whose latest release is this app's update
+        // source (data/update/GitHubReleaseClient). The one place a sibling app changes when it
+        // copies the update package.
+        buildConfigField("String", "UPDATE_GITHUB_OWNER", "\"Marcogn\"")
+        buildConfigField("String", "UPDATE_GITHUB_REPO", "\"ThePatientGamerHelper\"")
     }
 
     // The release keystore's SHA-1 is what's registered on the Android OAuth client in Google
