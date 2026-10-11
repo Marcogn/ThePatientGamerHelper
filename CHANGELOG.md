@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-11
+
 - **In-app updates from GitHub Releases.** The app checks this repository's latest release, shows what
   is new, downloads the APK, verifies it (SHA-256 digest, package name, higher version code, same
   signing certificate) and hands it to the system installer, always with the user's confirmation.
