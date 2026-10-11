@@ -1,6 +1,7 @@
 # Phase 9 — In-app updates from GitHub and an "Info" screen: plan
 
-Status on 2026-10-11: **in progress** — Stage 9.1 code done (device checks pending), Stage 9.2 next. Requested by the author on 2026-10-11 for all six of
+Status on 2026-10-11: **in progress** — Stage 9.1 code done, Stage 9.2 next. Device checks of both stages
+are deferred to after the phase is released (see "Device verification after the release"). Requested by the author on 2026-10-11 for all six of
 their Android apps. ThePatientGamerHelper is the **pilot**: this file holds the shared design, and the
 sibling apps (Hall-Of-Memories, CoverDex, PdfToolkit, KartLog) copy the `update` package from here in
 one Sonnet phase each, after this phase is merged and checked on the device. HackDex-Tracker gets only
@@ -113,8 +114,9 @@ this area.
 - `./gradlew lint testDebugUnitTest assembleDebug` green; CI green.
 - `docs/test-plan.md`: new "Phase 9" section; CHANGELOG `[Unreleased]` entry if anything is visible.
 
-**Device checks** (release build, no emulator here): install an older signed release APK, start →
-the check finds the newer one; download; the "install unknown apps" screen the first time; the system
+**Device checks** (deferred: see "Device verification after the release"; release build, no emulator
+here): install a signed release that already contains the updater, start → the check finds the newer
+one; download; the "install unknown apps" screen the first time; the system
 installer; the app reopens on the new version and the downloaded file is gone at the next start;
 airplane mode at startup (nothing shown, no crash).
 
@@ -125,7 +127,8 @@ private repositories; any UI beyond the debug entry.
 
 **Goal:** the user-facing part, in Italian and English.
 
-**Prerequisites:** 9.1 merged and its device checks passed; the handoff in `CLAUDE.md`.
+**Prerequisites:** 9.1 merged; the handoff in `CLAUDE.md`. 9.1's device checks are deferred (author,
+2026-10-11), see "Device verification after the release".
 
 **Scope**
 - Update dialog on `Available`: "Version X is available" (current version next to it), the
@@ -157,6 +160,19 @@ do not ask twice in the period; Info shows the installed version; both languages
 
 **Out of scope:** the same as 9.1; a licences screen for third-party libraries (no such screen today;
 can be its own task).
+
+## Device verification after the release
+
+Decided by the author on 2026-10-11: the device checks of 9.1 and 9.2 run together **after** the whole
+phase is merged and released, not at the end of each stage. Reason: a release without the updater
+(1.0.6 and older) can never find an update, so the flow can only be tried between two releases that
+both contain it.
+
+1. Phase 9 merged → release (proposed 1.1.0) → install it from the GitHub release APK.
+2. A later release (e.g. 1.1.1 — it can be the docs mini-phase below) → open 1.1.0, run the 9.1 and 9.2
+   device checks (`docs/test-plan.md` §7.5) against it.
+3. A mini-phase afterwards updates the docs with the results (ticked checks, any "Known regressions"
+   entry, fixes if something failed).
 
 ## Open questions
 - Exact disclaimer wording: proposed above, to confirm in the PR.

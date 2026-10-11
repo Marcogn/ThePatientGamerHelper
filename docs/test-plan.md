@@ -1231,13 +1231,16 @@ not the library's (2.7 covers the library's own zip import instead).
 Stage 9.1 ships the update core with a **temporary "Updates (test)" section at
 the bottom of Settings** (check / download / install, raw state as text);
 Stage 9.2 replaces it with the real dialog, the frequency setting and the Info
-screen, and extends these cases. Run them on a **release build** signed with
-the persistent release key: a debug build never checks at startup and can't
+screen, and extends these cases. **Run after Phase 9 is released** (author's
+decision, see `docs/plan-phase-9-updates.md`, "Device verification after the
+release"): only a release that already contains the updater can find an
+update, so these need two releases with it (e.g. install 1.1.0, then publish
+1.1.1). Run them on a **release build** signed with the persistent release key: a debug build never checks at startup and can't
 install a release APK (different key — the test section then shows
 `VerificationFailed(DIFFERENT_SIGNATURE)`, which is the expected result).
 
-- [ ] **UPD-01** Install an older signed release APK (e.g. 1.0.6) while a newer
-      release exists on GitHub; start the app: the startup check runs (default
+- [ ] **UPD-01** Install a signed release APK that already contains the
+      updater (e.g. 1.1.0) while a newer release exists on GitHub (e.g. 1.1.1); start the app: the startup check runs (default
       frequency Weekly, never checked before) and the test section shows
       "Version x.y.z is available" with the release's headlines.
 - [ ] **UPD-02** "Download": the percentage advances to 100% and the state
@@ -1597,3 +1600,5 @@ review alone — all the more reason not to skip them in future test rounds.
 - 2026-10-11 — §7.5 added for Phase 9, Stage 9.1 (in-app update core,
   temporary test section in Settings): UPD-01–11. Not yet manually
   verified on device.
+- 2026-10-11 — §7.5 moved after Phase 9's release (UPD-01 needs two
+  releases that both contain the updater; 1.0.6 and older can't find one).
