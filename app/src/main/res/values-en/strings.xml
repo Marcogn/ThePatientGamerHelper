@@ -309,7 +309,7 @@
     <string name="about_check_up_to_date">The app is up to date.</string>
     <string name="about_check_no_release">No release has been published.</string>
     <string name="about_check_failed">Check failed. %1$s</string>
-    <string name="about_made_with_love">Made with ❤ by marcogn</string>
+    <string name="about_made_with_love">Made with ❤️ from Marcogn</string>
     <string name="about_github">Source code on GitHub</string>
     <string name="about_license">Free software under the MIT licence.</string>
     <string name="about_disclaimers_title">Legal notes</string>
@@ -317,4 +317,39 @@
     <string name="about_disclaimer_hltb">HowLongToBeat estimates come from an undocumented endpoint and may stop working at any time.</string>
     <string name="about_disclaimer_google">Google Drive is a trademark of Google LLC.</string>
     <string name="about_disclaimer_ownership">Game names and covers belong to their respective owners.</string>
+
+    <!-- Exported file labels (follow the app language) -->
+    <string name="export_csv_id">id</string>
+    <string name="export_csv_title">title</string>
+    <string name="export_csv_platforms">platforms</string>
+    <string name="export_csv_genres">genres</string>
+    <string name="export_csv_tags">tags</string>
+    <string name="export_csv_score">score</string>
+    <string name="export_csv_start_date">startDate</string>
+    <string name="export_csv_end_date">endDate</string>
+    <string name="export_csv_hours_played">hoursPlayed</string>
+    <string name="export_csv_status">status</string>
+    <string name="export_csv_pros">pros</string>
+    <string name="export_csv_cons">cons</string>
+    <string name="export_csv_review_text">reviewText</string>
+    <string name="export_csv_cover">cover</string>
+    <string name="export_csv_created_at">createdAt</string>
+    <string name="export_csv_updated_at">updatedAt</string>
+    <string name="export_status_in_progress">In progress</string>
+    <string name="export_status_completed">Completed</string>
+    <string name="export_status_abandoned">Abandoned</string>
+    <string name="export_pdf_score">Score</string>
+    <string name="export_pdf_status">Status</string>
+    <string name="export_pdf_platforms">Platforms</string>
+    <string name="export_pdf_genres">Genres</string>
+    <string name="export_pdf_tags">Tags</string>
+    <string name="export_pdf_started">Started on</string>
+    <string name="export_pdf_finished">Finished on</string>
+    <string name="export_pdf_hours_played">Hours played</string>
+    <string name="export_pdf_pros">Pros</string>
+    <string name="export_pdf_cons">Cons</string>
+    <string name="export_pdf_review">Review</string>
+    <string name="export_file_fallback_review">review</string>
+    <string name="export_file_library_prefix">game-reviews</string>
+    <string name="export_file_backlog_prefix">backlog</string>
 </resources>

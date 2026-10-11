@@ -213,6 +213,14 @@ as a permanent regression. This is not a "one-shot" document.
 
 ### 2.6 Library export (JSON/CSV/PDF)
 
+- [ ] **LIB-30a** (issue #69) Export CSV, a PDF, the zip and the backlog
+      archive once with the app in Italian and once in English: CSV column
+      names and status values, PDF captions ("Voto"/"Score"…) and the
+      suggested file names ("recensioni-videogiochi-…"/"game-reviews-…",
+      "backlog-…") follow the app language; JSON field names and the Markdown
+      front matter stay the same in both. Import the file exported in the
+      other language (single Markdown, zip, backlog archive): it works.
+
 - [ ] **LIB-31** JSON export: always the **entire library**, even with
       filters/search active in the UI (never filtered) — verify by opening
       the exported file while filters that hide most reviews are active.
@@ -1276,8 +1284,8 @@ result).
       within the period shows nothing new (no second request); the selection
       survives leaving and reopening Settings and a restart.
 - [ ] **UPD-15** Info screen: app name, installed version and version code
-      match the installed build; "Made with ❤ by marcogn" / "Fatto con ❤ da
-      marcogn"; the GitHub button opens the repository; the four legal notes are
+      match the installed build; "Fatto con il ❤️ da Marcogn" / "Made with ❤️
+      from Marcogn"; the GitHub button opens the repository; the four legal notes are
       shown (wording to be confirmed by the author).
 - [ ] **UPD-16** Info > "Check for updates" while offline: a "Check failed."
       line with a network reason, no dialog, no crash; the button is disabled
@@ -1539,6 +1547,18 @@ review alone — all the more reason not to skip them in future test rounds.
       destination, never a screen left over from the previous transition;
       also confirm transitions now feel like a normal, snappy Android
       push/pop instead of the previous slow generic fade.
+- [ ] **REG-16** (issue #63) Editing a backlog item (title, platform,
+      cover…) wiped all its comments and history, and editing a review
+      linked from a backlog item cleared that link. Root cause: both DAOs
+      saved the parent row with `INSERT OR REPLACE`, which deletes the row
+      first and fires the foreign-key actions (`ON DELETE CASCADE` on
+      comments/history, `ON DELETE SET NULL` on `backlog_items.reviewId`).
+      Fixed with insert-or-update (`@Insert(IGNORE)` + `@Update`) in
+      `BacklogDao.upsertItem` and `ReviewDao.upsertReview`. Verify: add a
+      couple of comments and change the status of a backlog item, then edit
+      its title/platforms → comments and history are still there; link a
+      review to a backlog item (complete it → write a review), edit the
+      review → the backlog item still shows its review.
 
 ## Update history for this plan
 
@@ -1626,3 +1646,10 @@ review alone — all the more reason not to skip them in future test rounds.
 - 2026-10-11 — §7.5 reworded for Phase 9, Stage 9.2 (real update dialogs,
   frequency setting, Info screen; the temporary test section is gone) and
   extended with UPD-12–18. Not yet manually verified on device.
+- 2026-10-11 — REG-16 added (issue #63): backlog comments/history wiped on
+  item edit, review→backlog link cleared on review edit. UPD-15 wording of
+  the Info credit line updated. Not yet manually verified on device.
+- 2026-10-11 — Export labels follow the app language (issue #69): the
+  export cases in §2 should be run once per language (CSV header/status, PDF
+  captions, suggested file names); a file exported in one language must still
+  import in the other. Not yet manually verified on device.

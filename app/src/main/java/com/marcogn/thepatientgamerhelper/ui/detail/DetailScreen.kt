@@ -50,6 +50,8 @@ import com.marcogn.thepatientgamerhelper.domain.model.Review
 import com.marcogn.thepatientgamerhelper.ui.common.RatingBadge
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
 import java.time.format.DateTimeFormatter
+import com.marcogn.thepatientgamerhelper.data.export.toExportLabels
+import androidx.compose.ui.platform.LocalContext
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
@@ -61,6 +63,7 @@ fun DetailScreen(
     onDeleted: () -> Unit,
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val exportMessage by viewModel.exportMessage.collectAsState()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -95,12 +98,12 @@ fun DetailScreen(
                         DetailExportMenu(
                             onExportMarkdown = {
                                 markdownExportLauncher.launch(
-                                    suggestedReviewFileName(review.title, ExportFormat.MARKDOWN),
+                                    suggestedReviewFileName(review.title, ExportFormat.MARKDOWN, context.toExportLabels()),
                                 )
                             },
                             onExportPdf = {
                                 pdfExportLauncher.launch(
-                                    suggestedReviewFileName(review.title, ExportFormat.PDF),
+                                    suggestedReviewFileName(review.title, ExportFormat.PDF, context.toExportLabels()),
                                 )
                             },
                         )

@@ -62,6 +62,8 @@ import com.marcogn.thepatientgamerhelper.domain.model.BacklogItemStatus
 import com.marcogn.thepatientgamerhelper.domain.model.BacklogList
 import com.marcogn.thepatientgamerhelper.ui.common.CoverThumbnail
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
+import com.marcogn.thepatientgamerhelper.data.export.toExportLabels
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +73,7 @@ fun BacklogScreen(
     onItemClick: (String) -> Unit,
     viewModel: BacklogViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val importExportMessage by viewModel.importExportMessage.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -106,7 +109,7 @@ fun BacklogScreen(
                     IconButton(onClick = { importLauncher.launch(arrayOf("application/zip", "*/*")) }) {
                         Icon(Icons.Filled.Upload, contentDescription = stringResource(R.string.cd_import_backlog))
                     }
-                    IconButton(onClick = { exportLauncher.launch(suggestedBacklogExportFileName()) }) {
+                    IconButton(onClick = { exportLauncher.launch(suggestedBacklogExportFileName(labels = context.toExportLabels())) }) {
                         Icon(Icons.Filled.Download, contentDescription = stringResource(R.string.cd_export_backlog))
                     }
                     BadgedBox(badge = { if (uiState.filters.isActive) Badge() }) {

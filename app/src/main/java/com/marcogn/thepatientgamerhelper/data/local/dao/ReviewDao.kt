@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import com.marcogn.thepatientgamerhelper.data.local.entity.ReviewEntity
 import com.marcogn.thepatientgamerhelper.data.local.entity.ReviewGenreCrossRef
 import com.marcogn.thepatientgamerhelper.data.local.entity.ReviewPlatformCrossRef
@@ -24,8 +25,21 @@ interface ReviewDao {
     @Query("SELECT * FROM reviews WHERE id = :id")
     fun observeByIdWithDetails(id: String): Flow<ReviewWithDetails?>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertReview(review: ReviewEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertReviewIgnoring(review: ReviewEntity): Long
+
+    @Update
+    suspend fun updateReview(review: ReviewEntity)
+
+    /**
+     * Insert-or-update **without** `INSERT OR REPLACE`: REPLACE deletes the existing row first, which
+     * fires `ON DELETE SET NULL` on `backlog_items.reviewId` and cleared the link of a backlog item
+     * every time its review was edited (issue #63).
+     */
+    @Transaction
+    suspend fun upsertReview(review: ReviewEntity) {
+        if (insertReviewIgnoring(review) == -1L) updateReview(review)
+    }
 
     @Query("SELECT * FROM reviews WHERE id = :id")
     suspend fun getReviewEntity(id: String): ReviewEntity?

@@ -309,7 +309,7 @@
     <string name="about_check_up_to_date">L\'app è aggiornata.</string>
     <string name="about_check_no_release">Nessuna release pubblicata.</string>
     <string name="about_check_failed">Controllo non riuscito. %1$s</string>
-    <string name="about_made_with_love">Fatto con ❤ da marcogn</string>
+    <string name="about_made_with_love">Fatto con il ❤️ da Marcogn</string>
     <string name="about_github">Codice sorgente su GitHub</string>
     <string name="about_license">Software libero con licenza MIT.</string>
     <string name="about_disclaimers_title">Note legali</string>
@@ -317,4 +317,39 @@
     <string name="about_disclaimer_hltb">I tempi stimati di HowLongToBeat provengono da un endpoint non documentato e potrebbero smettere di funzionare in qualsiasi momento.</string>
     <string name="about_disclaimer_google">Google Drive è un marchio di Google LLC.</string>
     <string name="about_disclaimer_ownership">I nomi dei giochi e le copertine appartengono ai rispettivi proprietari.</string>
+
+    <!-- Etichette dei file esportati (seguono la lingua dell'app) -->
+    <string name="export_csv_id">id</string>
+    <string name="export_csv_title">titolo</string>
+    <string name="export_csv_platforms">piattaforme</string>
+    <string name="export_csv_genres">generi</string>
+    <string name="export_csv_tags">tag</string>
+    <string name="export_csv_score">voto</string>
+    <string name="export_csv_start_date">dataInizio</string>
+    <string name="export_csv_end_date">dataFine</string>
+    <string name="export_csv_hours_played">oreGioco</string>
+    <string name="export_csv_status">stato</string>
+    <string name="export_csv_pros">pro</string>
+    <string name="export_csv_cons">contro</string>
+    <string name="export_csv_review_text">testoRecensione</string>
+    <string name="export_csv_cover">copertina</string>
+    <string name="export_csv_created_at">creatoIl</string>
+    <string name="export_csv_updated_at">modificatoIl</string>
+    <string name="export_status_in_progress">In corso</string>
+    <string name="export_status_completed">Completato</string>
+    <string name="export_status_abandoned">Abbandonato</string>
+    <string name="export_pdf_score">Voto</string>
+    <string name="export_pdf_status">Stato</string>
+    <string name="export_pdf_platforms">Piattaforme</string>
+    <string name="export_pdf_genres">Generi</string>
+    <string name="export_pdf_tags">Tag</string>
+    <string name="export_pdf_started">Iniziato il</string>
+    <string name="export_pdf_finished">Terminato il</string>
+    <string name="export_pdf_hours_played">Ore di gioco</string>
+    <string name="export_pdf_pros">Pro</string>
+    <string name="export_pdf_cons">Contro</string>
+    <string name="export_pdf_review">Recensione</string>
+    <string name="export_file_fallback_review">recensione</string>
+    <string name="export_file_library_prefix">recensioni-videogiochi</string>
+    <string name="export_file_backlog_prefix">backlog</string>
 </resources>

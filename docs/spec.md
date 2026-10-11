@@ -98,8 +98,9 @@ technical choices in `CLAUDE.md` and `docs/implementation-decisions.md`.
   `images/` folder, included only if at least one exported review has a
   cover — round-trip importable (3.7), unlike the batch PDF below.
 - **JSON/CSV**: raw data, for backup/portability and any external
-  processing — unchanged, still the entire library with fixed Italian
-  field names, not touched by the v2 spec.
+  processing — unchanged, still the entire library; JSON keeps its fixed Italian field names (a file format), while
+  the CSV column names and status values, the PDF captions and the suggested file names
+  follow the app language (issue #69).
 - **PDF**: single review or entire library in batch. Now checks a
   `PdfTemplateProvider` seam before rendering — with no template
   configured (the only state today), it falls back to the existing plain
