@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-11
+
 - **Exported files now follow the app language.** CSV column names and status values, PDF captions and
   the suggested file names are in Italian or English according to the language chosen in the app.
   - The file formats themselves do not change (Markdown front matter, JSON fields, backup and backlog
