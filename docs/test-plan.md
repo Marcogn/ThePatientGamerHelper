@@ -1283,8 +1283,8 @@ result).
 - [ ] **UPD-14** Updates = "Daily" / "Weekly": after one check, restarting
       within the period shows nothing new (no second request); the selection
       survives leaving and reopening Settings and a restart.
-- [ ] **UPD-15** Info screen: app name, installed version and version code
-      match the installed build; "Fatto con il ❤️ da Marcogn" / "Made with ❤️
+- [ ] **UPD-15** Info screen: app name and installed version match the
+      installed build (no version code shown); "Fatto con il ❤️ da Marcogn" / "Made with ❤️
       from Marcogn"; the GitHub button opens the repository; the four legal notes are
       shown (wording to be confirmed by the author).
 - [ ] **UPD-16** Info > "Check for updates" while offline: a "Check failed."
@@ -1653,3 +1653,4 @@ review alone — all the more reason not to skip them in future test rounds.
   export cases in §2 should be run once per language (CSV header/status, PDF
   captions, suggested file names); a file exported in one language must still
   import in the other. Not yet manually verified on device.
+- 2026-10-12 — UPD-15: the Info screen no longer shows the version code.

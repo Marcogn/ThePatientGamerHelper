@@ -303,7 +303,6 @@
     <string name="update_error_install_detail">L\'installazione non è riuscita: %1$s</string>
     <string name="about_title">Info</string>
     <string name="about_version">Versione %1$s</string>
-    <string name="about_version_code">Codice versione %1$d</string>
     <string name="about_check_updates">Controlla aggiornamenti</string>
     <string name="about_check_available">È disponibile la versione %1$s.</string>
     <string name="about_check_up_to_date">L\'app è aggiornata.</string>
