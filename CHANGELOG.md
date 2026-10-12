@@ -6,6 +6,8 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-12
+
 - **The Info screen shows only the version number.** The internal Android version code under it is gone:
   it confused more than it helped.
 
