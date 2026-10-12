@@ -70,11 +70,6 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = hiltViewModel())
                     stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                Text(
-                    stringResource(R.string.about_version_code, BuildConfig.VERSION_CODE),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -6,6 +6,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **The Info screen shows only the version number.** The internal Android version code under it is gone:
+  it confused more than it helped.
+
 ## [1.1.1] - 2026-10-11
 
 - **Exported files now follow the app language.** CSV column names and status values, PDF captions and
