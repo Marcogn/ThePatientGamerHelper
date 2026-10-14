@@ -190,9 +190,19 @@ under Robolectric (`@Config(sdk = [26])` on every Robolectric class). Anything n
 Services or native PDF rendering (Drive, TheGamesDB, HowLongToBeat, the update flow, `PdfDocument`) is
 verified by hand: `docs/test-plan.md`.
 
-Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `close-phase`,
-`steward`; the `architecture-reviewer` agent; the SDK hook — `docs/claude.md`). Bugs and ideas found outside
-the current task become GitHub issues (bug/task templates), not notes in this file.
+Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `self-review`,
+`close-phase`, `deps-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
+branch-name hooks — `docs/claude.md`). Bugs and ideas found outside the current task become GitHub issues
+(bug/task templates), not notes in this file.
+
+**Review before any PR.** A session that committed code is reviewed with `self-review` before it ends or
+opens a PR; `.claude/hooks/review-gate.sh` enforces it (docs-only diffs are exempt).
+
+**Names.** At the start of a cloud session, name it with `set_session_title` (`ThePatientGamerHelper <what>`,
+e.g. `ThePatientGamerHelper fix backup restore`). Branches Claude creates are `<type>/<what-and-where>`,
+lowercase with hyphens, three words at least (`fix/backup-restore-crash`, `feat/stats-export-csv`); types
+`feat`, `fix`, `refactor`, `docs`, `chore`, `deps`, `plan`, `phase`. `claude/…` names from the cloud
+environment pass as they are (`docs/claude.md`, "Names").
 
 ## Changelog
 
