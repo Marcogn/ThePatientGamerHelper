@@ -210,8 +210,8 @@ environment pass as they are (`docs/claude.md`, "Names").
 `## [Unreleased]` when it is made.** Entry convention: a top-level bullet with a bold one-line summary,
 `- **Summary.** detail`, nested `  - ` bullets for detail — `release.yml` publishes exactly those bold
 lead-ins (or a bullet's first sentence) as the GitHub Release body. Cutting a release is a deliberate,
-human-directed action: run the `Release` workflow (manual `workflow_dispatch`) with the new `x.y.z`; it
-validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes and only then
+human-directed action: run the `Release` workflow (manual `workflow_dispatch`), choosing `bump` (minor by default) or typing an
+exact `x.y.z`; it first deletes old workflow runs, then validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes and only then
 commits the bump to `main`. Details: `docs/ci.md` and the "Changelog and release process" copy in
 `docs/phase-history.md`.
 
