@@ -118,7 +118,7 @@ personal project distributed as a straight sideload.
 ./gradlew lint                # Android Lint
 ```
 
-Requires the Android SDK (`compileSdk 36`) and network access to Google's
+Requires the Android SDK (`compileSdk 37`) and network access to Google's
 Maven repository. Google Drive backup and the online metadata search are
 optional at build time — the app builds and runs without them configured,
 those two features simply stay unavailable until you supply your own
@@ -151,7 +151,7 @@ recommended architecture rather than the legacy View-based system.
 - **Preferences DataStore** for the theme preference
 - **Credential Manager** and **AuthorizationClient** for Google Drive
   authentication and authorization
-- `minSdk 26`, `targetSdk 36`, `compileSdk 36`
+- `minSdk 26`, `targetSdk 36`, `compileSdk 37`
 
 Dependencies are kept deliberately light: no charting library for
 statistics (native Compose bars), no official Google Java client for

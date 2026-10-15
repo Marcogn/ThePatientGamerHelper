@@ -30,6 +30,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
 import com.marcogn.thepatientgamerhelper.domain.model.Tag
 import com.marcogn.thepatientgamerhelper.ui.common.DatePickerField
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
+import com.marcogn.thepatientgamerhelper.ui.common.formatRating
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,7 +108,7 @@ fun FilterSheet(
             val minRating = (filters.minRating ?: 0.0).toFloat()
             val maxRating = (filters.maxRating ?: 10.0).toFloat()
             Text(
-                text = stringResource(R.string.filter_rating_range, "%.1f".format(minRating), "%.1f".format(maxRating)),
+                text = stringResource(R.string.filter_rating_range, formatRating(minRating.toDouble()), formatRating(maxRating.toDouble())),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(top = 16.dp),
             )

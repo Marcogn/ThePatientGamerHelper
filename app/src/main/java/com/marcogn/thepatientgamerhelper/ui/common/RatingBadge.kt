@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.sp
-import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 @Composable
 fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
@@ -36,10 +36,14 @@ fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
             modifier = Modifier.size(16.dp),
         )
         Text(
-            text = String.format(Locale.getDefault(), "%.1f", rating),
+            text = formatRating(rating),
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             style = MaterialTheme.typography.labelLarge,
             fontSize = 14.sp,
         )
     }
 }
+
+/** A rating (or average) with one decimal, in the app's current locale (`NonObservableLocale` lint). */
+@Composable
+fun formatRating(value: Double): String = String.format(LocalLocale.current.platformLocale, "%.1f", value)

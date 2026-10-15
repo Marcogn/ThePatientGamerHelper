@@ -138,6 +138,10 @@ Durable lessons discovered the hard way (full context in `docs/phase-history.md`
   ViewModel state across a drawer round-trip, etc.) needs one. Hit twice
   independently (`SettingsScreen` in Phase 7, `ReviewFormScreen` in
   Phase 8) before the pattern was recognized.
+- **AGP 9 compiles Kotlin itself** (built-in Kotlin): don't re-add `org.jetbrains.kotlin.android` or
+  `kotlinOptions` (the JVM target follows `compileOptions`), and keep `buildFeatures.resValues = true`
+  (off by default in AGP 9, needed by `defaultConfig.resValue()`). Room must stay ≥ 2.7 under KSP2.
+  `docs/implementation-decisions.md`, "Build toolchain moved to AGP 9".
 - `FlowRow`/`FlowColumn` (Compose Foundation) require an explicit
   `@OptIn(ExperimentalLayoutApi::class)` on this BOM — treated as a
   **build error**, not a warning.
