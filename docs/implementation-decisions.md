@@ -1270,6 +1270,16 @@ at `@v1`).
 - **Dependabot replaced by the kit's**: grouped Gradle updates weekly,
   Actions monthly, instead of ungrouped weekly PRs with a limit of 5.
 
+## Android kit updated (2026-10-14, kit 5fb47c3)
+
+Updated from 425e232 with `/android-kit`. Copied unchanged: the `self-review` and `deps-triage` skills, the
+`review-gate.sh` and `branch-name.sh` hooks, the new `settings.json` (Stop and PreToolUse hooks), the
+updated `close-phase`/`next-phase`/`new-plan` skills, Dependabot with cooldown, `docs/ci.md`,
+`docs/claude.md`. The Release caller now takes `bump` (minor by default) and an optional `version`, and has
+`actions: write` (the release first deletes old workflow runs); `DRIVE_OAUTH_WEB_CLIENT_ID` stays in its
+`BUILD_ENV`. `CLAUDE.md` gained the review-before-PR and names rules. Android CI and Build APK callers
+unchanged (only project values differ).
+
 ## In-app updates and Info screen, planned (2026-10-11)
 
 Planned in `docs/plan-phase-9-updates.md`; the author's answers to the planning questions:

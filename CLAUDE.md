@@ -190,9 +190,19 @@ under Robolectric (`@Config(sdk = [26])` on every Robolectric class). Anything n
 Services or native PDF rendering (Drive, TheGamesDB, HowLongToBeat, the update flow, `PdfDocument`) is
 verified by hand: `docs/test-plan.md`.
 
-Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `close-phase`,
-`steward`; the `architecture-reviewer` agent; the SDK hook — `docs/claude.md`). Bugs and ideas found outside
-the current task become GitHub issues (bug/task templates), not notes in this file.
+Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `self-review`,
+`close-phase`, `deps-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
+branch-name hooks — `docs/claude.md`). Bugs and ideas found outside the current task become GitHub issues
+(bug/task templates), not notes in this file.
+
+**Review before any PR.** A session that committed code is reviewed with `self-review` before it ends or
+opens a PR; `.claude/hooks/review-gate.sh` enforces it (docs-only diffs are exempt).
+
+**Names.** At the start of a cloud session, name it with `set_session_title` (`ThePatientGamerHelper <what>`,
+e.g. `ThePatientGamerHelper fix backup restore`). Branches Claude creates are `<type>/<what-and-where>`,
+lowercase with hyphens, three words at least (`fix/backup-restore-crash`, `feat/stats-export-csv`); types
+`feat`, `fix`, `refactor`, `docs`, `chore`, `deps`, `plan`, `phase`. `claude/…` names from the cloud
+environment pass as they are (`docs/claude.md`, "Names").
 
 ## Changelog
 
@@ -200,8 +210,8 @@ the current task become GitHub issues (bug/task templates), not notes in this fi
 `## [Unreleased]` when it is made.** Entry convention: a top-level bullet with a bold one-line summary,
 `- **Summary.** detail`, nested `  - ` bullets for detail — `release.yml` publishes exactly those bold
 lead-ins (or a bullet's first sentence) as the GitHub Release body. Cutting a release is a deliberate,
-human-directed action: run the `Release` workflow (manual `workflow_dispatch`) with the new `x.y.z`; it
-validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes and only then
+human-directed action: run the `Release` workflow (manual `workflow_dispatch`), choosing `bump` (minor by default) or typing an
+exact `x.y.z`; it first deletes old workflow runs, then validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes and only then
 commits the bump to `main`. Details: `docs/ci.md` and the "Changelog and release process" copy in
 `docs/phase-history.md`.
 
