@@ -190,7 +190,9 @@ Durable lessons discovered the hard way (full context in `docs/phase-history.md`
 CI (`.github/workflows/`, callers of the Android kit's reusable workflows, `docs/ci.md`) verifies real builds;
 in a cloud session the SessionStart hook installs the Android SDK, and if `./gradlew` can't run (no network
 to `dl.google.com`/plugin repositories) rely on CI. Pure JVM tests cover `domain/*`; Room and repositories run
-under Robolectric (`@Config(sdk = [26])` on every Robolectric class). Anything needing real network, Play
+under Robolectric (`@Config(sdk = [26])` on every Robolectric class; they run with a plain
+`android.app.Application` via `app/src/test/resources/robolectric.properties`, so the app's startup jobs
+and Hilt don't run). Anything needing real network, Play
 Services or native PDF rendering (Drive, TheGamesDB, HowLongToBeat, the update flow, `PdfDocument`) is
 verified by hand: `docs/test-plan.md`.
 
