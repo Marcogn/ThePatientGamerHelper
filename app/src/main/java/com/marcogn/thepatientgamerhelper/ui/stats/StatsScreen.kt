@@ -44,7 +44,7 @@ import com.marcogn.thepatientgamerhelper.domain.model.LibraryStatistics
 import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
 import com.marcogn.thepatientgamerhelper.domain.model.StatusShare
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
-import java.util.Locale
+import com.marcogn.thepatientgamerhelper.ui.common.formatRating
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +109,7 @@ private fun StatsContent(
                 )
                 StatCard(
                     label = stringResource(R.string.stats_avg_rating_label),
-                    value = statistics.averageRating?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "—",
+                    value = statistics.averageRating?.let { formatRating(it) } ?: "—",
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(

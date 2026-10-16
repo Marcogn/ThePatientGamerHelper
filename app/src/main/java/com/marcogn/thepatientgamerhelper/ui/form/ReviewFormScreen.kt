@@ -55,8 +55,8 @@ import com.marcogn.thepatientgamerhelper.domain.model.ReviewStatus
 import com.marcogn.thepatientgamerhelper.ui.common.DatePickerField
 import com.marcogn.thepatientgamerhelper.ui.common.GameSearchDialog
 import com.marcogn.thepatientgamerhelper.ui.common.TagInputField
+import com.marcogn.thepatientgamerhelper.ui.common.formatRating
 import com.marcogn.thepatientgamerhelper.ui.common.displayName
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -285,7 +285,7 @@ fun ReviewFormScreen(
 private fun RatingField(rating: Double, onRatingChange: (Double) -> Unit) {
     Column {
         Text(
-            text = stringResource(R.string.form_rating_label, "%.1f".format(Locale.getDefault(), rating)),
+            text = stringResource(R.string.form_rating_label, formatRating(rating)),
             style = MaterialTheme.typography.titleSmall,
         )
         Slider(

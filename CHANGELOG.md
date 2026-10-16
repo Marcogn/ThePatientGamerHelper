@@ -6,6 +6,9 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Updated the build toolchain.** Android Gradle Plugin 9.4, Gradle 9.8, Kotlin 2.4, Room 2.8, Hilt
+  2.60, Compose BOM 2026.09 and related libraries; no change in behaviour is intended.
+
 ## [1.1.2] - 2026-10-12
 
 - **The Info screen shows only the version number.** The internal Android version code under it is gone:

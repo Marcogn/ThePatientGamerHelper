@@ -1404,3 +1404,27 @@ above are history).
   `getString` could answer in the system language. Composables use their activity context for file names.
 - `ReviewStatus.label()` (fixed Italian) is no longer used by exports; kept for any non-UI caller.
 
+## Build toolchain moved to AGP 9 (2026-10-15)
+
+Dependabot's `build-toolchain` (#66) and `other` (#68) PRs could not go in separately: AGP 9.4.1 needs
+Gradle ≥ 9.6 (in #68), and the Hilt Gradle plugin from Dagger 2.59 requires AGP 9 (in #66). They were
+combined in one branch, with what AGP 9 and the new libraries require:
+
+- **Built-in Kotlin.** AGP 9 compiles Kotlin itself; `org.jetbrains.kotlin.android` is removed from the
+  build scripts and the catalog. `kotlinOptions { jvmTarget }` is gone too: the Kotlin JVM target now
+  defaults to `compileOptions.targetCompatibility` (17).
+- **`buildFeatures.resValues = true`.** AGP 9 turns it off by default; `defaultConfig.resValue()` supplies
+  the Drive OAuth web client ID.
+- **Room 2.6.1 → 2.8.5 in the same change.** KSP 2.3 is KSP2 only, and Room 2.6.1 under KSP2 fails with
+  `unexpected jvm signature V` (google/ksp#2957; the maintainers point to Room 2.7+). Same schema, no new
+  migration. Side effect: with KSP, Room 2.7+ generates Kotlin instead of Java, which enforces the
+  entities' non-null types at read time. The schema already declares those columns NOT NULL, so a
+  well-formed database is unaffected; a row that somehow held NULL there would now throw instead of
+  passing silently. Covered by the device check TCH-1 (upgrade over real data).
+- **`compileSdk` 36 → 37.** Compose BOM 2026.09 artifacts declare a minimum compileSdk of 37 in their AAR
+  metadata. `targetSdk` stays 36, so runtime behaviour does not change.
+- **Ratings formatted by `ui/common/formatRating()`, which reads `LocalLocale.current.platformLocale`.**
+  The newer Compose lint (`NonObservableLocale`) fails the build on `Locale.getDefault()` inside a
+  composable. A lint-driven change, not a bug fix: `setApplicationLocales()` recreates the activity, so
+  the old code already picked up a language change. The four copies of `"%.1f"` (badge, form,
+  Statistics, filter sheet; the last one had no explicit locale, so lint missed it) are now one helper.

@@ -3,7 +3,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.kotlin.serialization)
@@ -12,7 +11,7 @@ plugins {
 
 android {
     namespace = "com.marcogn.thepatientgamerhelper"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.marcogn.thepatientgamerhelper"
@@ -87,13 +86,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
+        // AGP 9 turns resValues off by default; defaultConfig.resValue() above needs it.
+        resValues = true
     }
 
     packaging {
