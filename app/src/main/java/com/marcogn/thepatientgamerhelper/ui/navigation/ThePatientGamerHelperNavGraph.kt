@@ -166,6 +166,12 @@ fun ThePatientGamerHelperNavGraph(navController: NavHostController = rememberNav
             exitTransition = navExitTransition,
             popEnterTransition = navPopEnterTransition,
             popExitTransition = navPopExitTransition,
+            // navigation-compose 2.10+ animates the back gesture with its own default,
+            // scaleOut(targetScale = 0.7f): the screen shrinks to 70% before it goes. Reuse the
+            // pop transitions so the back gesture looks like every other back. (A plain back-button
+            // press never takes this path; screens with their own BackHandler never do either.)
+            predictivePopEnterTransition = { navPopEnterTransition() },
+            predictivePopExitTransition = { navPopExitTransition() },
         ) {
             composable<Destination.Home> { entry ->
                 HomeScreen(

@@ -6,6 +6,10 @@ versioning follows the app's `versionName` in `app/build.gradle.kts`.
 
 ## [Unreleased]
 
+- **Going back no longer shrinks the screen.** The back gesture slides the screen away like every other
+  back, instead of shrinking it to about 70% before it disappears (a default that came with the
+  navigation library update in 1.2.0).
+
 ## [1.2.0] - 2026-10-17
 
 - **Updated the build toolchain.** Android Gradle Plugin 9.4, Gradle 9.8, Kotlin 2.4, Room 2.8, Hilt

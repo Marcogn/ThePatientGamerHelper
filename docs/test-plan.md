@@ -1578,6 +1578,22 @@ review alone — all the more reason not to skip them in future test rounds.
       its title/platforms → comments and history are still there; link a
       review to a backlog item (complete it → write a review), edit the
       review → the backlog item still shows its review.
+- [ ] **REG-17** After 1.2.0, the system back gesture shrank the screen
+      to about 70% before it vanished — reported from real device use. Root cause: navigation-compose
+      2.10 (bumped by #77) added `predictivePopEnterTransition` /
+      `predictivePopExitTransition` to `NavHost`, used while the back
+      gesture plays, with a default of `scaleOut(targetScale = 0.7f)` that
+      ignores the app's own `popExitTransition`. Fixed in
+      `ThePatientGamerHelperNavGraph.kt` by passing the app's pop
+      transitions for both. Verify on an Android 16 device with gesture
+      navigation (and, with the 3-button bar, by long-pressing back): go
+      back from a review detail, the library, a backlog list and item, and
+      Statistics (swipe slowly, then release; also swipe and cancel) → the
+      screen slides right and fades, never shrinks. Settings, Info and the
+      review form handle back themselves (`BackHandler`): no gesture
+      preview there, Home slides in instead, as before. Leaving the app
+      from Home may still show Android's own back-to-home animation, which
+      is the system's, not this.
 
 ## Update history for this plan
 
@@ -1675,3 +1691,5 @@ review alone — all the more reason not to skip them in future test rounds.
 - 2026-10-12 — UPD-15: the Info screen no longer shows the version code.
 - 2026-10-15 — §8.10 added (TCH-1–6): device checks for the AGP 9 / Kotlin 2.4 / Room 2.8 / Hilt 2.60 /
   Compose BOM 2026.09 toolchain jump (Dependabot #66 + #68 combined). Not yet verified on device.
+- 2026-10-17 — REG-17 added: back gesture/button shrank screens to 70% after navigation-compose 2.10
+  (#77); fixed by passing the app's pop transitions as the predictive-back transitions.
