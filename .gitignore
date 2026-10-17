@@ -21,3 +21,6 @@ keystore.properties
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Kotlin 2.x session data
+.kotlin/
