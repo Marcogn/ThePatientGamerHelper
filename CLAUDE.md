@@ -138,6 +138,11 @@ Durable lessons discovered the hard way (full context in `docs/phase-history.md`
   ViewModel state across a drawer round-trip, etc.) needs one. Hit twice
   independently (`SettingsScreen` in Phase 7, `ReviewFormScreen` in
   Phase 8) before the pattern was recognized.
+- **`NavHost` takes two extra back transitions** (navigation-compose 2.10+):
+  `predictivePopEnterTransition`/`predictivePopExitTransition`, used while the back gesture plays, default
+  to a 70% `scaleOut` that ignores `popExitTransition`. Keep them set to the pop transitions, and check
+  `NavHost`'s parameters for new transition defaults on every navigation-compose bump (REG-17). Screens
+  with their own `BackHandler` (above) take the event first and never play these.
 - **AGP 9 compiles Kotlin itself** (built-in Kotlin): don't re-add `org.jetbrains.kotlin.android` or
   `kotlinOptions` (the JVM target follows `compileOptions`), and keep `buildFeatures.resValues = true`
   (off by default in AGP 9, needed by `defaultConfig.resValue()`). Room must stay ≥ 2.7 under KSP2.
