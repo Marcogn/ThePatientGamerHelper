@@ -13,8 +13,9 @@ PR, an issue) run it on their own.
 
 ## 1. Scope
 
-The diff of the branch against the base (`git diff $(git merge-base origin/HEAD HEAD)`, plus
-untracked files). Only docs (`*.md`, `docs/`) changed: nothing to review, say so and stop.
+The diff of the branch against the base, plus untracked files. The base is origin's default branch
+(`origin/HEAD`), else `origin/main`, else `origin/master`, as `review-gate.sh` picks it: cloud
+clones often have no `origin/HEAD`. Then `git diff $(git merge-base "$BASE" HEAD)`. Only docs (`*.md`, `docs/`) changed: nothing to review, say so and stop.
 
 ## 2. Checks first
 

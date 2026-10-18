@@ -1,6 +1,6 @@
-# Release (manual): first deletes the old workflow runs (all but Release and the latest Build APK),
-# then cuts CHANGELOG.md's [Unreleased] section, bumps the version, builds and signs, publishes the
-# GitHub Release and commits the bump to main. The version is the current one with `bump` applied
+# Release (manual): cuts CHANGELOG.md's [Unreleased] section, bumps the version, builds and signs,
+# publishes the GitHub Release and commits the bump to main; then, only if all that succeeded,
+# deletes the old workflow runs (all but Release and the latest successful Build APK). The version is the current one with `bump` applied
 # (minor by default: 1.4.2 -> 1.5.0), or the exact one typed in `version`. Logic in the kit (its
 # docs/ci.md explains every step); here only this project's values.
 name: Release

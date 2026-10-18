@@ -202,7 +202,7 @@ Services or native PDF rendering (Drive, TheGamesDB, HowLongToBeat, the update f
 verified by hand: `docs/test-plan.md`.
 
 Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `self-review`,
-`close-phase`, `deps-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
+`close-phase`, `deps-triage`, `issues-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
 branch-name hooks — `docs/claude.md`). Bugs and ideas found outside the current task become GitHub issues
 (bug/task templates), not notes in this file.
 
@@ -212,7 +212,7 @@ opens a PR; `.claude/hooks/review-gate.sh` enforces it (docs-only diffs are exem
 **Names.** At the start of a cloud session, name it with `set_session_title` (`ThePatientGamerHelper <what>`,
 e.g. `ThePatientGamerHelper fix backup restore`). Branches Claude creates are `<type>/<what-and-where>`,
 lowercase with hyphens, three words at least (`fix/backup-restore-crash`, `feat/stats-export-csv`); types
-`feat`, `fix`, `refactor`, `docs`, `chore`, `deps`, `plan`, `phase`. `claude/…` names from the cloud
+`feat`, `fix`, `refactor`, `docs`, `chore`, `deps`, `plan`, `phase`. `claude/…` and `ccr-…` names from the cloud
 environment pass as they are (`docs/claude.md`, "Names").
 
 ## Changelog
@@ -222,8 +222,8 @@ environment pass as they are (`docs/claude.md`, "Names").
 `- **Summary.** detail`, nested `  - ` bullets for detail — `release.yml` publishes exactly those bold
 lead-ins (or a bullet's first sentence) as the GitHub Release body. Cutting a release is a deliberate,
 human-directed action: run the `Release` workflow (manual `workflow_dispatch`), choosing `bump` (minor by default) or typing an
-exact `x.y.z`; it first deletes old workflow runs, then validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes and only then
-commits the bump to `main`. Details: `docs/ci.md` and the "Changelog and release process" copy in
+exact `x.y.z`; it validates, renames `[Unreleased]`, bumps `versionCode`/`versionName`, builds, signs, publishes, commits the bump to
+`main` and only then deletes the old workflow runs. Details: `docs/ci.md` and the "Changelog and release process" copy in
 `docs/phase-history.md`.
 
 ## Code conventions
