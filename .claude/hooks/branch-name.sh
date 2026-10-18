@@ -30,10 +30,15 @@ branch_in_segment() {
   i=$((i + 1))
   case "$sub" in
     checkout|switch|worktree)
-      for ((j = i; j < ${#w[@]} - 1; j++)); do
+      for ((j = i; j < ${#w[@]}; j++)); do
         case "$sub:${w[$j]}" in
           checkout:-b|checkout:-B|checkout:--orphan|switch:-c|switch:-C|switch:--create|switch:--force-create|worktree:-b|worktree:-B)
-            echo "${w[$((j + 1))]}"; return 0 ;;
+            echo "${w[$((j + 1))]:-}"; return 0 ;;
+          # the same options with the value attached: --create=name, -cname, -bname
+          switch:--create=*|switch:--force-create=*|checkout:--orphan=*)
+            echo "${w[$j]#*=}"; return 0 ;;
+          checkout:-b?*|checkout:-B?*|switch:-c?*|switch:-C?*|worktree:-b?*|worktree:-B?*)
+            echo "${w[$j]:2}"; return 0 ;;
         esac
       done ;;
     branch)
@@ -44,14 +49,57 @@ branch_in_segment() {
 
 NAME=""
 if [ "$TOOL" = "Bash" ]; then
-  # Quoted text (commit messages, echo) is not a command: drop it, then look at each segment
-  # between ; && || | and newlines, so `git branch | head` or `git commit -m "git branch x"` pass.
-  STRIPPED=$(printf '%s' "$CMD" | sed -e "s/'[^']*'//g" -e 's/"[^"]*"//g')
+  # Quoted text and heredoc bodies (commit messages, echo) are not commands: drop them, even
+  # across lines (a quoted single word stays, it may be the branch name), then look at each segment between ; & | ( ) and newlines, so `git branch | head`
+  # or a commit message that mentions `git branch x` pass. POSIX awk: works with macOS awk too.
   while IFS= read -r seg; do
     seg="${seg#"${seg%%[![:space:]]*}"}"
     NAME=$(branch_in_segment "$seg")
     [ -n "$NAME" ] && break
-  done < <(printf '%s\n' "$STRIPPED" | sed -e 's/&&/\n/g' -e 's/||/\n/g' -e 's/[;|&]/\n/g')
+  done < <(printf '%s\n' "$CMD" | awk '
+    { text = text $0 "\n" }
+    END {
+      n = length(text); q = ""; hd = ""; i = 1
+      while (i <= n) {
+        c = substr(text, i, 1)
+        if (q != "" && c == q) {
+          # a quoted single word may be a branch name; longer text is one opaque argument
+          if (qb ~ /^[^ \t\n]+$/) printf "%s", qb; else printf "_"
+          q = ""; i++; continue
+        }
+        if (q == "\"" && c == "\\") { qb = qb substr(text, i + 1, 1); i += 2; continue }
+        if (q != "") { qb = qb c; i++; continue }
+        if (c == "\047" || c == "\"") { q = c; qb = ""; i++; continue }
+        if (c == "\\") { i += 2; continue }
+        if (substr(text, i, 2) == "<<" && substr(text, i, 3) != "<<<") {
+          j = i + 2; tabs = 0
+          if (substr(text, j, 1) == "-") { tabs = 1; j++ }
+          while (substr(text, j, 1) == " ") j++
+          hd = ""
+          while (j <= n) {
+            ch = substr(text, j, 1)
+            if (ch ~ /[ \t\n;&|<>()]/) break
+            if (ch != "\047" && ch != "\"" && ch != "\\") hd = hd ch
+            j++
+          }
+          i = j; continue
+        }
+        if (c == "\n") {
+          printf "\n"; i++
+          if (hd != "") {
+            while (i <= n) {
+              e = index(substr(text, i), "\n"); line = substr(text, i, e - 1); i += e
+              if (tabs) sub(/^\t+/, "", line)
+              if (line == hd) break
+            }
+            hd = ""
+          }
+          continue
+        }
+        if (c ~ /[;&|()]/) printf "\n"; else printf "%s", c
+        i++
+      }
+    }')
 else
   NAME="$MCP"
 fi
