@@ -202,7 +202,7 @@ Services or native PDF rendering (Drive, TheGamesDB, HowLongToBeat, the update f
 verified by hand: `docs/test-plan.md`.
 
 Claude Code tooling lives in `.claude/` (kit skills `verify`, `new-plan`, `next-phase`, `self-review`,
-`close-phase`, `deps-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
+`close-phase`, `deps-triage`, `issues-triage`, `steward`; the `architecture-reviewer` agent; the SDK, review-gate and
 branch-name hooks — `docs/claude.md`). Bugs and ideas found outside the current task become GitHub issues
 (bug/task templates), not notes in this file.
 
